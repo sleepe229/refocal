@@ -38,7 +38,7 @@ model_packs(id TEXT, version TEXT, category TEXT, path TEXT, size INT,
             sha256 TEXT, license_spdx TEXT, installed_at INT, PRIMARY KEY(id))
 consents(pack_id TEXT, pack_version TEXT, license_sha256 TEXT, accepted_at INT,
          PRIMARY KEY(pack_id, license_sha256))
-benchmark_cache(key TEXT PK, json TEXT, created_at INT)
+benchmark_cache(key TEXT PK, json TEXT, created_at INT)  -- key: app_ver|model_ver|driver_ver|gpu_device_id|os_build|gate_version; json: отчёт refocal-probe/1
 gpu_blocklist_local(key TEXT PK, reason TEXT, hits INT, created_at INT)
 manifest_state(id INT PK CHECK(id=1), serial INT, fetched_at INT, json TEXT)
 settings(key TEXT PK, value TEXT)

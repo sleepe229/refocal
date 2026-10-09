@@ -15,8 +15,8 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 | Спайк | Вопрос | Результат | Риск |
 |---|---|---|---|
 | **S1** | Конвертируется ли GFPGAN 1.4 в ncnn (pnnx) и Core ML без потерь; fp16-переполнения; латентность на 3 Android (флагман SD 8 Gen 2+, средний Mali, low-end) и 2 iPhone (A14, A17) | Таблица паритета (PSNR/LPIPS), латентность; фиксация NFR-PERF-003. **Статус: GO на десктопе ([отчёт](../spikes/S1.md)), нужна перезапись графа (ADR-0023); замеры на устройствах — S1b** | R1 |
-| **S2** | Потоковая обработка 12 МП → ×4 → JPEG/PNG/HEIC через BandStore: пиковый RSS ≤ 600 МБ, время I/O, ограничения HeifWriter | Замеры; фиксация NFR-PERF-001/002, NFR-BAT-001 | R2 |
-| **S3** | Матрица Vulkan-драйверов: корректность и стабильность compact/x4plus/GFPGAN на Adreno/Mali/Xclipse/PowerVR | Первичный blocklist, формат, пороги тиров | R3 |
+| **S2** | Потоковая обработка 12 МП → ×4 → JPEG/PNG/HEIC через BandStore: пиковый RSS ≤ 600 МБ, время I/O, ограничения HeifWriter. **Статус: GO на десктопе ([отчёт](../spikes/S2.md)): пик 212 МБ (T=128), I/O < 1%, швов нет, resume побайтово; S2b — устройства, тепло, батарея, HEIC** | Замеры; фиксация NFR-PERF-001/002, NFR-BAT-001 | R2 |
+| **S3** | Матрица Vulkan-драйверов: корректность и стабильность compact/x4plus/GFPGAN на Adreno/Mali/Xclipse/PowerVR | Первичный blocklist, формат, пороги тиров **Статус: GO для механизма ([отчёт](../spikes/S3.md)): гейт корректности ловит мусор GFPGAN-fp16 и 6 видов порчи, sentinel проверен с реальным падением; S3b — Adreno/Mali/PowerVR и калибровка порогов** | R3 |
 | **S4** | Core ML: ANE vs GPU для compact/x4plus/GFPGAN, EnumeratedShapes, время компиляции и кэш | Выбор computeUnits по модели; NFR-PERF-021 | R4 |
 | **S5** | Жизненный цикл фона: iOS 18/26 (пауза GPU, beginBackgroundTask), Android 14/15/16 (FGS mediaProcessing, onTimeout) | Подтверждение ADR-0019 | R5 |
 | **S6** | FFI: 10k событий/джоб, утечки, гонки, задержка отмены | Подтверждение ADR-0005/0006 | R6 |

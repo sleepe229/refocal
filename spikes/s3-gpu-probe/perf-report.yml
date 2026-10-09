@@ -1,0 +1,80 @@
+# DRAFT for .github/ISSUE_TEMPLATE/perf-report.yml (spike S3). Not active: lives in the spike dir.
+name: "Device report (GPU probe / performance)"
+description: "Run the Refocal GPU probe on your phone and share the JSON report. No photos are involved."
+title: "[device] <manufacturer model>, <SoC>, <GPU>"
+labels: ["device-report", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us decide which phones can use the GPU safely.
+        The probe runs a built-in test image (no personal photos) through the models on the GPU and CPU,
+        checks that the GPU output is correct, and writes a JSON report.
+        **How to run:** see the runbook in `spikes/s3-gpu-probe/README.md#community-runbook`
+        (adb) or, in app builds that have it, *Settings → About → Diagnostics → GPU probe → Share report*.
+        The report contains: phone model, SoC, Android version and build fingerprint, GPU name and
+        driver version, RAM size, timings. It contains no photos, no account data, no location.
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: Manufacturer and model as sold (e.g. "Samsung Galaxy A54 5G")
+    validations:
+      required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: How did you run the probe?
+      options:
+        - adb (refocal-probe binary)
+        - In-app diagnostics screen
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: report.json
+      description: Paste the whole file, or attach it (drag & drop). For `adb`, it is `/data/local/tmp/refocal/out/report.json`.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Probe console output
+      description: The `[probe] ...` lines printed by the tool (optional if the JSON is attached).
+      render: text
+  - type: dropdown
+    id: crash
+    attributes:
+      label: Did the probe or the phone misbehave?
+      description: A crash or a reboot is valuable information, please tell us.
+      multiple: true
+      options:
+        - "No, everything finished"
+        - "The probe crashed / was killed (see console output)"
+        - "The screen froze or flickered during the GPU test"
+        - "The phone rebooted"
+        - "The probe hung (no output for more than 5 minutes)"
+  - type: dropdown
+    id: thermal
+    attributes:
+      label: Conditions
+      multiple: true
+      options:
+        - "Battery above 50%"
+        - "Charging"
+        - "Battery saver ON"
+        - "Phone was warm before the test"
+  - type: input
+    id: rom
+    attributes:
+      label: Custom ROM / kernel (if any)
+      description: e.g. LineageOS 22.1, GrapheneOS. Leave empty for stock firmware.
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Publication
+      options:
+        - label: I agree that this report (device model, GPU, driver, timings) is published in this public issue and may be used to build the GPU blocklist.
+          required: true
