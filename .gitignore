@@ -1,0 +1,37 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ML artifacts (never commit weights or converted models)
+*.pth
+*.pt
+*.onnx
+*.param
+*.bin
+*.mlpackage/
+*.mlmodel
+*.mlmodelc/
+*.safetensors
+spikes/**/weights/
+spikes/**/out/
+
+# Flutter / Dart
+.dart_tool/
+build/
+.flutter-plugins*
+.packages
+pubspec.lock.bak
+
+# Native
+cmake-build-*/
+*.o
+*.a
+*.so

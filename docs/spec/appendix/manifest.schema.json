@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refocal.github.io/schema/manifest.schema.json",
+  "title": "Refocal model manifest",
+  "type": "object",
+  "required": ["schema", "serial", "generated_at", "min_app_version", "packs"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "serial": { "type": "integer", "minimum": 1, "description": "Monotonically increasing; lower values are rejected (rollback protection)" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "min_app_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "gpu_blocklist": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["vendor", "device_regex", "models", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "vendor": { "type": "string" },
+          "device_regex": { "type": "string" },
+          "driver_max": { "type": "string" },
+          "os_max": { "type": "string" },
+          "models": { "type": "array", "items": { "type": "string" } },
+          "action": { "enum": ["cpu", "disable"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pack" }
+    }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "required": ["en"],
+      "additionalProperties": { "type": "string" }
+    },
+    "tensor": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "shape": { "type": "array", "items": { "type": "integer" } },
+        "range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "color": { "enum": ["RGB", "BGR", "GRAY"] }
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": ["platform", "backend", "precision", "path", "size", "sha256", "urls"],
+      "additionalProperties": false,
+      "properties": {
+        "platform": { "enum": ["android", "ios", "any"] },
+        "backend": { "enum": ["ncnn", "coreml", "ort_qnn"] },
+        "precision": { "enum": ["fp32", "fp16", "int8", "mixed"] },
+        "path": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "size": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "urls": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^https://" } }
+      }
+    },
+    "pack": {
+      "type": "object",
+      "required": ["id", "version", "category", "title", "tier_min", "license", "io", "files", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z]+\\.[a-z0-9.-]+$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "category": { "enum": ["sr", "face", "det", "jpeg", "old", "color", "parse"] },
+        "title": { "$ref": "#/$defs/localized" },
+        "description": { "$ref": "#/$defs/localized" },
+        "tier_min": { "enum": ["T0", "T1", "T2"] },
+        "min_app_version": { "type": "string" },
+        "license": {
+          "type": "object",
+          "required": ["spdx", "url", "text_sha256", "commercial", "requires_acceptance"],
+          "additionalProperties": false,
+          "properties": {
+            "spdx": { "type": "string" },
+            "url": { "type": "string", "pattern": "^https://" },
+            "text_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "commercial": { "type": "boolean" },
+            "requires_acceptance": { "type": "boolean" },
+            "notes_key": { "type": "string" }
+          }
+        },
+        "io": {
+          "type": "object",
+          "required": ["inputs", "outputs", "scale"],
+          "additionalProperties": false,
+          "properties": {
+            "inputs": { "type": "array", "items": { "$ref": "#/$defs/tensor" } },
+            "outputs": { "type": "array", "items": { "$ref": "#/$defs/tensor" } },
+            "scale": { "type": "integer", "enum": [1, 2, 4] },
+            "tiles": { "type": ["array", "null"], "items": { "type": "integer" } },
+            "pad": { "type": "integer" },
+            "params": { "type": "object" }
+          }
+        },
+        "files": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/file" } },
+        "eval": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "provenance": {
+          "type": "object",
+          "required": ["upstream", "upstream_sha256", "conversion_commit"],
+          "additionalProperties": false,
+          "properties": {
+            "upstream": { "type": "string" },
+            "upstream_sha256": { "type": "string" },
+            "conversion_commit": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
