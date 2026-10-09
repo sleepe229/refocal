@@ -11,7 +11,7 @@
 | `sr.general-x4v3-dn` | Уровни денойза 0 и 1.0 | то же (DNI) | ~1.2M | ~2.3 МБ × 2 | BSD-3 | пак «Compact+» | T0+ | R0.2 |
 | `sr.x4plus` | HQ SR | RRDBNet 23 блока | 16.7M [R] | ~32 МБ | BSD-3 | пак | T2 | R0.5 |
 | `sr.x4plus-anime6b` | Аниме/арт | RRDBNet 6 блоков | ~4.5M [R] | ~9 МБ | BSD-3 | пак | T1+ | R0.5 |
-| `face.gfpgan-1.4` | Восстановление лиц | GFPGANv1Clean | ~85M [R] | ~170 МБ | Apache-2.0 код; NC-составляющие (см. §3) | пак, **NC, согласие** | T1+ (T0 — CPU, 1 лицо) | R0.2 |
+| `face.gfpgan-1.4` | Восстановление лиц | GFPGANv1Clean (+ ADR-0023) | 86.4M, 398 GFLOPs [S1] | 177 МБ ncnn / 176 МБ Core ML [S1] | Apache-2.0 код; NC-составляющие (см. §3) | пак, **NC, согласие** | T1+ (T0 — CPU, 1 лицо) | R0.2 |
 | `face.codeformer` | Лица, с fidelity | CodeFormer | 94.4M [V] | ~189 МБ | S-Lab License 1.0 (NC) [V] | пак, **NC, согласие** | T2 | R0.5 |
 | `jpeg.fbcnn` | Удаление JPEG-артефактов | FBCNN | ~70M [R] | ~140 МБ | Apache-2.0 [V] | пак | T2 | R1.1 |
 | `old.scratch-det` | Детекция царапин | U-Net из BOPBTL | — | — | MIT [V] | пак | T1+ | R1.1 |
@@ -118,10 +118,11 @@ upstream .pth ──► PyTorch (eval, fixed seed, randomize_noise=False)
 | ID | Требование | Приоритет | Релиз |
 |---|---|---|---|
 | ML-CNV-001 | Конверсия воспроизводима: зафиксированные версии (requirements.lock), скрипт `make pack ID=…`, вывод SHA-256 совпадает между запусками | Must | R0.1 |
-| ML-CNV-002 | GFPGAN: `GFPGANv1Clean`, `randomize_noise=False`, вход 1×3×512×512 статичный; проблемные слои (demod/rsqrt, последние слои) — fp32 при переполнении fp16 | Must | R0.2 |
+| ML-CNV-002 | GFPGAN: `GFPGANv1Clean`, `randomize_noise=False`, вход 1×3×512×512 статичный; **перезапись модулированных свёрток (статические веса + нормировка `s`) обязательна** — без неё модель выдаёт мусор в fp16 и уходит на CPU ([ADR-0023](adr/ADR-0023-gfpgan-mobile-graph-rewrite.md), [S1](../spikes/S1.md)); конверсия в ncnn — через ONNX | Must | R0.2 |
 | ML-CNV-003 | CodeFormer: `w` — вход графа (не константа); веса `params_ema` | Must | R0.5 |
 | ML-CNV-004 | Каждый сконвертированный файл проходит паритетный тест против PyTorch fp32 на golden-тайлах (порог NFR-QLT-001) | Must | R0.1 |
 | ML-CNV-005 | Smoke-тест конверсии в CI (compact-модель, CPU) на каждый PR в `ml/` | Must | R0.1 |
+| ML-CNV-006 | Для StyleGAN2-моделей CI проверяет: эквивалентность перезаписи (max\|Δ\| ≤ 1e-4 в fp32), прогон в чистом fp16 (PSNR ≥ 35 дБ), 0 свёрток с неконстантными весами в графе ncnn/Core ML | Must | R0.2 |
 
 Подробности квантизации и выбора бэкенда — [05](05-inference-optimization.md).
 

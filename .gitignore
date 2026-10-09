@@ -35,3 +35,7 @@ cmake-build-*/
 *.o
 *.a
 *.so
+
+# Spikes: downloaded/third-party data
+spikes/**/data/
+spikes/**/third_party/

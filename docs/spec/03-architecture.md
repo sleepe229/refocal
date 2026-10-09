@@ -350,3 +350,4 @@ INTERNET-разрешение присутствует во всех флейв�
 | [0020](adr/ADR-0020-flavors-telemetry.md) | Флейворы и телеметрия |
 | [0021](adr/ADR-0021-native-crypto.md) | Криптография в native |
 | [0022](adr/ADR-0022-face-models-licensing-defaults.md) | Face-модели: лицензии и умолчания |
+| [0023](adr/ADR-0023-gfpgan-mobile-graph-rewrite.md) | Перезапись графа StyleGAN2-моделей для мобильных |
