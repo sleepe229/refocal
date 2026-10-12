@@ -1,0 +1,6 @@
+[submodule "flutter"]
+	path = flutter
+	url = https://github.com/flutter/flutter.git
+[submodule "native/third_party/ncnn"]
+	path = native/third_party/ncnn
+	url = https://github.com/Tencent/ncnn.git

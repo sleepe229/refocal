@@ -43,3 +43,5 @@ spikes/_deps/
 spikes/_shared/weights/
 spikes/_shared/models/
 spikes/**/build-*/
+native/build-*/
+.cxx/

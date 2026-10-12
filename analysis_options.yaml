@@ -1,0 +1,10 @@
+# Root analysis settings for the pub workspace; packages include their own lint sets.
+analyzer:
+  exclude:
+    - flutter/**
+    - spikes/**
+    - native/third_party/**
+    - "**/*.g.dart"
+
+formatter:
+  page_width: 100

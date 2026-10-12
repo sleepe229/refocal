@@ -1,0 +1,12 @@
+# Pub workspace: one resolution (pubspec.lock) for the app and all packages.
+name: refocal_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - app
+  - packages/refocal_core
+  - packages/refocal_ffi
+  - packages/refocal_platform

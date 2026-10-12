@@ -1,6 +1,6 @@
 /*
  * enh.h — public C ABI of the Refocal native core (reference version for the spec).
- * Source of truth after implementation: native/include/enh.h
+ * Source of truth: native/include/enh.h (docs/spec/appendix/enh.h is kept identical, checked in CI).
  *
  * Conventions:
  *  - All strings are UTF-8, NUL-terminated.
@@ -26,6 +26,10 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC visibility push(default) /* the core is built with -fvisibility=hidden */
 #endif
 
 #define ENH_ABI_VERSION 1
@@ -142,6 +146,10 @@ enh_status enh_export(enh_session* s, const char* job_dir, const char* output_js
 enh_status enh_verify_file(const char* path, const char* sha256_hex);
 enh_status enh_verify_minisign(const char* msg_path, const char* sig_path,
                                const char* pubkeys_csv);
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC visibility pop
+#endif
 
 #ifdef __cplusplus
 }
