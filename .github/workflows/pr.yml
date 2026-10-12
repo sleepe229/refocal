@@ -29,15 +29,21 @@ jobs:
       - name: Flutter SDK (pinned submodule, full history for versioning)
         id: flutter
         run: echo "sha=$(git rev-parse HEAD:flutter)" >> "$GITHUB_OUTPUT"
+      # The submodule's git dir and the pub cache are restored before checkout; flutter/ itself
+      # is a submodule worktree (its .git points into .git/modules) and must not be cached whole.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            flutter
+            .git/modules/flutter
             ~/.pub-cache
-          key: flutter-${{ steps.flutter.outputs.sha }}-${{ hashFiles('pubspec.lock') }}
+          key: flutter-git-${{ steps.flutter.outputs.sha }}-${{ hashFiles('pubspec.lock') }}
       - run: |
           git submodule update --init flutter
           echo "$PWD/flutter/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: flutter/bin/cache
+          key: flutter-bin-${{ steps.flutter.outputs.sha }}
       - run: flutter --suppress-analytics config --no-analytics && flutter --version
       - run: flutter pub get
       - name: Format
