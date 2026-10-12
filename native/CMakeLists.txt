@@ -127,6 +127,7 @@ set(ENH_SOURCES
   core/src/job/export.cpp
   core/src/policy/blocklist.cpp
   core/src/policy/builtin_blocklist.cpp
+  core/src/policy/gpu_gate.cpp
   core/src/policy/gpu_identity.cpp
   core/src/policy/sentinel.cpp
   core/src/policy/tier.cpp)

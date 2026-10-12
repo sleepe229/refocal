@@ -4,7 +4,7 @@
 //   refocal-cli probe
 //   refocal-cli run --models DIR --work DIR --input IN.jpg --out OUT.jpg [--model ID] [--scale 4|2|1]
 //                   [--fast2] [--tile N] [--backend auto|cpu|vulkan] [--threads N] [--quality Q]
-//                   [--job-id ID] [--resume] [--json]
+//                   [--job-id ID] [--resume] [--json] [--cache DIR] [--tier T0|T1|T2]
 //   refocal-cli compare A.jpg B.jpg [--min-psnr DB]   (exit 1 if below)
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -49,6 +49,7 @@ int usage() {
                "  refocal-cli run --models DIR --work DIR --input IN.jpg --out OUT.jpg [--model ID]\n"
                "              [--scale 4|2|1] [--fast2] [--tile N] [--backend auto|cpu|vulkan]\n"
                "              [--threads N] [--quality Q] [--job-id ID] [--resume] [--json]\n"
+               "              [--cache DIR] [--tier T0|T1|T2]\n"
                "  refocal-cli compare A.jpg B.jpg [--min-psnr DB]\n");
   return 2;
 }
@@ -129,6 +130,8 @@ int cmd_run(const Args& a) {
                      : backend == "vulkan" ? ENH_BACKEND_NCNN_VULKAN
                                            : ENH_BACKEND_AUTO;
   cfg.cpu_threads = std::atoi(a.get("--threads", "0").c_str());
+  std::string cache = a.get("--cache");  // crash sentinel + GPU gate verdicts
+  cfg.cache_dir = cache.empty() ? nullptr : cache.c_str();
   std::string tier = a.get("--tier");
   cfg.tier = tier.empty() ? nullptr : tier.c_str();
   enh_session* s = nullptr;

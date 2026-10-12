@@ -106,13 +106,21 @@ class NcnnBackend final : public InferenceBackend {
 
   void run(const ncnn::Mat& in, ncnn::Mat& out) override {
 #ifdef ENH_FAULT_INJECTION
-    inject_fault();
+    const bool garbage = inject_fault();
 #endif
     ncnn::Extractor ex = net_.create_extractor();
     if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
     if (ex.extract(out_name_.c_str(), out) != 0 || out.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
     // Silent garbage is checked by the benchmark gate (S3); NaN/Inf is checked on every tile.
     if (out.elemsize != 4 || out.elempack != 1) fail(ENH_E_BACKEND, "unexpected output layout");
+#ifdef ENH_FAULT_INJECTION
+    if (garbage) {  // silent corruption without NaN (what S1/S2 saw on real drivers)
+      for (int c = 0; c < out.c; ++c) {
+        float* ch = out.channel(c);
+        for (int i = 0; i < out.w * out.h; ++i) ch[i] = 1.f - ch[i];
+      }
+    }
+#endif
     for (int c = 0; c < out.c; ++c) {
       const float* ch = out.channel(c);
       for (size_t i = 0; i < size_t(out.w) * out.h; ++i)
@@ -122,16 +130,20 @@ class NcnnBackend final : public InferenceBackend {
 
  private:
 #ifdef ENH_FAULT_INJECTION
-  // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend>:<n> fails the n-th run (0-based)
-  // of that backend. Test/CLI builds only (TEST-FAULT-*, fallback ladder).
-  void inject_fault() {
+  // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend|garbage>:<n> injects a fault
+  // into the n-th run (0-based; "garbage": every run from n on) of that backend.
+  // Test/CLI builds only (TEST-FAULT-*, fallback ladder, GPU gate).
+  bool inject_fault() {
     const char* f = std::getenv("ENH_FAULT");
-    if (!f) return;
+    if (!f) return false;
     std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu" : cfg_.fp16 ? "vulkan_fp16" : "vulkan_fp32";
     size_t a = spec.find(':'), b = spec.find(':', a + 1);
-    if (a == std::string::npos || b == std::string::npos || spec.substr(0, a) != kind) return;
-    if (runs_++ != std::stoi(spec.substr(b + 1))) return;
-    fail(spec.substr(a + 1, b - a - 1) == "numeric" ? ENH_E_NUMERIC : ENH_E_BACKEND, "injected fault");
+    if (a == std::string::npos || b == std::string::npos || spec.substr(0, a) != kind) return false;
+    const std::string mode = spec.substr(a + 1, b - a - 1);
+    const int n = std::stoi(spec.substr(b + 1)), run = runs_++;
+    if (mode == "garbage") return run >= n;
+    if (run != n) return false;
+    fail(mode == "numeric" ? ENH_E_NUMERIC : ENH_E_BACKEND, "injected fault");
   }
   int runs_ = 0;
 #endif

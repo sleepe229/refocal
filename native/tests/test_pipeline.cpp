@@ -11,6 +11,10 @@
 #include "image/ops.hpp"
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
+#include "policy/gpu_gate.hpp"
+
+#include <cmath>
+#include <mat.h>
 #include "util/fs.hpp"
 #include "util/error.hpp"
 #include "util/sha256.hpp"
@@ -139,6 +143,26 @@ static void test_bandstore(const std::string& dir) {
   CHECK(Sha256::of_string("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }
 
+static void test_gpu_gate() {
+  ncnn::Mat ref = gate_input(64, 48);
+  CHECK(ref.w == 64 && ref.h == 48 && ref.c == 3);
+  GateMetrics same = compare_tiles(ref.clone(), ref);
+  CHECK(same.pass && same.psnr == 99.0 && same.bad_frac == 0);
+  ncnn::Mat inv = ref.clone();  // silent garbage
+  for (int c = 0; c < 3; ++c)
+    for (int i = 0; i < 64 * 48; ++i) inv.channel(c)[i] = 1.f - inv.channel(c)[i];
+  CHECK(!compare_tiles(inv, ref).pass);
+  ncnn::Mat nan = ref.clone();  // a single NaN fails even at high PSNR (S3)
+  nan.channel(1)[100] = NAN;
+  CHECK(!compare_tiles(nan, ref).pass);
+  ncnn::Mat block = ref.clone();  // one corrupted 32x32 block: PSNR may pass, bad_frac must not
+  for (int y = 0; y < 32; ++y)
+    for (int x = 0; x < 32; ++x) block.channel(0)[y * 64 + x] = 0.f;
+  CHECK(!compare_tiles(block, ref).pass);
+  ncnn::Mat small(32, 48, 3);  // shape mismatch
+  CHECK(!compare_tiles(small, ref).pass);
+}
+
 int main(int argc, char** argv) {
   std::string dir = argc > 1 ? argv[1] : "test-work";
   fs::remove_tree(dir);
@@ -149,6 +173,7 @@ int main(int argc, char** argv) {
   test_area_down();
   test_jpeg(dir);
   test_bandstore(dir);
+  test_gpu_gate();
   std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;
 }

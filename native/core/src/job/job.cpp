@@ -27,6 +27,7 @@
 #include "job/session.hpp"
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
+#include "policy/gpu_gate.hpp"
 #include "policy/gpu_identity.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -257,6 +258,7 @@ class SentinelGuard {
     }
   }
   ~SentinelGuard() { disarm(); }
+  std::string key() const { return rec_.key(); }
 
  private:
   enh_session& s_;
@@ -397,6 +399,51 @@ void enh_job::run_impl(nlohmann::json& result) {
   if (down < 1) fail(ENH_E_INVALID, "scale exceeds model scale");
   Geometry g = Geometry::make(img.w, img.h, tile, model.pad, model.scale, down);
 
+  // ---- GPU correctness gate (ADR-0017, S3) ----
+  SentinelGuard sentinel(*s, lad.gpu, model.id, g.tw);
+  if (ladder[rung].kind == BackendKind::vulkan) {
+    std::unique_ptr<GateCache> cache;
+    if (!s->cache_dir.empty()) cache = std::make_unique<GateCache>(fs::join(s->cache_dir, "gpu/gate.json"));
+    const ncnn::Mat in = gate_input(g.net_in_w(), g.net_in_h());
+    ncnn::Mat ref;
+    while (ladder[rung].kind == BackendKind::vulkan) {
+      const std::string key = sentinel.key() + "|" + backend_kind_name(ladder[rung]) + "|" +
+                              std::to_string(g.net_in_w()) + "x" + std::to_string(g.net_in_h());
+      std::string verdict = cache ? cache->get(key) : "";
+      GateMetrics m;
+      if (verdict.empty()) {
+        if (ref.empty()) {
+          auto cpu = make_ncnn_backend({BackendKind::cpu, 0, true, s->cpu_threads});
+          cpu->load(model);
+          cpu->run(in, ref);
+        }
+        sentinel.arm();  // a driver crash inside the gate counts like one in the job
+        try {
+          ncnn::Mat out;
+          be->run(in, out);
+          m = compare_tiles(out, ref);
+        } catch (const Error& e) {
+          if (e.status() != ENH_E_BACKEND && e.status() != ENH_E_NUMERIC) throw;
+          m = GateMetrics{};
+        }
+        sentinel.disarm();
+        verdict = m.pass ? "ok" : "bad";
+        if (cache) cache->put(key, verdict, m);
+        ENH_LOGI("gpu gate %s: %s (psnr %.1f dB, bad %.4f)", backend_kind_name(ladder[rung]),
+                 verdict.c_str(), m.psnr, m.bad_frac);
+      }
+      if (verdict == "ok") break;
+      sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0,
+                {{"code", "gpu_check_failed"}, {"backend", backend_kind_name(ladder[rung])},
+                 {"psnr", m.psnr}, {"device", lad.gpu.device_name}});
+      ++rung;
+      be.reset();
+      be = make_ncnn_backend(ladder[rung]);
+      be->load(model);
+    }
+    if (stop()) throw Stopped{};
+  }
+
   BandStore store(dir);
   Checkpoint ck;
   ck.bands_total = g.bands();
@@ -437,7 +484,6 @@ void enh_job::run_impl(nlohmann::json& result) {
   }
 
   // ---- SR banded ----
-  SentinelGuard sentinel(*s, lad.gpu, model.id, g.tw);
   if (ladder[rung].kind == BackendKind::vulkan) sentinel.arm();
   sink.emit(ENH_EV_STAGE, kStageUpscale, 0, g.tiles(), {{"stage", "upscale"}});
   const int tpb = g.tiles_per_band();
