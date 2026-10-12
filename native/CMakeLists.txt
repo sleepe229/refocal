@@ -14,6 +14,9 @@ endif()
 
 option(ENH_VULKAN "ncnn Vulkan backend" ${ANDROID})
 option(ENH_BUILD_TESTS "native tests (desktop)" OFF)
+# x86 builds of ncnn compile every layer for SSE/AVX/FMA/AVX2/AVX512 and pick at runtime. Tests
+# do not need that; CI turns it off (3-4x faster ncnn build). Keep ON for refocal-cli perf runs.
+option(ENH_NCNN_RUNTIME_CPU "ncnn runtime CPU dispatch (x86)" ON)
 set(ENH_SANITIZE "" CACHE STRING "address (ASan+UBSan) | thread | empty")
 
 if(ENH_SANITIZE STREQUAL "address")
@@ -44,6 +47,17 @@ set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(NCNN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(NCNN_PYTHON OFF CACHE BOOL "" FORCE)
 set(NCNN_PIXEL_DRAWING OFF CACHE BOOL "" FORCE)
+if(NOT ENH_NCNN_RUNTIME_CPU)
+  set(NCNN_RUNTIME_CPU OFF CACHE BOOL "" FORCE)
+  set(NCNN_AVX512 OFF CACHE BOOL "" FORCE)
+  set(NCNN_AVX512VNNI OFF CACHE BOOL "" FORCE)
+  set(NCNN_AVXVNNI OFF CACHE BOOL "" FORCE)
+  set(NCNN_AVX2 OFF CACHE BOOL "" FORCE)
+  set(NCNN_AVX OFF CACHE BOOL "" FORCE)
+  set(NCNN_FMA OFF CACHE BOOL "" FORCE)
+  set(NCNN_F16C OFF CACHE BOOL "" FORCE)
+  set(NCNN_XOP OFF CACHE BOOL "" FORCE)
+endif()
 # Size (APK budget 30 MB, 0.1): models run fp16/fp32 (S1/S3), no int8/bf16 kernels.
 set(NCNN_INT8 OFF CACHE BOOL "" FORCE)
 set(NCNN_BF16 OFF CACHE BOOL "" FORCE)

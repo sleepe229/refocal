@@ -10,8 +10,10 @@ name: pr
 
 on:
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
 
 permissions:
   contents: read
@@ -21,6 +23,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which parts changed: native jobs (3 ncnn builds) run only when the core can be affected.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      native: ${{ steps.f.outputs.native }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then echo "native=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+          echo "$files"
+          if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|\.github/workflows/pr\.yml|\.gitmodules)'; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
   dart:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -64,6 +88,8 @@ jobs:
         run: cd app && flutter test
 
   native:
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -73,8 +99,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive --depth 1 native/third_party
-      - name: OpenMP for clang (otherwise ncnn CPU inference is single-threaded)
-        run: sudo apt-get install -y --no-install-recommends libomp-18-dev >/dev/null
+      - name: OpenMP for clang (otherwise ncnn CPU inference is single-threaded), ccache
+        run: sudo apt-get install -y --no-install-recommends libomp-18-dev ccache >/dev/null
+      - name: ccache key (submodule commits)
+        id: subs
+        run: echo "sha=$(git submodule status --recursive native/third_party | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.sanitize }}-${{ steps.subs.outputs.sha }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.sanitize }}-${{ steps.subs.outputs.sha }}-
+            ccache-${{ matrix.sanitize }}-
       - name: TSan self-check (a known race must be reported)
         if: matrix.sanitize == 'thread'
         run: |
@@ -86,13 +122,16 @@ jobs:
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
           -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DENH_NCNN_RUNTIME_CPU=OFF
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - run: cmake --build native/build-ci -j"$(nproc)"
       - run: ctest --test-dir native/build-ci --output-on-failure
       - name: S6 event-bridge stress
         run: |
           CC=clang-18 CXX=clang++-18 cmake -S spikes/s6-ffi/native -B spikes/s6-ffi/native/build-ci \
-            -DSANITIZE=${{ matrix.sanitize }} -DDART_SDK_INCLUDE=/nonexistent >/dev/null
+            -DSANITIZE=${{ matrix.sanitize }} -DDART_SDK_INCLUDE=/nonexistent \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache >/dev/null
           cmake --build spikes/s6-ffi/native/build-ci -j"$(nproc)"
           spikes/s6-ffi/native/build-ci/stress 1000
 
@@ -118,11 +157,20 @@ jobs:
             GID=1001
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build APKs (fdroid, play)
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle-ci
+          key: gradle-${{ hashFiles('app/android/**/*.kts', 'packages/*/android/build.gradle*', 'app/android/gradle/wrapper/*') }}
+          restore-keys: gradle-
+      - name: Build APKs (fdroid; play too on main; arm64 only in CI)
+        env:
+          FLAVORS: ${{ github.event_name == 'push' && 'fdroid play' || 'fdroid' }}
         run: |
           chmod -R a+rwX .
-          for flavor in fdroid play; do
-            docker run --rm -v "$PWD:/src" -w /src/app refocal-rebuilder:ci bash -euc "
+          mkdir -p ~/.gradle-ci && chmod a+rwX ~/.gradle-ci
+          for flavor in $FLAVORS; do
+            docker run --rm -v "$PWD:/src" -v "$HOME/.gradle-ci:/home/builder/.gradle" \
+              -e ORG_GRADLE_PROJECT_refocalAbis=arm64-v8a -w /src/app refocal-rebuilder:ci bash -euc "
               export PATH=/src/flutter/bin:\$PATH
               git config --global --add safe.directory '*'
               flutter --suppress-analytics config --no-analytics >/dev/null
