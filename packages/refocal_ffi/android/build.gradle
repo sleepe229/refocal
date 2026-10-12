@@ -39,7 +39,12 @@ android {
         ndk { abiFilters(*((project.findProperty("refocalAbis") ?: "arm64-v8a,x86_64").toString().split(","))) }
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_STL=c++_static", "-DENH_VULKAN=ON"
+                // -PrefocalCcache=ccache (CI): compiler launcher for the native build. Never set
+                // for releases, so it cannot affect reproducibility (S8).
+                def launcher = project.findProperty("refocalCcache")
+                arguments(*(["-DANDROID_STL=c++_static", "-DENH_VULKAN=ON"] +
+                    (launcher ? ["-DCMAKE_C_COMPILER_LAUNCHER=${launcher}",
+                                 "-DCMAKE_CXX_COMPILER_LAUNCHER=${launcher}"] : [])))
                 targets "enh"
             }
         }

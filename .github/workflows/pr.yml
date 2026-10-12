@@ -162,19 +162,36 @@ jobs:
           path: ~/.gradle-ci
           key: gradle-${{ hashFiles('app/android/**/*.kts', 'packages/*/android/build.gradle*', 'app/android/gradle/wrapper/*') }}
           restore-keys: gradle-
+      # ccache for the NDK build of the native core: 491 compilations, warm build ~1 min instead
+      # of ~15 (measured on 4 CPUs). Keyed by submodule commits; each run saves a fresh entry.
+      - name: ccache key (submodule commits)
+        id: subs
+        run: echo "sha=$(git submodule status --recursive native/third_party | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache-android
+          key: ccache-android-${{ steps.subs.outputs.sha }}-${{ github.sha }}
+          restore-keys: |
+            ccache-android-${{ steps.subs.outputs.sha }}-
+            ccache-android-
       - name: Build APKs (fdroid; play too on main; arm64 only in CI)
         env:
           FLAVORS: ${{ github.event_name == 'push' && 'fdroid play' || 'fdroid' }}
         run: |
           chmod -R a+rwX .
-          mkdir -p ~/.gradle-ci && chmod a+rwX ~/.gradle-ci
+          mkdir -p ~/.gradle-ci ~/.ccache-android && chmod a+rwX ~/.gradle-ci ~/.ccache-android
           for flavor in $FLAVORS; do
-            docker run --rm -v "$PWD:/src" -v "$HOME/.gradle-ci:/home/builder/.gradle" \
-              -e ORG_GRADLE_PROJECT_refocalAbis=arm64-v8a -w /src/app refocal-rebuilder:ci bash -euc "
+            docker run --rm -v "$PWD:/src" \
+              -v "$HOME/.gradle-ci:/gradle" -e GRADLE_USER_HOME=/gradle \
+              -v "$HOME/.ccache-android:/ccache" -e CCACHE_DIR=/ccache -e CCACHE_BASEDIR=/src \
+              -e CCACHE_NOHASHDIR=true -e CCACHE_MAXSIZE=1G \
+              -e ORG_GRADLE_PROJECT_refocalAbis=arm64-v8a -e ORG_GRADLE_PROJECT_refocalCcache=ccache \
+              -w /src/app refocal-rebuilder:ci bash -euc "
               export PATH=/src/flutter/bin:\$PATH
               git config --global --add safe.directory '*'
               flutter --suppress-analytics config --no-analytics >/dev/null
-              flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64"
+              flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64
+              ccache -s | grep -iE 'hits|misses' | head -2"
           done
           ls -l app/build/app/outputs/flutter-apk/
       - name: Preview APK (throwaway CI key, for device checks only)
