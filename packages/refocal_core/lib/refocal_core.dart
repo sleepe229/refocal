@@ -2,3 +2,4 @@
 library;
 
 export 'src/enh_status.dart';
+export 'src/job_event.dart';

@@ -1,7 +1,10 @@
 # PR gate (docs/spec/11-ci-cd-release.md §1, OPS-CI-001). M0 skeleton scope:
 # Dart format/analyze/tests, ABI header sync, native tests with sanitizers (incl. TSan with a
 # self-check), Android APK builds (play, fdroid) in the same pinned image as the S8 rebuilder.
-# TODO(0.1): clang-format/clang-tidy, fuzzing, refocal-cli golden, license check, size gate,
+# Native: test_abi, test_pipeline, test_job (end-to-end job ABI on synthetic ncnn models:
+# exact nearest x4, tiled == whole, cancel, pause/resume, NEEDS_USER, fallback ladder).
+# TODO(0.1): clang-format/clang-tidy, fuzzing, refocal-cli golden on the real compact model
+# (needs model hosting), license check, size gate,
 # iOS build without signing (needs enh.xcframework, see packages/refocal_ffi/ios).
 name: pr
 
@@ -63,7 +66,9 @@ jobs:
         sanitize: ["", address, thread]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: git submodule update --init --recursive --depth 1 native/third_party/ncnn
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - name: OpenMP for clang (otherwise ncnn CPU inference is single-threaded)
+        run: sudo apt-get install -y --no-install-recommends libomp-18-dev >/dev/null
       - name: TSan self-check (a known race must be reported)
         if: matrix.sanitize == 'thread'
         run: |
@@ -74,7 +79,8 @@ jobs:
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
-          -DENH_BUILD_TESTS=ON -DENH_SANITIZE=${{ matrix.sanitize }} -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }}
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - run: cmake --build native/build-ci -j"$(nproc)"
       - run: ctest --test-dir native/build-ci --output-on-failure
       - name: S6 event-bridge stress

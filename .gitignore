@@ -45,3 +45,4 @@ spikes/_shared/models/
 spikes/**/build-*/
 native/build-*/
 .cxx/
+native/test-work*/

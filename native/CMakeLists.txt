@@ -1,8 +1,9 @@
 # Refocal native core: libenh (C ABI in include/enh.h).
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project(refocal_native VERSION 0.0.1 LANGUAGES C CXX)
+find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,6 +24,11 @@ elseif(ENH_SANITIZE STREQUAL "thread")
   add_link_options(-fsanitize=thread)
 endif()
 
+# Hidden by default; the C ABI is exported by the visibility pragma in include/enh.h.
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
 # Reproducible builds (S8): no absolute source/build paths in objects or debug info.
 add_compile_options(
   "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=."
@@ -38,26 +44,130 @@ set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(NCNN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(NCNN_PYTHON OFF CACHE BOOL "" FORCE)
 set(NCNN_PIXEL_DRAWING OFF CACHE BOOL "" FORCE)
+# ncnn defaults to -fno-exceptions/-fno-rtti on Android/iOS and exports them PUBLIC; the core
+# uses exceptions internally (converted to enh_status at the ABI boundary).
+set(NCNN_DISABLE_EXCEPTION OFF CACHE BOOL "" FORCE)
+set(NCNN_DISABLE_RTTI OFF CACHE BOOL "" FORCE)
+if(ENH_SANITIZE STREQUAL "thread")
+  set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)  # OpenMP runtimes are not TSan-instrumented
+elseif(NOT ANDROID AND NOT IOS)
+  find_package(OpenMP)
+  if(NOT OpenMP_CXX_FOUND)
+    message(WARNING "OpenMP not found: ncnn CPU inference will be single-threaded "
+                    "(install libomp-dev for clang, or build with gcc)")
+  endif()
+endif()
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ncnn/CMakeLists.txt")
   message(FATAL_ERROR "ncnn submodule missing: git submodule update --init --recursive")
 endif()
 add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL)
 
+# ---- libjpeg-turbo (git submodule, IJG/BSD-3/zlib) ----
+# Built as an external project: it does not support add_subdirectory(). The toolchain is
+# forwarded so the same code path works for the host, the NDK and Xcode.
+include(ExternalProject)
+set(JPEG_PREFIX ${CMAKE_BINARY_DIR}/libjpeg-turbo)
+set(JPEG_LIB ${JPEG_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}jpeg${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(JPEG_C_FLAGS "${CMAKE_C_FLAGS} -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_BINARY_DIR}=build")
+if(ENH_SANITIZE STREQUAL "address")
+  string(APPEND JPEG_C_FLAGS " -fsanitize=address,undefined -fno-omit-frame-pointer")
+endif()
+set(JPEG_CMAKE_ARGS
+  -DCMAKE_INSTALL_PREFIX=${JPEG_PREFIX}
+  -DCMAKE_INSTALL_LIBDIR=lib
+  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  "-DCMAKE_C_FLAGS=${JPEG_C_FLAGS}"
+  -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=OFF -DWITH_TOOLS=OFF -DWITH_TESTS=OFF
+  -DREQUIRE_SIMD=OFF
+  -DBUILD=0)  # default is today's date, which breaks reproducible builds (S8)
+if(CMAKE_TOOLCHAIN_FILE)
+  list(APPEND JPEG_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+endif()
+set(JPEG_FORWARD ANDROID_ABI ANDROID_PLATFORM ANDROID_STL ANDROID_NDK CMAKE_OSX_ARCHITECTURES
+    CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_MAKE_PROGRAM)
+if(CMAKE_CROSSCOMPILING)
+  list(APPEND JPEG_FORWARD CMAKE_SYSTEM_NAME CMAKE_SYSTEM_PROCESSOR)
+endif()
+foreach(v ${JPEG_FORWARD})
+  if(DEFINED ${v})
+    list(APPEND JPEG_CMAKE_ARGS -D${v}=${${v}})
+  endif()
+endforeach()
+ExternalProject_Add(libjpeg_turbo_ext
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjpeg-turbo
+  BINARY_DIR ${CMAKE_BINARY_DIR}/libjpeg-turbo-build
+  CMAKE_ARGS ${JPEG_CMAKE_ARGS}
+  BUILD_BYPRODUCTS ${JPEG_LIB}
+  UPDATE_COMMAND "" PATCH_COMMAND "")
+file(MAKE_DIRECTORY ${JPEG_PREFIX}/include)
+add_library(jpeg_static STATIC IMPORTED)
+set_target_properties(jpeg_static PROPERTIES IMPORTED_LOCATION ${JPEG_LIB}
+  INTERFACE_INCLUDE_DIRECTORIES ${JPEG_PREFIX}/include)
+add_dependencies(jpeg_static libjpeg_turbo_ext)
+
 # ---- libenh ----
-add_library(enh SHARED core/src/enh.cpp core/src/probe.cpp)
-target_include_directories(enh PUBLIC include PRIVATE core/src)
-target_link_libraries(enh PRIVATE ncnn)
-target_compile_options(enh PRIVATE -Wall -Wextra -fvisibility=hidden)
-target_compile_definitions(enh PRIVATE ENH_BUILDING ENH_VERSION_STRING="${PROJECT_VERSION}")
+set(ENH_SOURCES
+  core/src/enh.cpp
+  core/src/probe.cpp
+  core/src/util/fs.cpp
+  core/src/util/log.cpp
+  core/src/image/jpeg.cpp
+  core/src/image/exif.cpp
+  core/src/image/ops.cpp
+  core/src/pipeline/bandstore.cpp
+  core/src/pipeline/geometry.cpp
+  core/src/backend/ncnn_backend.cpp
+  core/src/job/events.cpp
+  core/src/job/job.cpp
+  core/src/job/export.cpp)
+# Dart API DL (BSD-3-Clause, from the Dart SDK; copied to third_party/dart_api_dl) — event ports.
+set(DART_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/dart_api_dl)
+list(APPEND ENH_SOURCES ${DART_DL_DIR}/dart_api_dl.c)
+
+add_library(enh_core STATIC ${ENH_SOURCES})
+target_include_directories(enh_core PUBLIC include core/src
+  PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include)
+target_link_libraries(enh_core PUBLIC ncnn jpeg_static Threads::Threads)
+set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
+target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
+target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${PROJECT_VERSION}")
+if(ANDROID)
+  target_link_libraries(enh_core PUBLIC log)
+endif()
+if(ENH_BUILD_TESTS OR ENH_BUILD_CLI)
+  target_compile_definitions(enh_core PRIVATE ENH_FAULT_INJECTION)  # never in app builds
+endif()
+
+add_library(enh SHARED core/src/enh_export_anchor.cpp)
+target_link_libraries(enh PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,enh_core>")
+target_include_directories(enh PUBLIC include)
 if(ANDROID)
   # 16 KB page size (Android 15+ devices) and no shared libomp.so in the APK.
   target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384" -static-openmp)
-  target_link_libraries(enh PRIVATE log)
+endif()
+
+# ---- refocal-cli (desktop: golden tests, perf, bug repro) ----
+option(ENH_BUILD_CLI "tools/refocal-cli" OFF)
+if(ENH_BUILD_CLI AND NOT ANDROID AND NOT IOS)
+  add_executable(refocal-cli ${CMAKE_CURRENT_SOURCE_DIR}/../tools/refocal-cli/main.cpp)
+  target_link_libraries(refocal-cli PRIVATE enh_core)
+  target_include_directories(refocal-cli PRIVATE third_party/json/single_include)
 endif()
 
 if(ENH_BUILD_TESTS)
   enable_testing()
   add_executable(test_abi tests/test_abi.cpp)
   target_link_libraries(test_abi PRIVATE enh)
+  target_include_directories(test_abi PRIVATE core/src)
   add_test(NAME abi COMMAND test_abi)
+  add_executable(test_pipeline tests/test_pipeline.cpp)
+  target_link_libraries(test_pipeline PRIVATE enh_core)
+  target_include_directories(test_pipeline PRIVATE third_party/json/single_include)
+  add_test(NAME pipeline COMMAND test_pipeline ${CMAKE_CURRENT_BINARY_DIR}/test-work)
+  add_executable(test_job tests/test_job.cpp)
+  target_link_libraries(test_job PRIVATE enh_core)
+  target_include_directories(test_job PRIVATE core/src third_party/json/single_include)
+  add_test(NAME job COMMAND test_job ${CMAKE_CURRENT_BINARY_DIR}/test-work-job)
 endif()

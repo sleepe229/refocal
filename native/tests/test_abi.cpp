@@ -4,7 +4,7 @@
 #include <cstring>
 #include <string>
 
-#include "../core/src/json_util.hpp"
+#include "json_util.hpp"
 #include "enh.h"
 
 static int fails = 0;

@@ -4,3 +4,10 @@
 [submodule "native/third_party/ncnn"]
 	path = native/third_party/ncnn
 	url = https://github.com/Tencent/ncnn.git
+[submodule "native/third_party/libjpeg-turbo"]
+	path = native/third_party/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+[submodule "native/third_party/json"]
+	path = native/third_party/json
+	url = https://github.com/nlohmann/json.git
+	shallow = true
