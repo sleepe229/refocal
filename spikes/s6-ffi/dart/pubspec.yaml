@@ -1,0 +1,9 @@
+name: refocal_s6_ffi
+description: S6 spike - Dart <-> native event bridge stress test.
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  ffi: ^2.1.0
+dev_dependencies:
+  ffigen: ^23.0.0

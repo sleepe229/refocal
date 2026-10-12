@@ -4,13 +4,18 @@
  *
  * Conventions:
  *  - All strings are UTF-8, NUL-terminated.
- *  - Strings/buffers returned by the core (char** out_json, event payloads) are heap-allocated
- *    and MUST be released with enh_free().
+ *  - Strings/buffers returned by the core through char** out_json are heap-allocated and MUST be
+ *    released with enh_free(). Event payloads delivered to a Dart port are copied by the VM
+ *    (nothing to free); payloads passed to an enh_event_cb are owned by the receiver -> enh_free().
+ *  - All strings (requests, results, events) are valid UTF-8; the core replaces invalid bytes
+ *    (e.g. from file paths) with U+FFFD, because the Dart VM rejects such messages.
  *  - Structs carry struct_size for forward compatibility.
  *  - Complex parameters/results are JSON with a "schema" field (current: 1).
  *  - All functions except enh_job_start() return quickly; heavy work runs on the core worker thread.
  *  - Thread-safety: enh_session_* and enh_job_* may be called from any thread;
- *    enh_job_cancel/pause and enh_set_* are lock-free.
+ *    enh_job_cancel/pause and enh_set_* are non-blocking (never wait for the worker, O(1)).
+ *  - Status codes are int32_t, not an enum type: enum size is implementation-defined across the
+ *    FFI boundary, and newer cores may return codes unknown to older bindings (treat as INTERNAL).
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -28,7 +33,8 @@ extern "C" {
 typedef struct enh_session enh_session;
 typedef struct enh_job enh_job;
 
-typedef enum {
+typedef int32_t enh_status;
+enum {
   ENH_OK = 0,
   ENH_E_CANCELLED = 1,
   ENH_E_PAUSED = 2,
@@ -43,7 +49,7 @@ typedef enum {
   ENH_E_SIGNATURE = 11,   /* signature/hash verification failed */
   ENH_E_LIMIT = 12,       /* input exceeds size limits */
   ENH_E_INTERNAL = 99
-} enh_status;
+};
 
 typedef enum {
   ENH_BACKEND_AUTO = 0,
@@ -76,8 +82,14 @@ typedef enum {
 } enh_event_type;
 
 /*
- * Event callback. Invoked from core threads; when bound through Dart NativeCallable.listener
- * it is delivered asynchronously. payload_json is owned by the receiver -> enh_free().
+ * Event callback for C/C++ consumers (refocal-cli, tests). Invoked from core threads while the
+ * job's sink lock is held: it must not block and must not call back into this job.
+ * payload_json is owned by the receiver -> enh_free().
+ * Dart does NOT use this (a NativeCallable called after its isolate died aborts the process,
+ * S6); Dart uses enh_job_start_port().
+ *
+ * Event order per job: STAGE/PROGRESS/... then exactly one terminal event (DONE or ERROR);
+ * nothing after it. PROGRESS is coalesced to <= 30 Hz.
  */
 typedef void (*enh_event_cb)(int64_t job_token, int32_t type, int32_t stage,
                              int64_t done, int64_t total, char* payload_json);
@@ -86,6 +98,9 @@ typedef void (*enh_event_cb)(int64_t job_token, int32_t type, int32_t stage,
 const char* enh_version(void);            /* static string, do not free */
 int32_t enh_abi_version(void);            /* == ENH_ABI_VERSION */
 void enh_free(void* p);
+
+/* Dart integration: pass NativeApi.initializeApiDLData once per process; returns 0 on success. */
+intptr_t enh_dart_init(void* api_dl_data);
 
 /* ---- session ---- */
 enh_status enh_session_create(const enh_session_config* cfg, enh_session** out);
@@ -104,9 +119,19 @@ void enh_set_thermal(enh_session* s, int32_t level);         /* 0 nominal .. 4 c
 enh_status enh_job_create(enh_session* s, const char* request_json, enh_job** out);
 enh_status enh_job_resume(enh_session* s, const char* job_dir, enh_job** out);
 enh_status enh_job_start(enh_job* j, enh_event_cb cb, int64_t job_token); /* async */
+/* Dart: events are posted (Dart_PostCObject) to dart_port as
+ * [job_token, type, stage, done, total, payload_json]. Posting to a closed port is a no-op. */
+enh_status enh_job_start_port(enh_job* j, int64_t dart_port, int64_t job_token); /* async */
+/* Re-attach a running job to a new sink (e.g. after the Flutter engine was recreated).
+ * Once these return, the previous sink never receives another event of this job. */
+enh_status enh_job_set_port(enh_job* j, int64_t dart_port, int64_t job_token);
+enh_status enh_job_set_callback(enh_job* j, enh_event_cb cb, int64_t job_token);
 enh_status enh_job_answer(enh_job* j, const char* answer_json);           /* reply to NEEDS_USER */
-void enh_job_pause(enh_job* j);
-void enh_job_cancel(enh_job* j);
+void enh_job_pause(enh_job* j);   /* terminal ERROR {status: ENH_E_PAUSED, done: N} follows */
+void enh_job_cancel(enh_job* j);  /* terminal ERROR {status: ENH_E_CANCELLED} within <= 1 tile */
+int32_t enh_job_status(enh_job* j); /* terminal status, or -1 while running */
+/* Blocks until the worker has stopped (up to one tile on a running job). Call it after the
+ * terminal event; never on the UI thread for a running job. */
 void enh_job_destroy(enh_job* j);
 
 /* ---- export ---- */

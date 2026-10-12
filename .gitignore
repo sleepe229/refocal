@@ -42,3 +42,4 @@ spikes/**/third_party/
 spikes/_deps/
 spikes/_shared/weights/
 spikes/_shared/models/
+spikes/**/build-*/

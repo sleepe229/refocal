@@ -25,8 +25,8 @@
 │ EnhanceRequest/Recipe · EnhanceJob · JobEvent · AutoPolicy · TierPolicy ·           │
 │ ModelManager (манифест, загрузка, паки) · QueueOrchestrator · Repositories (drift)  │
 ├─────────────── packages/refocal_ffi ────────────┬─── packages/refocal_platform ───┤
-│ ffigen-биндинги · NativeCallable.listener ·      │ Pigeon: Picker, GallerySaver,    │
-│ JSON-кодек запросов/событий · enh_free           │ ForegroundService (Android),     │
+│ ffigen-биндинги · Dart_PostCObject → ReceivePort │ Pigeon: Picker, GallerySaver,    │
+│ JSON-кодек запросов/событий · enh_free (out_json)│ ForegroundService (Android),     │
 │                                                  │ LifecycleGpuGate (iOS), Thermal, │
 │                                                  │ Memory, ShareIntake, Notifications│
 ├═════════════════ C ABI (enh_*) ══════════════════╪═══ Kotlin / Swift ═══════════════┤
@@ -147,8 +147,9 @@ abstract interface class RefocalEngine {
 - плоский C, только POD и строки; структуры с полем `struct_size` для совместимости;
 - сложные параметры — JSON (запрос, события, результаты), схема версионирована (`"schema": 1`);
 - все вызовы, кроме `enh_job_start`, синхронные и быстрые; тяжёлая работа — на worker-потоке core;
-- строки, выделенные core, освобождаются только через `enh_free`;
-- коды ошибок — `enh_status`, текст — в JSON-событии `ENH_EV_ERROR`.
+- строки, которые core возвращает через `out_json`, освобождаются только через `enh_free`; события в Dart идут через native port, VM их копирует, освобождать нечего (ADR-0005);
+- коды ошибок — `enh_status` (`int32_t`, не enum), текст — в JSON-событии `ENH_EV_ERROR`; неизвестный код в Dart означает `internal`;
+- все строки — валидный UTF-8.
 
 ### 4.3 C++ интерфейсы
 
@@ -196,7 +197,8 @@ class PlatformCodec {        // реализуется на Android (JNI) и iOS
 - Внутри джоба — конвейер `prep → infer → post`, очереди глубиной 2 тайла.
 - Одновременно выполняется **один** GPU-джоб; очередь сериализуется в `QueueOrchestrator`.
 - Отмена/пауза — атомарные флаги, проверяются на границе тайла.
-- События в Dart — через `NativeCallable.listener` (асинхронно, в event loop изолята); payload — heap-JSON, освобождается Dart через `enh_free`.
+- События в Dart — `Dart_PostCObject` в native port сессии (асинхронно, в event loop изолята), без указателей через границу. Канал переживает смерть изолята, к джобу можно подключиться заново (ADR-0005, S6).
+- Завершение джоба: `cancel` → терминальное событие → `destroy`. `destroy` работающего джоба блокирует поток до конца тайла.
 - Dart-изоляты для обработки пикселей **не используются** (ADR-0006).
 
 ## 6. Жизненный цикл джоба

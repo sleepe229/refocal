@@ -1,0 +1,27 @@
+# dart run ffigen  — generates lib/enh_bindings.g.dart from the spec header + S6 debug extensions.
+name: EnhBindings
+description: Bindings for enh.h (docs/spec/appendix) and S6 enh_debug.h.
+output: lib/enh_bindings.g.dart
+headers:
+  entry-points:
+    - ../native/include/enh_debug.h
+    - ../../../docs/spec/appendix/enh.h
+compiler-opts:
+  - -I../../../docs/spec/appendix
+functions:
+  include:
+    - enh_.*
+  leaf:
+    include:
+      - enh_debug_.*
+      - enh_free
+      - enh_abi_version
+      - enh_job_cancel
+      - enh_job_pause
+      - enh_job_status
+macros:
+  include:
+    - ENH_.*
+typedefs:
+  include:
+    - enh_.*
