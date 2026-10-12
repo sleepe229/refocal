@@ -1,0 +1,5 @@
+# Bundled models: id, file, sha256, url (empty until the pack is published, see packs.yml).
+# sr.general-x4v3 = realesr-general-x4v3 (BSD-3, xinntao/Real-ESRGAN) at DNI denoise 0.5,
+# converted by spikes/_shared/convert_sr.py (S1/S2).
+sr.general-x4v3 model.ncnn.param a950267ad1e89cb6d5e5e890fe4cf55a5e3526c532a656b9704ce1438455e5fe -
+sr.general-x4v3 model.ncnn.bin   8fe24682c8f4440f1ed66d2c8a90dc7bd745b203212c31fe69c18032c39645aa -

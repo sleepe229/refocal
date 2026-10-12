@@ -1,42 +1,35 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:refocal_ffi/refocal_ffi.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-void main() => runApp(const RefocalApp());
+import 'features/editor/editor_page.dart';
+import 'features/home/home_page.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // NFR-MEM-006: bound the decoded image cache (T1 value; tiers come with the benchmark, 0.2).
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20;
+  runApp(const ProviderScope(child: RefocalApp()));
+}
+
+final _router = GoRouter(
+  routes: [
+    GoRoute(path: '/', builder: (_, _) => const HomePage()),
+    GoRoute(
+      path: '/editor',
+      builder: (_, s) => EditorPage(input: s.extra! as String),
+    ),
+  ],
+);
 
 class RefocalApp extends StatelessWidget {
   const RefocalApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => MaterialApp.router(
     title: 'Refocal',
     theme: ThemeData(colorSchemeSeed: Colors.indigo),
-    home: const _CoreInfo(),
+    darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, brightness: Brightness.dark),
+    routerConfig: _router,
   );
-}
-
-/// M0 skeleton screen: proves the native core loads and probes the device.
-class _CoreInfo extends StatelessWidget {
-  const _CoreInfo();
-
-  @override
-  Widget build(BuildContext context) {
-    String text;
-    try {
-      final core = RefocalNative.open();
-      text =
-          'libenh ${core.version}\n\n'
-          '${const JsonEncoder.withIndent('  ').convert(core.deviceProbe())}';
-    } catch (e) {
-      text = 'Native core unavailable: $e';
-    }
-    return Scaffold(
-      appBar: AppBar(title: const Text('Refocal')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace')),
-      ),
-    );
-  }
 }

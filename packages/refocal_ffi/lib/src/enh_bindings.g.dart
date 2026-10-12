@@ -522,6 +522,8 @@ final class enh_session_config extends ffi.Struct {
 
   external ffi.Pointer<ffi.Char> tier;
 
+  external ffi.Pointer<ffi.Char> previous_exit;
+
   static ffi.Pointer<enh_session_config> $allocate(
     ffi.Allocator $allocator, {
     required int struct_size,
@@ -533,6 +535,7 @@ final class enh_session_config extends ffi.Struct {
     required int cpu_threads,
     required ffi.Pointer<ffi.Char> blocklist_json,
     required ffi.Pointer<ffi.Char> tier,
+    required ffi.Pointer<ffi.Char> previous_exit,
   }) => $allocator<enh_session_config>()
     ..ref.struct_size = struct_size
     ..ref.models_dir = models_dir
@@ -542,7 +545,8 @@ final class enh_session_config extends ffi.Struct {
     ..ref.mem_budget_bytes = mem_budget_bytes
     ..ref.cpu_threads = cpu_threads
     ..ref.blocklist_json = blocklist_json
-    ..ref.tier = tier;
+    ..ref.tier = tier
+    ..ref.previous_exit = previous_exit;
 }
 
 typedef enh_status = ffi.Int32;

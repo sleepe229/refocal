@@ -73,6 +73,10 @@ typedef struct {
   int32_t cpu_threads;           /* 0 = auto */
   const char* blocklist_json;    /* merged GPU blocklist, may be NULL */
   const char* tier;              /* "T0" | "T1" | "T2" | NULL (auto) */
+  /* How the previous process ended (crash sentinel, ADR-0016): "native_crash" (Android
+   * ApplicationExitInfo REASON_CRASH_NATIVE/ANR), "os_kill" (LMK, user swipe) or NULL (unknown,
+   * e.g. iOS). Added after ABI 1.0 — read only when struct_size covers it. */
+  const char* previous_exit;
 } enh_session_config;
 
 typedef enum {

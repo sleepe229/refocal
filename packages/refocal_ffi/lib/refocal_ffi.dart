@@ -53,6 +53,7 @@ class RefocalNative {
     EnhBackend backend = EnhBackend.auto,
     String? tier,
     int cpuThreads = 0,
+    String? previousExit, // 'native_crash' | 'os_kill' | null (crash sentinel, ADR-0016)
   }) {
     if (!_dartApiReady) {
       if (_b.enh_dart_init(NativeApi.initializeApiDLData) != 0) {
@@ -78,7 +79,8 @@ class RefocalNative {
         ..cache_dir = str(cacheDir)
         ..backend_pref = backend.code
         ..cpu_threads = cpuThreads
-        ..tier = str(tier);
+        ..tier = str(tier)
+        ..previous_exit = str(previousExit);
       _check(_b.enh_session_create(cfg, out), 'session_create');
       return RefocalSession._(this, out.value);
     } finally {

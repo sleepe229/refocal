@@ -4,10 +4,13 @@
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 
 #include "enh.h"
+#include "policy/blocklist.hpp"
+#include "policy/sentinel.hpp"
 
 struct enh_session {
   std::string models_dir, work_dir, cache_dir, tier, blocklist_json;
@@ -22,4 +25,9 @@ struct enh_session {
 
   // One running job at a time (ADR-0006); later jobs wait in STAGE "queued".
   std::timed_mutex run_mu;
+
+  // GPU policy (S3): built-in + manifest blocklist + local rules from the crash sentinel.
+  enh::Blocklist blocklist;
+  std::unique_ptr<enh::SentinelStore> sentinel;  // null without cache_dir
+  enh::StartupReport startup;
 };

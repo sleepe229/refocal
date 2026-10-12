@@ -27,6 +27,7 @@
 #include "job/session.hpp"
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
+#include "policy/gpu_identity.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
@@ -206,19 +207,62 @@ struct enh_job {
 
 namespace {
 
-// Backend ladder (ADR-0016 subset for 0.1): Vulkan fp16 -> Vulkan fp32 -> CPU.
-std::vector<BackendConfig> backend_ladder(const enh_session& s, const JobRequest& r) {
-  std::vector<BackendConfig> v;
+// Backend ladder (ADR-0016): Vulkan fp16 -> Vulkan fp32 -> CPU, minus what the GPU policy
+// forbids for this device+driver+model (blocklist rule or crash-sentinel quarantine, S3).
+struct Ladder {
+  std::vector<BackendConfig> rungs;
+  GpuIdentity gpu;
+  std::string skipped_reason;  // non-empty: Vulkan rungs removed by policy
+};
+
+Ladder backend_ladder(enh_session& s, const JobRequest& r, const std::string& model_id) {
+  Ladder l;
   bool want_gpu = r.backend != "cpu" && s.backend_pref != ENH_BACKEND_NCNN_CPU;
   bool only_gpu = r.backend == "vulkan" || s.backend_pref == ENH_BACKEND_NCNN_VULKAN;
-  if (want_gpu && s.gpu_allowed.load() && vulkan_device_count() > 0) {
-    const int dev = vulkan_default_device();
-    v.push_back({BackendKind::vulkan, dev, true, s.cpu_threads});
-    v.push_back({BackendKind::vulkan, dev, false, s.cpu_threads});
+  const int dev = want_gpu && s.gpu_allowed.load() ? vulkan_default_device() : -1;
+  if (dev >= 0) {
+    l.gpu = gpu_identity(dev);
+    MatchResult m = s.blocklist.match(l.gpu, model_id);
+    SentinelRecord rec{l.gpu, model_id, "vulkan", 0};
+    if (m.action == Action::Cpu || m.action == Action::Disable) {
+      l.skipped_reason = m.matched.empty() ? "blocklist" : "blocklist:" + m.matched.front()->id;
+    } else if (s.sentinel && s.sentinel->quarantined(rec)) {
+      l.skipped_reason = "crash_quarantine";
+    } else {
+      if (m.action != Action::GpuFp32) l.rungs.push_back({BackendKind::vulkan, dev, true, s.cpu_threads});
+      l.rungs.push_back({BackendKind::vulkan, dev, false, s.cpu_threads});
+    }
   }
-  if (!only_gpu || v.empty()) v.push_back({BackendKind::cpu, 0, true, s.cpu_threads});
-  return v;
+  if (!only_gpu || l.rungs.empty()) l.rungs.push_back({BackendKind::cpu, 0, true, s.cpu_threads});
+  return l;
 }
+
+// Crash sentinel around the Vulkan stage (ADR-0016): armed before the first GPU tile, disarmed
+// when the stage ends or falls back. A native crash in between leaves it on disk for the next
+// session_create() to turn into a quarantine or a local blocklist rule.
+class SentinelGuard {
+ public:
+  SentinelGuard(enh_session& s, const GpuIdentity& gpu, const std::string& model, int tile)
+      : s_(s), rec_{gpu, model, "vulkan", tile} {}
+  void arm() {
+    if (s_.sentinel && !armed_) {
+      s_.sentinel->arm(rec_);
+      armed_ = true;
+    }
+  }
+  void disarm() {
+    if (armed_) {
+      s_.sentinel->disarm(rec_);
+      armed_ = false;
+    }
+  }
+  ~SentinelGuard() { disarm(); }
+
+ private:
+  enh_session& s_;
+  SentinelRecord rec_;
+  bool armed_ = false;
+};
 
 int auto_tile(const enh_session& s, const BackendConfig& first) {
   // S2/S3: T0 (CPU, 600 MB) -> 128; T1/T2 -> 256; never 512 on Vulkan (silent corruption).
@@ -329,7 +373,12 @@ void enh_job::run_impl(nlohmann::json& result) {
   if (stop()) throw Stopped{};
 
   // ---- geometry, backend, store ----
-  std::vector<BackendConfig> ladder = backend_ladder(*s, req);
+  Ladder lad = backend_ladder(*s, req, model.id);
+  std::vector<BackendConfig>& ladder = lad.rungs;
+  if (!lad.skipped_reason.empty()) {
+    sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0,
+              {{"code", "gpu_skipped"}, {"reason", lad.skipped_reason}, {"device", lad.gpu.device_name}});
+  }
   size_t rung = 0;
   std::unique_ptr<InferenceBackend> be;
   for (;;) {  // first loadable rung
@@ -388,6 +437,8 @@ void enh_job::run_impl(nlohmann::json& result) {
   }
 
   // ---- SR banded ----
+  SentinelGuard sentinel(*s, lad.gpu, model.id, g.tw);
+  if (ladder[rung].kind == BackendKind::vulkan) sentinel.arm();
   sink.emit(ENH_EV_STAGE, kStageUpscale, 0, g.tiles(), {{"stage", "upscale"}});
   const int tpb = g.tiles_per_band();
   const int64_t total_tiles = g.tiles();
@@ -460,6 +511,7 @@ void enh_job::run_impl(nlohmann::json& result) {
                     {{"from", from}, {"to", to},
                      {"reason", e.status() == ENH_E_NUMERIC ? "numeric" : "backend_error"}});
           fallbacks.push_back(from + "->" + to);
+          if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
           be.reset();
           be = make_ncnn_backend(ladder[rung]);
           be->load(model);
@@ -526,6 +578,7 @@ void enh_job::run_impl(nlohmann::json& result) {
   prep.join();
   infer.join();
   post.join();
+  sentinel.disarm();
   if (stop()) throw Stopped{};
   const double sr_s = duration<double>(steady_clock::now() - t_sr).count();
   const std::string backend_name = be->name();

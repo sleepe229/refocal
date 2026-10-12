@@ -44,7 +44,9 @@ std::unique_ptr<InferenceBackend> make_ncnn_backend(const BackendConfig& cfg);
 
 // Vulkan availability (creates the process-wide Vulkan instance on first call).
 int vulkan_device_count();
-// ncnn's preferred device (discrete GPU first); 0 when there is only one.
+// Device for the Vulkan rungs: ncnn's preferred hardware GPU (discrete first). Software
+// rasterizers (type "cpu": SwiftShader, llvmpipe) are never used — slower than the CPU
+// backend (S3) — so this returns -1 when only those exist.
 int vulkan_default_device();
 
 }  // namespace enh

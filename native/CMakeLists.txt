@@ -121,7 +121,12 @@ set(ENH_SOURCES
   core/src/backend/ncnn_backend.cpp
   core/src/job/events.cpp
   core/src/job/job.cpp
-  core/src/job/export.cpp)
+  core/src/job/export.cpp
+  core/src/policy/blocklist.cpp
+  core/src/policy/builtin_blocklist.cpp
+  core/src/policy/gpu_identity.cpp
+  core/src/policy/sentinel.cpp
+  core/src/policy/tier.cpp)
 # Dart API DL (BSD-3-Clause, from the Dart SDK; copied to third_party/dart_api_dl) — event ports.
 set(DART_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/dart_api_dl)
 list(APPEND ENH_SOURCES ${DART_DL_DIR}/dart_api_dl.c)
@@ -170,4 +175,9 @@ if(ENH_BUILD_TESTS)
   target_link_libraries(test_job PRIVATE enh_core)
   target_include_directories(test_job PRIVATE core/src third_party/json/single_include)
   add_test(NAME job COMMAND test_job ${CMAKE_CURRENT_BINARY_DIR}/test-work-job)
+  foreach(t blocklist sentinel)
+    add_executable(test_${t} tests/test_${t}.cpp)
+    target_link_libraries(test_${t} PRIVATE enh_core)
+    add_test(NAME ${t} COMMAND test_${t})
+  endforeach()
 endif()

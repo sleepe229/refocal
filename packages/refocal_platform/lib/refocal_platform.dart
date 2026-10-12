@@ -1,7 +1,4 @@
-import 'refocal_platform_platform_interface.dart';
+/// Platform services (picker, gallery, app directories) over Pigeon.
+library;
 
-class RefocalPlatform {
-  Future<String?> getPlatformVersion() {
-    return RefocalPlatformPlatform.instance.getPlatformVersion();
-  }
-}
+export 'src/messages.g.dart' show AppDirs, PickedImage, RefocalPlatformApi;

@@ -54,9 +54,15 @@ int vulkan_device_count() {
 
 int vulkan_default_device() {
 #if NCNN_VULKAN
-  return vulkan_device_count() > 0 ? ncnn::get_default_gpu_index() : 0;
+  const int n = vulkan_device_count();
+  if (n == 0) return -1;
+  const int def = ncnn::get_default_gpu_index();
+  if (def >= 0 && def < n && ncnn::get_gpu_info(def).type() != 3) return def;
+  for (int i = 0; i < n; ++i)
+    if (ncnn::get_gpu_info(i).type() != 3) return i;
+  return -1;
 #else
-  return 0;
+  return -1;
 #endif
 }
 
