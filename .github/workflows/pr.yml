@@ -105,7 +105,7 @@ jobs:
         run: |
           chmod -R a+rwX .
           for flavor in fdroid play; do
-            docker run --rm -v "$PWD:/src" -w /src/app -e HOME=/tmp/h refocal-rebuilder:ci bash -euc "
+            docker run --rm -v "$PWD:/src" -w /src/app refocal-rebuilder:ci bash -euc "
               export PATH=/src/flutter/bin:\$PATH
               git config --global --add safe.directory '*'
               flutter --suppress-analytics config --no-analytics >/dev/null
