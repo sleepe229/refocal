@@ -10,7 +10,7 @@
 ## Решение
 
 - Декодирование: JPEG — libjpeg-turbo, PNG — libpng, WebP — libwebp. HEIC/AVIF — платформой (Android `AImageDecoder` API 30+, на 29 — JNI `ImageDecoder`; iOS ImageIO).
-- Кодирование JPEG/PNG/WebP — собственными библиотеками **полосами строк**.
+- Кодирование JPEG/PNG/WebP — собственными библиотеками **полосами строк**. Для JPEG `optimize_coding` выключен: двухпроходный Хаффман держит в памяти коэффициенты всего изображения (замер на 192 МП: пик RSS 903 → 419 МБ после отключения), выигрыш в размере ~5%.
 - HEIC — только платформенными энкодерами: iOS `CGImageDestination` с `CGDataProvider`, читающим BandStore; Android `androidx.heifwriter` в buffer-режиме с ограничением ≤ 50 МП.
 - Метаданные — собственный модуль `metaio` (EXIF APP1, XMP, ICC APP2; PNG eXIf/iTXt/iCCP; WebP через libwebpmux).
 

@@ -44,6 +44,9 @@ set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(NCNN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(NCNN_PYTHON OFF CACHE BOOL "" FORCE)
 set(NCNN_PIXEL_DRAWING OFF CACHE BOOL "" FORCE)
+# Size (APK budget 30 MB, 0.1): models run fp16/fp32 (S1/S3), no int8/bf16 kernels.
+set(NCNN_INT8 OFF CACHE BOOL "" FORCE)
+set(NCNN_BF16 OFF CACHE BOOL "" FORCE)
 # ncnn defaults to -fno-exceptions/-fno-rtti on Android/iOS and exports them PUBLIC; the core
 # uses exceptions internally (converted to enh_status at the ABI boundary).
 set(NCNN_DISABLE_EXCEPTION OFF CACHE BOOL "" FORCE)
@@ -150,7 +153,8 @@ target_link_libraries(enh PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,enh_core>")
 target_include_directories(enh PUBLIC include)
 if(ANDROID)
   # 16 KB page size (Android 15+ devices) and no shared libomp.so in the APK.
-  target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384" -static-openmp)
+  target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384" -static-openmp
+                     -Wl,--gc-sections -Wl,--icf=all)
 endif()
 
 # ---- refocal-cli (desktop: golden tests, perf, bug repro) ----

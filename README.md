@@ -6,7 +6,7 @@ Refocal is an open-source, cross-platform (Flutter, Android + iOS) AI photo enha
 upscaling, denoising and face restoration that run **entirely on the device** —
 no servers, no accounts, no telemetry.
 
-> Status: **pre-alpha / design phase.** The technical specification lives in
+> Status: **pre-alpha.** The Android 0.1 flow (pick → enhance → compare → save) works on an emulator; iOS is not started. The technical specification lives in
 > [`docs/spec/`](docs/spec/README.md) (in Russian). Current milestone: M0 spikes.
 
 ## Principles
@@ -40,6 +40,17 @@ flutter analyze app packages
 # native core + tests on the host
 cmake -S native -B native/build-host -DENH_BUILD_TESTS=ON && cmake --build native/build-host -j
 ctest --test-dir native/build-host
+
+# bundled model (weights are not in git; checked against tools/models/models.lock)
+tools/models/fetch.sh --from DIR
+
+# desktop CLI on the same core (golden runs, perf)
+cmake -S native -B native/build-host -DENH_BUILD_CLI=ON && cmake --build native/build-host -j
+native/build-host/refocal-cli run --models MODELS --work /tmp/jobs --input in.jpg --out out.jpg
+
+# end-to-end on a headless AOSP emulator (needs /dev/kvm), x86_64 profile APK
+docker build -t refocal-emulator:35 tools/emulator
+tools/emulator/e2e.sh app/build/app/outputs/flutter-apk/app-fdroid-profile.apk
 
 # Android release APK in the pinned toolchain (no Android SDK needed on the host)
 docker build -t refocal-rebuilder:s8 tools/rebuilder

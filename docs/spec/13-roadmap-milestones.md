@@ -36,6 +36,21 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 - отмена ≤ 1 тайла;
 - APK ≤ 30 МБ, IPA ≤ 40 МБ.
 
+**Статус (2026-10-12), Android-часть готова, проверена на десктопе и в эмуляторе:**
+
+| Пункт | Состояние |
+|---|---|
+| Пикер → compact 4×/2×/быстрый 2× → слайдер → сохранение JPEG (Android) | ✅ e2e на AOSP API 35 в эмуляторе (`tools/emulator/e2e.sh`): Photo Picker → результат в `Pictures/Refocal` |
+| Тайлинг + BandStore, resume, отмена/пауза, NEEDS_USER | ✅ `native/tests/test_job.cpp` (без весов, в CI) |
+| ncnn Vulkan/CPU + лестница отказов, crash sentinel, blocklist | ✅ Vulkan проверен на RTX 3060; sentinel/blocklist перенесены из S3 с тестами |
+| `refocal-cli` | ✅ `run`/`compare`/`probe`; golden на настоящей модели — только локально, в CI нужен хостинг весов |
+| Метаданные: ориентация | ✅ EXIF-ориентация применяется к пикселям; копирование EXIF и AI-маркер — 0.3 |
+| iOS, Core ML | ❌ нужен Mac (S4) |
+| Критерий: отмена ≤ 1 тайла | ✅ ~3 мс в тесте, ≤ 1 тайл по S6 |
+| Критерий: golden ≥ 35 дБ на обоих бэкендах | ✅ CPU vs Vulkan fp16 (RTX) 50.6 дБ; Core ML — нет |
+| Критерий: 12 МП ×2 без OOM на T1 | ⚠️ на десктопе пик 454 МБ (Vulkan) / 326 МБ (CPU, быстрый 2×); на устройствах — S2b |
+| Критерий: APK ≤ 30 МБ | ✅ ≈ 28.8 МБ (`libenh.so` 9.1 МБ без int8/bf16-ядер ncnn) |
+
 ## 0.2 — Alpha
 
 **Объём:** лица (YuNet + GFPGAN-пак с лицензией), strength/faceStrength/region; менеджер моделей (подписанный манифест, докачка, зеркала); тиры + бенчмарк; лестница отказов; Auto v1; уровни денойза.
