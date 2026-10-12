@@ -50,7 +50,9 @@ jobs:
           echo "$KS_B64" | base64 -d > app/android/release.jks
           printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" > app/android/key.properties
-          docker run --rm -v "$PWD:/src" -w /src/app refocal-rebuilder:release bash -euc '
+          # arm64 only (Q-03): x86_64 would be compiled and then stripped from the release APK.
+          docker run --rm -v "$PWD:/src" -e ORG_GRADLE_PROJECT_refocalAbis=arm64-v8a \
+            -w /src/app refocal-rebuilder:release bash -euc '
             export PATH=/src/flutter/bin:$PATH
             git config --global --add safe.directory "*"
             flutter --suppress-analytics config --no-analytics >/dev/null
