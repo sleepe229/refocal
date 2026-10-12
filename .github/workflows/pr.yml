@@ -96,6 +96,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive
+      - name: Bundled model (optional until the weights release exists)
+        run: |
+          tools/models/fetch.sh || echo "::warning::model not bundled, the APK will report it missing"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -118,8 +121,24 @@ jobs:
               flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64"
           done
           ls -l app/build/app/outputs/flutter-apk/
+      - name: Preview APK (throwaway CI key, for device checks only)
+        run: |
+          # Not a release: signed with a key generated per run, so it installs on a phone but
+          # cannot update (or be updated by) a real release — uninstall first.
+          mkdir -p preview && cp app/build/app/outputs/flutter-apk/app-fdroid-release.apk preview/unsigned.apk
+          docker run --rm -v "$PWD/preview:/p" refocal-rebuilder:ci bash -euc '
+            keytool -genkeypair -keystore /tmp/ci.jks -storepass preview -keypass preview -alias ci \
+              -keyalg RSA -keysize 2048 -validity 30 -dname CN=refocal-ci-preview >/dev/null 2>&1
+            apksigner sign --ks /tmp/ci.jks --ks-pass pass:preview --alignment-preserved \
+              --out /p/refocal-preview-${{ github.sha }}.apk /p/unsigned.apk'
+          rm preview/unsigned.apk preview/*.idsig 2>/dev/null || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apk-unsigned
           path: app/build/app/outputs/flutter-apk/*.apk
           retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apk-preview
+          path: preview/*.apk
+          retention-days: 14

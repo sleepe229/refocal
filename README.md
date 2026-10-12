@@ -57,6 +57,11 @@ docker build -t refocal-rebuilder:s8 tools/rebuilder
 tools/rebuilder/s8.sh            # two independent builds + diffoscope + signature copy
 ```
 
+## Releases
+
+Alpha builds are published as GitHub pre-releases by `.github/workflows/release.yml`; see
+[docs/ops/release.md](docs/ops/release.md) and [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 Code: [Apache-2.0](LICENSE). Some optional face-restoration models are distributed

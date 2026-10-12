@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/about/about_page.dart';
 import 'features/editor/editor_page.dart';
 import 'features/home/home_page.dart';
 
@@ -9,6 +10,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // NFR-MEM-006: bound the decoded image cache (T1 value; tiers come with the benchmark, 0.2).
   PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20;
+  registerNativeLicenses();
   runApp(const ProviderScope(child: RefocalApp()));
 }
 
@@ -19,6 +21,7 @@ final _router = GoRouter(
       path: '/editor',
       builder: (_, s) => EditorPage(input: s.extra! as String),
     ),
+    GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
   ],
 );
 

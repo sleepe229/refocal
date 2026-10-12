@@ -34,7 +34,16 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final engine = ref.watch(engineProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Refocal')),
+      appBar: AppBar(
+        title: const Text('Refocal'),
+        actions: [
+          IconButton(
+            tooltip: 'About',
+            onPressed: () => context.push('/about'),
+            icon: const Icon(Icons.info_outline),
+          ),
+        ],
+      ),
       body: Center(
         child: engine.when(
           loading: () => const CircularProgressIndicator(),
