@@ -13,6 +13,7 @@ namespace enh {
 namespace {
 
 int to_u8(float v) {
+  if (!std::isfinite(v)) return 0;  // counted as nonfinite; float->int of NaN is UB
   v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
   return int(v * 255.f + 0.5f);
 }

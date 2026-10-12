@@ -97,6 +97,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive
       - name: Bundled model (optional until the weights release exists)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           tools/models/fetch.sh || echo "::warning::model not bundled, the APK will report it missing"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

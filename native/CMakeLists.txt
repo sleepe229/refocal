@@ -51,8 +51,10 @@ set(NCNN_BF16 OFF CACHE BOOL "" FORCE)
 # uses exceptions internally (converted to enh_status at the ABI boundary).
 set(NCNN_DISABLE_EXCEPTION OFF CACHE BOOL "" FORCE)
 set(NCNN_DISABLE_RTTI OFF CACHE BOOL "" FORCE)
-if(ENH_SANITIZE STREQUAL "thread")
-  set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)  # OpenMP runtimes are not TSan-instrumented
+if(ENH_SANITIZE STREQUAL "thread" OR ENH_SANITIZE STREQUAL "address")
+  # OpenMP runtimes are not TSan-instrumented, and libomp's thread pool is never freed at exit
+  # (LeakSanitizer false positives). Sanitizer builds run ncnn single-threaded.
+  set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
 elseif(NOT ANDROID AND NOT IOS)
   find_package(OpenMP)
   if(NOT OpenMP_CXX_FOUND)

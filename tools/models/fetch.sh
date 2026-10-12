@@ -17,7 +17,17 @@ while read -r id file sha url; do
     [[ -f "$src" ]] || src="$FROM/sr_compact_dn050.${file#model.}"   # spikes/_shared/models layout
     cp "$src" "$dst.part"
   elif [[ "$url" != "-" ]]; then
-    curl -fsSL -o "$dst.part" "$url"
+    if ! curl -fsSL -o "$dst.part" "$url" 2>/dev/null; then
+      # Private repository: release assets need a token (GH_TOKEN in CI, or a logged-in gh).
+      if [[ "$url" =~ ^https://github.com/([^/]+/[^/]+)/releases/download/([^/]+)/(.+)$ ]] && command -v gh >/dev/null; then
+        rm -f "$dst.part"
+        gh release download "${BASH_REMATCH[2]}" --repo "${BASH_REMATCH[1]}" --pattern "${BASH_REMATCH[3]}" \
+          --output "$dst.part" --clobber
+      else
+        echo "download failed: $url" >&2
+        exit 1
+      fi
+    fi
   else
     echo "no source for $id/$file: pass --from DIR (no published URL yet)" >&2
     exit 1
