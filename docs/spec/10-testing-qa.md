@@ -113,6 +113,7 @@ Patrol (нативные диалоги: пикер, уведомления, sha
 | TEST-COMP-002 | PrivacyInfo.xcprivacy присутствует и валиден, объявлены нужные причины | Скрипт + Xcode privacy report |
 | TEST-COMP-003 | Сетевой эгресс: сценарии без действий пользователя дают 0 запросов (прокси mitmproxy в интеграционном тесте) | CI nightly |
 | TEST-COMP-004 | License check: зависимости Dart (`flutter pub deps` + лицензии), native-сабмодули, модели в бандле; fail на GPL/AGPL/LGPL (статика), отсутствие записи в MODELS.md, GMS/Firebase в любом флейворе | CI каждый PR |
+| TEST-COMP-005 | Воспроизводимость Android: две сборки `fdroid` с нуля в разных окружениях (путь, UID, TZ, локаль, umask, CPU, время) побайтово равны; подпись Gradle-сборки переносится на вторую (`apksigcopier` + `apksigner verify`) | CI nightly (`tools/rebuilder/s8.sh`) |
 
 ## 9. Доступность и БД
 

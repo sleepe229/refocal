@@ -15,9 +15,10 @@
 |---|---|---|---|
 | OPS-CI-001 | PR не сливается без зелёного `pr.yml` и ревью мейнтейнера | Must | R0.1 |
 | OPS-CI-002 | Кэш Gradle, CocoaPods, pub, ccache для native — время PR ≤ 25 мин (NFR-MNT-006) | Must | R0.1 |
-| OPS-CI-003 | Тулчейны закреплены: Flutter (сабмодуль + FVM), NDK, CMake, Xcode, Python `requirements.lock` | Must | R0.1 |
+| OPS-CI-003 | Тулчейны закреплены: Flutter (сабмодуль + FVM), NDK, CMake, Xcode, Python `requirements.lock`. Android-тулчейн (JDK, cmdline-tools, platform, build-tools, NDK, CMake) — в `tools/rebuilder/Dockerfile`, база по digest; `android`-джоба `pr.yml` собирает в этом образе | Must | R0.1 |
 | OPS-CI-004 | Ночные падения создают issue автоматически (label `nightly-failure`) | Should | R0.3 |
 | OPS-CI-005 | Size gate: рост APK > 500 КБ в PR требует пометки `size-approved` | Should | R0.2 |
+| OPS-CI-006 | Nightly-проверка воспроизводимости: `tools/rebuilder/s8.sh` (две сборки `fdroid` в разных окружениях + перенос подписи); расхождение → issue с отчётом diffoscope (TEST-COMP-005) | Should | R0.3 |
 
 ## 2. Версионирование
 
@@ -31,7 +32,7 @@
 | Платформа | Схема |
 |---|---|
 | Android (play, если Q-06) | Upload key в GitHub Environment `release` (base64 keystore + пароль), Play App Signing |
-| Android (GitHub/F-Droid) | Отдельный release key; при воспроизводимой сборке F-Droid публикует APK с этой подписью (COMP-FDR-004) |
+| Android (GitHub/F-Droid) | Отдельный release key; при воспроизводимой сборке F-Droid публикует APK с этой подписью (COMP-FDR-004). Подпись ставит Gradle `signingConfig` в `release.yml` (`key.properties` из секретов); после подписи APK не меняется. `apksigner sign` без `--alignment-preserved` ломает перенос подписи (S8) |
 | iOS (если Q-06) | Fastlane `match` (сертификаты в приватном зашифрованном репозитории) или App Store Connect API key; Environment `release` |
 | Манифест моделей | minisign, офлайн, 2 хранителя (SEC-SUP-005) |
 

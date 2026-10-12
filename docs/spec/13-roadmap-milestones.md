@@ -21,7 +21,7 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 | **S5** | Жизненный цикл фона: iOS 18/26 (пауза GPU, beginBackgroundTask), Android 14/15/16 (FGS mediaProcessing, onTimeout) | Подтверждение ADR-0019 | R5 |
 | **S6** | FFI: 10k событий/джоб, утечки, гонки, задержка отмены | Подтверждение ADR-0005/0006. **Статус: ADR-0005 изменён ([отчёт](../spikes/S6.md)): `NativeCallable.listener` → `Dart_PostCObject` в native port (listener роняет процесс при смерти изолята); 10k событий p99 ≤ 0.2 мс, 0 утечек, отмена ≤ 1 тайла; ADR-0006 подтверждён** | R6 |
 | **S7** | CompareViewer на пирамиде тайлов: 60 fps при зуме 48 МП на T1 | Прототип виджета | R7 |
-| **S8** | Воспроизводимая сборка F-Droid с native ncnn и Flutter-сабмодулем | Docker-rebuilder, отчёт diffoscope | R8 |
+| **S8** | Воспроизводимая сборка F-Droid с native ncnn и Flutter-сабмодулем | Docker-rebuilder, отчёт diffoscope. **Статус: GO ([отчёт](../spikes/S8.md)): две сборки в разных окружениях побайтово равны, подпись Gradle-сборки переносится `apksigcopier`; S8b — `fdroid build` по рецепту fdroiddata** | R8 |
 | **S9** (не код) | Юридический разбор лицензий GFPGAN/CodeFormer/FFHQ/DDColor, решение о хостинге NC-весов | Письменное заключение, Q-04 закрыт | R9 |
 
 **Критерии выхода M0:** все спайки с вердиктом; ADR обновлены; эталонная матрица (≥ 6 устройств) доступна; монорепо-скелет и `pr.yml` работают.

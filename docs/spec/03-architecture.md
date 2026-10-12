@@ -82,6 +82,7 @@
 │   ├── tests/  fuzz/
 │   └── CMakeLists.txt
 ├── tools/refocal-cli/
+├── tools/rebuilder/             # Docker: закреплённый Android-тулчейн, проверка воспроизводимости (S8)
 ├── ml/
 │   ├── convert/  quantize/  eval/  golden/  packs/
 │   ├── MODELS.md  requirements.lock
@@ -89,6 +90,7 @@
 ├── docs/spec/ ...
 ├── .github/workflows/ ISSUE_TEMPLATE/
 ├── flutter/                     # git-сабмодуль Flutter SDK (воспроизводимость)
+├── pubspec.yaml  analysis_options.yaml   # pub workspace: app + packages, общий pubspec.lock
 └── LICENSE NOTICE CHANGELOG.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md PRIVACY.md MODELS.md
 ```
 
@@ -322,6 +324,8 @@ sequenceDiagram
 |---|---|
 | Android `play` | Метаданные и подпись для Google Play (если публикуется, Q-06) |
 | Android `fdroid` | Без `ModuleDependencies` GMS в манифесте, воспроизводимая сборка |
+
+Общее для Android: ABI arm64-v8a (+ x86_64 вне release, для эмулятора и CI; Q-03). `disable-abi-filtering=true` нужен, иначе Flutter Gradle plugin подменяет список ABI. В release выключен `vcsInfo`: AGP иначе пишет git-ревизию в APK (S8).
 | iOS | Один таргет + Share Extension |
 
 INTERNET-разрешение присутствует во всех флейворах (скачивание паков), но сетевые вызовы — только по действию пользователя (ADR-0020).
