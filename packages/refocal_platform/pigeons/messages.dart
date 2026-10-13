@@ -44,4 +44,29 @@ abstract class RefocalPlatformApi {
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   @async
   String saveToGallery(String path, String displayName, String mimeType);
+
+  /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
+  /// granted or not needed. Processing works either way; only the notification is hidden.
+  @async
+  bool requestNotificationPermission();
+
+  /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
+  /// Android foreground service with a progress notification and Pause/Cancel actions.
+  /// Must be called while the app is in the foreground (a user action).
+  void startProcessing(String title);
+
+  /// [percent] 0..100, or -1 for indeterminate.
+  void updateProcessing(String text, int percent);
+
+  /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
+  /// app is not in the foreground (e.g. "Photo ready").
+  void stopProcessing(String? finishedText);
+}
+
+/// Calls from the platform into Dart.
+@FlutterApi()
+abstract class RefocalPlatformEvents {
+  /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
+  /// pause and checkpoint now, the user continues later).
+  void onProcessingAction(String action);
 }

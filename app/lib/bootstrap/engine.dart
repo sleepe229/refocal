@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
+import 'job_store.dart';
+
 /// Model bundled with the app (04-ml-models: sr.general-x4v3, denoise 0.5). The weights are not
 /// in git; tools/models/fetch.sh puts them into assets/models before a build.
 const bundledSrModel = 'sr.general-x4v3';
@@ -18,13 +20,18 @@ final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiPr
 class Engine {
   Engine(this.native, this.session, this.dirs, this.modelReady);
 
+  static JobStore _store(AppDirs d) =>
+      JobStore(jobsDir: '${d.support}/jobs', inboxDir: '${d.support}/inbox');
+
   final RefocalNative native;
   final RefocalSession session;
   final AppDirs dirs;
   final bool modelReady;
 
   String get inboxDir => '${dirs.support}/inbox';
+  String get jobsDir => '${dirs.support}/jobs';
   String get exportDir => '${dirs.cache}/export';
+  JobStore get jobs => JobStore(jobsDir: jobsDir, inboxDir: inboxDir);
 }
 
 /// Opens the native core once per process and installs the bundled model on first run.
@@ -33,6 +40,11 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final models = '${dirs.support}/models';
   final ready = await _installBundledModel(models);
   final native = RefocalNative.open();
+  try {
+    Engine._store(dirs).sweep(); // once per process: no screen holds an input yet
+  } on FileSystemException {
+    // cleanup is best effort
+  }
   final session = native.openSession(
     modelsDir: models,
     workDir: '${dirs.support}/jobs',
@@ -63,3 +75,9 @@ Future<bool> _installBundledModel(String modelsDir) async {
     return false; // asset missing: built without tools/models/fetch.sh
   }
 }
+
+/// Unfinished and unsaved jobs for the home screen; invalidate after a change.
+final jobListProvider = FutureProvider<List<JobEntry>>((ref) async {
+  final engine = await ref.watch(engineProvider.future);
+  return engine.jobs.list();
+});

@@ -1,3 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="io.github.refocal.refocal_platform">
+    <!-- Background processing (ADR-0019): foreground service + its notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <application>
+        <!-- mediaProcessing: Android 15+; dataSync: Android 10-14 (no mediaProcessing there). -->
+        <service
+            android:name=".ProcessingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProcessing|dataSync" />
+    </application>
 </manifest>

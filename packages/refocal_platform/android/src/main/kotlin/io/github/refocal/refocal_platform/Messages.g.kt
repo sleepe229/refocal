@@ -23,6 +23,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 private object MessagesPigeonUtils {
 
+  fun createConnectionError(channelName: String): FlutterError {
+    return FlutterError("channel-error",  "Unable to establish connection on channel: '$channelName'.", "")  }
+
   fun wrapResult(result: Any?): List<Any?> {
     return listOf(result)
   }
@@ -335,6 +338,24 @@ interface RefocalPlatformApi {
   suspend fun pickImage(inboxDir: String): PickedImage?
   /** Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI. */
   suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String
+  /**
+   * Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
+   * granted or not needed. Processing works either way; only the notification is hidden.
+   */
+  suspend fun requestNotificationPermission(): Boolean
+  /**
+   * Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
+   * Android foreground service with a progress notification and Pause/Cancel actions.
+   * Must be called while the app is in the foreground (a user action).
+   */
+  fun startProcessing(title: String)
+  /** [percent] 0..100, or -1 for indeterminate. */
+  fun updateProcessing(text: String, percent: Long)
+  /**
+   * Stops the service. A non-null [finishedText] is left as a tappable notification when the
+   * app is not in the foreground (e.g. "Photo ready").
+   */
+  fun stopProcessing(finishedText: String?)
 
   companion object {
     /** The codec used by RefocalPlatformApi. */
@@ -414,6 +435,114 @@ interface RefocalPlatformApi {
         } else {
           channel.setMessageHandler(null)
         }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.requestNotificationPermission$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.requestNotificationPermission())
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.startProcessing$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val titleArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.startProcessing(titleArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.updateProcessing$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val textArg = args[0] as String
+            val percentArg = args[1] as Long
+            val wrapped: List<Any?> = try {
+              api.updateProcessing(textArg, percentArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val finishedTextArg = args[0] as String?
+            val wrapped: List<Any?> = try {
+              api.stopProcessing(finishedTextArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+    }
+  }
+}
+/**
+ * Calls from the platform into Dart.
+ *
+ * Generated class from Pigeon that represents Flutter messages that can be called from Kotlin.
+ */
+class RefocalPlatformEvents(private val binaryMessenger: BinaryMessenger, private val messageChannelSuffix: String = "") {
+  companion object {
+    /** The codec used by RefocalPlatformEvents. */
+    val codec: MessageCodec<Any?> by lazy {
+      MessagesPigeonCodec()
+    }
+  }
+  /**
+   * A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
+   * pause and checkpoint now, the user continues later).
+   */
+  suspend fun onProcessingAction(actionArg: String)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(actionArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        } 
       }
     }
   }

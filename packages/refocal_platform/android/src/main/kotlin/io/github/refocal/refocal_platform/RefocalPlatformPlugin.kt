@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.github.refocal.refocal_platform
 
+import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.ext.SdkExtensions
@@ -19,7 +23,10 @@ import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -27,23 +34,34 @@ import kotlinx.coroutines.withContext
  * the system photo picker (ACTION_PICK_IMAGES) where available, else the document picker.
  */
 class RefocalPlatformPlugin :
-    FlutterPlugin, ActivityAware, RefocalPlatformApi, PluginRegistry.ActivityResultListener {
+    FlutterPlugin,
+    ActivityAware,
+    RefocalPlatformApi,
+    PluginRegistry.ActivityResultListener,
+    PluginRegistry.RequestPermissionsResultListener {
   private lateinit var context: Context
   private var binding: ActivityPluginBinding? = null
   private var pending: CompletableDeferred<Uri?>? = null
+  private var pendingPermission: CompletableDeferred<Boolean>? = null
+  private var events: RefocalPlatformEvents? = null
 
   override fun onAttachedToEngine(b: FlutterPlugin.FlutterPluginBinding) {
     context = b.applicationContext
     RefocalPlatformApi.setUp(b.binaryMessenger, this)
+    events = RefocalPlatformEvents(b.binaryMessenger)
+    instance = this
   }
 
   override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
     RefocalPlatformApi.setUp(b.binaryMessenger, null)
+    events = null
+    if (instance === this) instance = null
   }
 
   override fun onAttachedToActivity(b: ActivityPluginBinding) {
     binding = b
     b.addActivityResultListener(this)
+    b.addRequestPermissionsResultListener(this)
   }
 
   override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
@@ -52,6 +70,7 @@ class RefocalPlatformPlugin :
 
   override fun onDetachedFromActivity() {
     binding?.removeActivityResultListener(this)
+    binding?.removeRequestPermissionsResultListener(this)
     binding = null
   }
 
@@ -102,6 +121,39 @@ class RefocalPlatformPlugin :
     }
   }
 
+  override suspend fun requestNotificationPermission(): Boolean {
+    if (Build.VERSION.SDK_INT < 33) return true
+    if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+      return true
+    }
+    val activity = binding?.activity ?: return false
+    if (pendingPermission != null) return false
+    val d = CompletableDeferred<Boolean>()
+    pendingPermission = d
+    activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+    return d.await()
+  }
+
+  override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray): Boolean {
+    if (code != REQUEST_NOTIFICATIONS) return false
+    val d = pendingPermission ?: return true
+    pendingPermission = null
+    d.complete(results.isNotEmpty() && results[0] == PackageManager.PERMISSION_GRANTED)
+    return true
+  }
+
+  override fun startProcessing(title: String) = ProcessingService.start(context, title)
+
+  override fun updateProcessing(text: String, percent: Long) =
+      ProcessingService.update(context, text, percent.toInt())
+
+  override fun stopProcessing(finishedText: String?) {
+    val state = ActivityManager.RunningAppProcessInfo()
+    ActivityManager.getMyMemoryState(state)
+    val foreground = state.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    ProcessingService.stop(context, finishedText, foreground)
+  }
+
   private fun copyToInbox(uri: Uri, inbox: File): PickedImage {
     val cr = context.contentResolver
     var name: String? = null
@@ -115,6 +167,7 @@ class RefocalPlatformPlugin :
       "image/png" -> "png"
       "image/heic", "image/heif" -> "heic"
       "image/webp" -> "webp"
+      "image/avif" -> "avif"
       else -> "img"
     }
     val dst = File(inbox, "in-${System.currentTimeMillis()}.$ext")
@@ -123,7 +176,28 @@ class RefocalPlatformPlugin :
       tmp.outputStream().use { input.copyTo(it, 1 shl 16) }
     }
     if (!tmp.renameTo(dst)) throw IOException("rename failed")
+    if (Build.VERSION.SDK_INT < 30 && ext == "heic") return heicToPng(dst, name)
     return PickedImage(path = dst.absolutePath, sizeBytes = dst.length(), displayName = name, mimeType = mime)
+  }
+
+  /**
+   * Android 10 has no AImageDecoder for the core (ADR-0003): decode HEIC here (orientation and
+   * color handled by the platform) and hand the core a lossless PNG. EXIF is not carried.
+   */
+  private fun heicToPng(src: File, name: String?): PickedImage {
+    val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(src)) { d, _, _ ->
+      d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+    }
+    val png = File(src.parentFile, src.nameWithoutExtension + ".png")
+    val tmp = File(png.path + ".part")
+    try {
+      tmp.outputStream().use { if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, it)) throw IOException("PNG encode failed") }
+    } finally {
+      bmp.recycle()
+    }
+    if (!tmp.renameTo(png)) throw IOException("rename failed")
+    src.delete()
+    return PickedImage(path = png.absolutePath, sizeBytes = png.length(), displayName = name, mimeType = "image/png")
   }
 
   override suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String =
@@ -152,7 +226,21 @@ class RefocalPlatformPlugin :
         uri.toString()
       }
 
-  private companion object {
-    const val REQUEST_PICK = 0x5EF0
+  companion object {
+    private const val REQUEST_PICK = 0x5EF0
+    private const val REQUEST_NOTIFICATIONS = 0x5EF1
+    private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    @Volatile private var instance: RefocalPlatformPlugin? = null
+
+    /** From [ProcessingService] (notification actions, FGS timeout) to Dart. */
+    fun dispatchAction(action: String) {
+      main.launch {
+        try {
+          instance?.events?.onProcessingAction(action)
+        } catch (_: Exception) {
+          // Dart side gone: nothing is running to pause or cancel.
+        }
+      }
+    }
   }
 }

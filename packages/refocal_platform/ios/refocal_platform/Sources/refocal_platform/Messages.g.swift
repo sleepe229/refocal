@@ -57,6 +57,10 @@ private func wrapError(_ error: Any) -> [Any?] {
   ]
 }
 
+private func createConnectionError(withChannelName channelName: String) -> PigeonError {
+  return PigeonError(code: "channel-error", message: "Unable to establish connection on channel: '\(channelName)'.", details: "")
+}
+
 enum MessagesPigeonInternal {
   static func isNullish(_ value: Any?) -> Bool {
     guard let innerValue = value else {
@@ -330,6 +334,18 @@ protocol RefocalPlatformApi {
   func pickImage(inboxDir: String) async throws -> PickedImage?
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   func saveToGallery(path: String, displayName: String, mimeType: String) async throws -> String
+  /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
+  /// granted or not needed. Processing works either way; only the notification is hidden.
+  func requestNotificationPermission() async throws -> Bool
+  /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
+  /// Android foreground service with a progress notification and Pause/Cancel actions.
+  /// Must be called while the app is in the foreground (a user action).
+  func startProcessing(title: String) throws
+  /// [percent] 0..100, or -1 for indeterminate.
+  func updateProcessing(text: String, percent: Int64) throws
+  /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
+  /// app is not in the foreground (e.g. "Photo ready").
+  func stopProcessing(finishedText: String?) throws
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -403,6 +419,117 @@ class RefocalPlatformApiSetup {
       }
     } else {
       saveToGalleryChannel.setMessageHandler(nil)
+    }
+    /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
+    /// granted or not needed. Processing works either way; only the notification is hidden.
+    let requestNotificationPermissionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.requestNotificationPermission\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      requestNotificationPermissionChannel.setMessageHandler { _, reply in
+        Task { @MainActor in
+          do {
+            let result = try await api.requestNotificationPermission()
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      requestNotificationPermissionChannel.setMessageHandler(nil)
+    }
+    /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
+    /// Android foreground service with a progress notification and Pause/Cancel actions.
+    /// Must be called while the app is in the foreground (a user action).
+    let startProcessingChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.startProcessing\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      startProcessingChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let titleArg = args[0] as! String
+        do {
+          try api.startProcessing(title: titleArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      startProcessingChannel.setMessageHandler(nil)
+    }
+    /// [percent] 0..100, or -1 for indeterminate.
+    let updateProcessingChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.updateProcessing\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      updateProcessingChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let textArg = args[0] as! String
+        let percentArg = args[1] as! Int64
+        do {
+          try api.updateProcessing(text: textArg, percent: percentArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      updateProcessingChannel.setMessageHandler(nil)
+    }
+    /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
+    /// app is not in the foreground (e.g. "Photo ready").
+    let stopProcessingChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      stopProcessingChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let finishedTextArg: String? = nilOrValue(args[0])
+        do {
+          try api.stopProcessing(finishedText: finishedTextArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      stopProcessingChannel.setMessageHandler(nil)
+    }
+  }
+}
+
+/// Calls from the platform into Dart.
+///
+/// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
+protocol RefocalPlatformEventsProtocol {
+  /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
+  /// pause and checkpoint now, the user continues later).
+  @MainActor func onProcessingAction(action actionArg: String) async throws
+}
+class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
+  private let binaryMessenger: FlutterBinaryMessenger
+  private let messageChannelSuffix: String
+  init(binaryMessenger: FlutterBinaryMessenger, messageChannelSuffix: String = "") {
+    self.binaryMessenger = binaryMessenger
+    self.messageChannelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
+  }
+  var codec: MessagesPigeonCodec {
+    return MessagesPigeonCodec.shared
+  }
+  /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
+  /// pause and checkpoint now, the user continues later).
+  @MainActor func onProcessingAction(action actionArg: String) async throws {
+    return try await withCheckedThrowingContinuation { continuation in
+      let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction\(messageChannelSuffix)"
+      let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+      channel.sendMessage([actionArg] as [Any?]) { response in
+        guard let listResponse = response as? [Any?] else {
+          continuation.resume(throwing: createConnectionError(withChannelName: channelName))
+          return
+        }
+        if listResponse.count > 1 {
+          let code: String = listResponse[0] as! String
+          let message: String? = nilOrValue(listResponse[1])
+          let details: String? = nilOrValue(listResponse[2])
+          continuation.resume(throwing: PigeonError(code: code, message: message, details: details))
+        } else {
+          continuation.resume()
+        }
+      }
     }
   }
 }

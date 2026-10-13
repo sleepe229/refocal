@@ -196,13 +196,27 @@ class RefocalSession {
   }
 
   /// Streams the job's BandStore into a JPEG at [dst] on a helper isolate (can take seconds).
-  Future<Map<String, Object?>> export(String jobDir, String dst, {int quality = 92}) async {
+  ///
+  /// Metadata (ADR-0018): the source EXIF is carried without GPS unless [keepGps] and without
+  /// it at all unless [exif]; [aiMarker] writes the XMP DigitalSourceType marker.
+  Future<Map<String, Object?>> export(
+    String jobDir,
+    String dst, {
+    int quality = 92,
+    bool exif = true,
+    bool keepGps = false,
+    bool aiMarker = true,
+  }) async {
     final libPath = _native._libPath;
     final sessionAddr = _ptr.address;
     final json = await Isolate.run(() {
       final b = EnhBindings(RefocalNative._open(libPath));
       final dir = jobDir.toNativeUtf8();
-      final opt = jsonEncode({'format': 'jpeg', 'quality': quality}).toNativeUtf8();
+      final opt = jsonEncode({
+        'format': 'jpeg',
+        'quality': quality,
+        'metadata': {'exif': exif, 'gps': keepGps, 'ai_marker': aiMarker},
+      }).toNativeUtf8();
       final d = dst.toNativeUtf8();
       final out = calloc<Pointer<Char>>();
       try {

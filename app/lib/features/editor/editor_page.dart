@@ -8,9 +8,21 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import '../../ui_kit/compare_slider.dart';
 import 'enhance_controller.dart';
 
-class EditorPage extends ConsumerStatefulWidget {
-  const EditorPage({super.key, required this.input});
+/// What the editor opens: a new photo, or a job from the home screen list.
+class EditorArgs {
+  const EditorArgs(this.input, {this.jobDir, this.finished = false});
   final String input;
+
+  /// Set: continue this job (paused/interrupted) or show its result ([finished]).
+  final String? jobDir;
+  final bool finished;
+}
+
+class EditorPage extends ConsumerStatefulWidget {
+  const EditorPage({super.key, required this.args});
+  final EditorArgs args;
+
+  String get input => args.input;
 
   @override
   ConsumerState<EditorPage> createState() => _EditorPageState();
@@ -24,20 +36,33 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   void initState() {
     super.initState();
     _readSize();
+    final dir = widget.args.jobDir;
+    if (dir != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final ctl = ref.read(enhanceProvider.notifier);
+        widget.args.finished ? ctl.open(dir, widget.input) : ctl.resume(dir, widget.input);
+      });
+    }
   }
 
   Future<void> _readSize() async {
     // Header only: dimensions without decoding the pixels.
-    final buf = await ui.ImmutableBuffer.fromFilePath(widget.input);
-    final desc = await ui.ImageDescriptor.encoded(buf);
-    if (!mounted) return;
-    final mp = desc.width * desc.height / 1e6;
-    setState(() {
-      _size = ui.Size(desc.width.toDouble(), desc.height.toDouble());
-      _choice ??= mp >= 8 ? ScaleChoice.fast2 : ScaleChoice.x4; // ADR-0014
-    });
-    desc.dispose();
-    buf.dispose();
+    try {
+      final buf = await ui.ImmutableBuffer.fromFilePath(widget.input);
+      final desc = await ui.ImageDescriptor.encoded(buf);
+      if (!mounted) return;
+      final mp = desc.width * desc.height / 1e6;
+      setState(() {
+        _size = ui.Size(desc.width.toDouble(), desc.height.toDouble());
+        _choice ??= mp >= 8 ? ScaleChoice.fast2 : ScaleChoice.x4; // ADR-0014
+      });
+      desc.dispose();
+      buf.dispose();
+    } on Object {
+      // Flutter cannot decode every input the core can (e.g. AVIF on older Android).
+      if (mounted) setState(() => _choice ??= ScaleChoice.fast2);
+    }
   }
 
   @override
@@ -67,13 +92,21 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               ),
               _ => ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image(image: original, fit: BoxFit.contain),
+                child: Image(
+                  image: original,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox(
+                    height: 200,
+                    child: Center(child: Icon(Icons.image_outlined, size: 64)),
+                  ),
+                ),
               ),
             },
             const SizedBox(height: 16),
             switch (state) {
               Idle() || AskUser() => _controls(ctl),
               Running() => _progress(state, ctl),
+              Paused() => _paused(state, ctl),
               Finished() => _finished(state, ctl),
               Failed() => _failed(state, ctl),
             },
@@ -135,7 +168,52 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         if (s.note != null)
           Text(s.note!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 16),
-        OutlinedButton(onPressed: ctl.cancel, child: const Text('Cancel')),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: s.stage == JobStage.upscale ? ctl.pause : null,
+                child: const Text('Pause'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(onPressed: ctl.cancel, child: const Text('Cancel')),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'You can leave the app: processing continues in the background.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _paused(Paused s, EnhanceController ctl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LinearProgressIndicator(value: s.progress),
+        const SizedBox(height: 8),
+        Text(
+          s.byTimeout
+              ? 'Paused: Android limits background work. Continue when you are ready.'
+              : 'Paused at ${(s.progress * 100).round()}%.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: () => ctl.resume(s.jobDir, widget.input),
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('Continue'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Text('Continue later'),
+        ),
       ],
     );
   }
@@ -177,7 +255,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       EnhStatus.cancelled => 'Cancelled.',
       EnhStatus.paused => 'Paused.',
       EnhStatus.diskFull => 'Not enough free storage for this size.',
-      EnhStatus.invalid => 'This photo format is not supported yet (JPEG only).',
+      EnhStatus.invalid =>
+        'This photo could not be read: the format is not supported or the file is damaged.',
+      EnhStatus.limit => 'This photo is too large (the limit is 30000 px per side and 200 MP).',
       EnhStatus.oom => 'Not enough memory. Try Fast 2×.',
       _ => 'Something went wrong (${s.status.name}).',
     };
