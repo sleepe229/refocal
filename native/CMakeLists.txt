@@ -2,7 +2,7 @@
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
 cmake_minimum_required(VERSION 3.24)
-project(refocal_native VERSION 0.0.1 LANGUAGES C CXX)
+project(refocal_native VERSION 0.0.2 LANGUAGES C CXX)
 find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -126,14 +126,34 @@ set_target_properties(jpeg_static PROPERTIES IMPORTED_LOCATION ${JPEG_LIB}
   INTERFACE_INCLUDE_DIRECTORIES ${JPEG_PREFIX}/include)
 add_dependencies(jpeg_static libjpeg_turbo_ext)
 
+# ---- libpng, libwebp (git submodules; libpng license, BSD-3) ----
+# zlib is the platform's (NDK, iOS SDK, host): not bundled.
+find_package(ZLIB REQUIRED)
+set(PNG_SHARED OFF CACHE BOOL "" FORCE)
+set(PNG_STATIC ON CACHE BOOL "" FORCE)
+set(PNG_TESTS OFF CACHE BOOL "" FORCE)
+set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
+set(PNG_FRAMEWORK OFF CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL)
+# Decoder + demux only: WebP export is 0.3 (FR-EXP-001).
+foreach(o ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO LIBWEBPMUX WEBPMUX EXTRAS)
+  set(WEBP_BUILD_${o} OFF CACHE BOOL "" FORCE)
+endforeach()
+add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
+
 # ---- libenh ----
 set(ENH_SOURCES
   core/src/enh.cpp
   core/src/probe.cpp
   core/src/util/fs.cpp
   core/src/util/log.cpp
+  core/src/image/decode.cpp
   core/src/image/jpeg.cpp
-  core/src/image/exif.cpp
+  core/src/image/png.cpp
+  core/src/image/platform_decode.cpp
+  core/src/image/webp.cpp
+  core/src/image/metaio.cpp
   core/src/image/ops.cpp
   core/src/pipeline/bandstore.cpp
   core/src/pipeline/geometry.cpp
@@ -154,7 +174,8 @@ list(APPEND ENH_SOURCES ${DART_DL_DIR}/dart_api_dl.c)
 add_library(enh_core STATIC ${ENH_SOURCES})
 target_include_directories(enh_core PUBLIC include core/src
   PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include)
-target_link_libraries(enh_core PUBLIC ncnn jpeg_static Threads::Threads)
+target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux ZLIB::ZLIB
+  Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
 target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
 target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${PROJECT_VERSION}")
@@ -196,6 +217,9 @@ if(ENH_BUILD_TESTS)
   target_link_libraries(test_job PRIVATE enh_core)
   target_include_directories(test_job PRIVATE core/src third_party/json/single_include)
   add_test(NAME job COMMAND test_job ${CMAKE_CURRENT_BINARY_DIR}/test-work-job)
+  add_executable(test_codecs tests/test_codecs.cpp)
+  target_link_libraries(test_codecs PRIVATE enh_core)
+  add_test(NAME codecs COMMAND test_codecs ${CMAKE_CURRENT_BINARY_DIR}/test-work-codecs)
   foreach(t blocklist sentinel)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)

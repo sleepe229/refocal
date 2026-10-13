@@ -2,7 +2,8 @@
 # Dart format/analyze/tests, ABI header sync, native tests with sanitizers (incl. TSan with a
 # self-check), Android APK builds (play, fdroid) in the same pinned image as the S8 rebuilder.
 # Native: test_abi, test_pipeline, test_job (end-to-end job ABI on synthetic ncnn models:
-# exact nearest x4, tiled == whole, cancel, pause/resume, NEEDS_USER, fallback ladder).
+# exact nearest x4, tiled == whole, cancel, pause/resume, NEEDS_USER, fallback ladder, PNG
+# input, export metadata), test_codecs (PNG/WebP, metaio EXIF rewrite + mutation fuzz).
 # TODO(0.1): clang-format/clang-tidy, fuzzing, refocal-cli golden on the real compact model
 # (needs model hosting), license check, size gate,
 # iOS build without signing (needs enh.xcframework, see packages/refocal_ffi/ios).

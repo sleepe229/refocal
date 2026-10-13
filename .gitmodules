@@ -11,3 +11,9 @@
 	path = native/third_party/json
 	url = https://github.com/nlohmann/json.git
 	shallow = true
+[submodule "native/third_party/libpng"]
+	path = native/third_party/libpng
+	url = https://github.com/pnggroup/libpng.git
+[submodule "native/third_party/libwebp"]
+	path = native/third_party/libwebp
+	url = https://github.com/webmproject/libwebp.git

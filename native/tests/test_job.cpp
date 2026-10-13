@@ -16,9 +16,12 @@
 #include <vector>
 
 #include <nlohmann/json.hpp>
+#include <png.h>
 
 #include "enh.h"
+#include "image/decode.hpp"
 #include "image/jpeg.hpp"
+#include "image/metaio.hpp"
 #include "image/ops.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -286,6 +289,107 @@ static void test_export(Session& se) {
                    nullptr) == ENH_E_INVALID);
 }
 
+// PNG input runs through the same pipeline (alpha is composited onto white).
+static void test_png_input(Session& se) {
+  const int w = 90, h = 70;
+  Rgb8 src = texture(w, h);
+  std::vector<uint8_t> rgba(size_t(w) * h * 4);
+  for (int i = 0; i < w * h; ++i) {
+    std::memcpy(&rgba[i * 4], &src.px[i * 3], 3);
+    rgba[i * 4 + 3] = 255;
+  }
+  rgba[3] = 0;  // one transparent pixel
+  std::string in = fs::join(g_root, "in.png");
+  png_image im{};
+  im.version = PNG_IMAGE_VERSION;
+  im.width = w;
+  im.height = h;
+  im.format = PNG_FORMAT_RGBA;
+  CHECK(png_image_write_to_file(&im, in.c_str(), 0, rgba.data(), 0, nullptr));
+  Collector c;
+  json q = req("png1", in, "nearest4");
+  q["scale"] = 1;
+  RunResult rr = run_job(se, q, c);
+  CHECK(rr.status == ENH_OK);
+  CHECK(rr.payload["input"]["format"] == "png");
+  bool warned = false;
+  for (auto& e : c.evs) warned |= e.type == ENH_EV_WARNING && e.payload.value("code", "") == "alpha_flattened";
+  CHECK(warned);
+  Rgb8 out = read_output(fs::join(g_work, "png1"));
+  src.px[0] = src.px[1] = src.px[2] = 255;
+  CHECK(out.w == w && out.h == h && out.px == src.px);
+}
+
+// EXIF (orientation 6, Make, GPS) + ICC in the input -> the export carries them per policy.
+static void test_export_metadata(Session& se) {
+  const uint8_t tiff[] = {'I', 'I', 42, 0, 8, 0, 0, 0,
+                          3, 0,                                                // IFD0: 3 entries
+                          0x0F, 0x01, 2, 0, 4, 0, 0, 0, 'C', 'a', 'm', 0,      // Make "Cam"
+                          0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0,            // Orientation 6
+                          0x25, 0x88, 4, 0, 1, 0, 0, 0, 50, 0, 0, 0,           // GPS IFD at 50
+                          0, 0, 0, 0,                                          // no IFD1
+                          1, 0,                                                // GPS: 1 entry
+                          0, 0, 1, 0, 4, 0, 0, 0, 2, 3, 0, 0,                  // GPSVersionID
+                          0, 0, 0, 0};
+  JpegMeta in_meta;
+  in_meta.exif.assign(tiff, tiff + sizeof tiff);
+  in_meta.icc.assign(600, 0);
+  for (size_t i = 0; i < in_meta.icc.size(); ++i) in_meta.icc[i] = uint8_t(i * 7);
+  std::string in = fs::join(g_root, "meta_in.jpg");
+  {
+    Rgb8 t = texture(64, 40);
+    JpegWriter wr(in, t.w, t.h, 95, &in_meta);
+    wr.write_rows(t.px.data(), t.h);
+    wr.finish();
+  }
+  Collector c;
+  json q = req("md", in, "nearest4");
+  q["scale"] = 2;
+  CHECK(run_job(se, q, c).status == ENH_OK);
+  const std::string job = fs::join(g_work, "md"), dst = fs::join(g_root, "md.jpg");
+
+  auto exported = [&](const char* opts, SourceMeta& m) {
+    char* out = nullptr;
+    enh_status st = enh_export(se.s, job.c_str(), opts, dst.c_str(), &out);
+    json r = out ? json::parse(out) : json();
+    enh_free(out);
+    if (st == ENH_OK) jpeg_decode(dst, nullptr, &m);
+    return std::pair{st, r};
+  };
+  auto has_xmp = [&] {
+    auto b = fs::read_all(dst);
+    const std::string needle = kDigitalSourceType;
+    return std::search(b.begin(), b.end(), needle.begin(), needle.end()) != b.end();
+  };
+  {
+    SourceMeta m;
+    auto [st, r] = exported("{\"format\":\"jpeg\"}", m);
+    CHECK(st == ENH_OK);
+    CHECK(r["metadata"]["exif"] == true && r["metadata"]["icc"] == true && r["metadata"]["ai_marker"] == true);
+    CHECK(tiff_orientation(m.exif.data(), m.exif.size()) == 1);  // baked: result is 80x128
+    CHECK(exif_get(m.exif, kExifIfd, 0xA002) == 80 && exif_get(m.exif, kExifIfd, 0xA003) == 128);
+    CHECK(exif_get(m.exif, kIfd0, 0x010F) == 4);
+    CHECK(exif_get(m.exif, kGpsIfd, 0) == -1);
+    CHECK(m.icc == in_meta.icc);
+    CHECK(has_xmp());
+  }
+  {
+    SourceMeta m;
+    auto [st, r] = exported("{\"metadata\":{\"gps\":true,\"ai_marker\":false}}", m);
+    CHECK(st == ENH_OK && exif_get(m.exif, kGpsIfd, 0) >= 0 && !has_xmp());
+  }
+  {
+    SourceMeta m;
+    auto [st, r] = exported("{\"metadata\":{\"exif\":false}}", m);
+    CHECK(st == ENH_OK && m.exif.empty() && m.icc == in_meta.icc);
+  }
+  {
+    SourceMeta m;
+    CHECK(exported("{\"metadata\":{\"gps\":\"yes\"}}", m).first == ENH_E_INVALID);
+    CHECK(exported("{\"metadata\":[]}", m).first == ENH_E_INVALID);
+  }
+}
+
 // A slower job: bilinear on a larger image with small tiles.
 static json slow_req(const std::string& id, const std::string& in) {
   json q = req(id, in, "bilinear4");
@@ -431,6 +535,8 @@ int main(int argc, char** argv) {
     test_tiled_equals_whole(se);
     test_orientation(se);
     test_export(se);
+    test_png_input(se);
+    test_export_metadata(se);
     std::string slow = make_jpeg("slow.jpg", 640, 480);
     test_cancel(se, slow);
     test_pause_resume(se, slow);

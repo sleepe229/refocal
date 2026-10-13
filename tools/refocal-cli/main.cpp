@@ -2,10 +2,12 @@
 // Uses the public C ABI for jobs (same path as the app) and core internals only for compare.
 //
 //   refocal-cli probe
-//   refocal-cli run --models DIR --work DIR --input IN.jpg --out OUT.jpg [--model ID] [--scale 4|2|1]
+//   refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg [--model ID] [--scale 4|2|1]
 //                   [--fast2] [--tile N] [--backend auto|cpu|vulkan] [--threads N] [--quality Q]
 //                   [--job-id ID] [--resume] [--json] [--cache DIR] [--tier T0|T1|T2]
-//   refocal-cli compare A.jpg B.jpg [--min-psnr DB]   (exit 1 if below)
+//                   [--no-exif] [--keep-gps] [--no-ai-marker]
+//   refocal-cli compare A B [--min-psnr DB]   (exit 1 if below)
+// IN, A, B: JPEG, PNG or WebP (HEIC/AVIF need the platform decoder: Android only).
 //
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
@@ -21,7 +23,7 @@
 #include <nlohmann/json.hpp>
 
 #include "enh.h"
-#include "image/jpeg.hpp"
+#include "image/decode.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 
@@ -46,11 +48,11 @@ struct Args {
 int usage() {
   std::fprintf(stderr,
                "usage:\n  refocal-cli probe\n"
-               "  refocal-cli run --models DIR --work DIR --input IN.jpg --out OUT.jpg [--model ID]\n"
+               "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg [--model ID]\n"
                "              [--scale 4|2|1] [--fast2] [--tile N] [--backend auto|cpu|vulkan]\n"
                "              [--threads N] [--quality Q] [--job-id ID] [--resume] [--json]\n"
-               "              [--cache DIR] [--tier T0|T1|T2]\n"
-               "  refocal-cli compare A.jpg B.jpg [--min-psnr DB]\n");
+               "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
+               "  refocal-cli compare A B [--min-psnr DB]\n");
   return 2;
 }
 
@@ -172,7 +174,13 @@ int cmd_run(const Args& a) {
     rc = 1;
   } else {
     char* ex = nullptr;
-    std::string opt = json{{"format", "jpeg"}, {"quality", std::atoi(a.get("--quality", "92").c_str())}}.dump();
+    std::string opt = json{{"format", "jpeg"},
+                           {"quality", std::atoi(a.get("--quality", "92").c_str())},
+                           {"metadata",
+                            {{"exif", !a.has("--no-exif")},
+                             {"gps", a.has("--keep-gps")},
+                             {"ai_marker", !a.has("--no-ai-marker")}}}}
+                          .dump();
     if (enh_export(s, enh::fs::join(work, job_id).c_str(), opt.c_str(), out.c_str(), &ex) != ENH_OK) {
       std::fprintf(stderr, "export failed\n");
       rc = 1;
@@ -191,7 +199,7 @@ int cmd_run(const Args& a) {
 int cmd_compare(const Args& a) {
   if (a.pos.size() < 3) return usage();
   try {
-    enh::Rgb8 x = enh::jpeg_decode(a.pos[1]), y = enh::jpeg_decode(a.pos[2]);
+    enh::Rgb8 x = enh::decode_image(a.pos[1]), y = enh::decode_image(a.pos[2]);
     if (x.w != y.w || x.h != y.h) {
       std::fprintf(stderr, "size mismatch: %dx%d vs %dx%d\n", x.w, x.h, y.w, y.h);
       return 1;

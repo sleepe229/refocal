@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "image/exif.hpp"
+#include "image/metaio.hpp"
 #include "image/jpeg.hpp"
 #include "image/ops.hpp"
 #include "pipeline/bandstore.hpp"

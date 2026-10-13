@@ -2,6 +2,7 @@
 #include "image/jpeg.hpp"
 
 #include <csetjmp>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -9,7 +10,7 @@
 #include <jpeglib.h>
 // clang-format on
 
-#include "image/exif.hpp"
+#include "image/metaio.hpp"
 #include "util/error.hpp"
 
 namespace enh {
@@ -66,7 +67,8 @@ bool is_jpeg_file(const std::string& path) {
   return std::fread(sig, 1, 3, f.f) == 3 && sig[0] == 0xFF && sig[1] == 0xD8 && sig[2] == 0xFF;
 }
 
-static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_only) {
+static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_only,
+                        SourceMeta* meta = nullptr) {
   File f(path, "rb");
   if (!f.f) fail(ENH_E_IO, "cannot open input");
   Decoder d;
@@ -82,6 +84,7 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   d.created = true;
   jpeg_stdio_src(&d.cinfo, f.f);
   jpeg_save_markers(&d.cinfo, JPEG_APP0 + 1, 0xFFFF);
+  if (meta) jpeg_save_markers(&d.cinfo, JPEG_APP0 + 2, 0xFFFF);  // ICC
   jpeg_read_header(&d.cinfo, TRUE);
   if (d.cinfo.jpeg_color_space == JCS_CMYK || d.cinfo.jpeg_color_space == JCS_YCCK) {
     fail(ENH_E_INVALID, "CMYK JPEG is not supported");
@@ -92,6 +95,17 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   ji->orientation = orientation_of(d.cinfo);
   if (info) *info = *ji;
   if (header_only) return {};
+  if (meta) {
+    for (jpeg_saved_marker_ptr m = d.cinfo.marker_list; m; m = m->next) {
+      if (m->marker == JPEG_APP0 + 1 && meta->exif.empty()) meta->exif = exif_to_tiff(m->data, m->data_length);
+    }
+    JOCTET* icc = nullptr;
+    unsigned int icc_len = 0;
+    if (jpeg_read_icc_profile(&d.cinfo, &icc, &icc_len) && icc) {
+      if (icc_len <= kMaxMetaBytes) meta->icc.assign(icc, icc + icc_len);
+      std::free(icc);
+    }
+  }
   d.cinfo.out_color_space = JCS_RGB;
   jpeg_start_decompress(&d.cinfo);
   img->w = int(d.cinfo.output_width);
@@ -111,7 +125,9 @@ JpegInfo jpeg_probe(const std::string& path) {
   return ji;
 }
 
-Rgb8 jpeg_decode(const std::string& path, JpegInfo* info) { return decode_impl(path, info, false); }
+Rgb8 jpeg_decode(const std::string& path, JpegInfo* info, SourceMeta* meta) {
+  return decode_impl(path, info, false, meta);
+}
 
 struct JpegWriter::Impl {
   jpeg_compress_struct cinfo{};
@@ -125,7 +141,7 @@ struct JpegWriter::Impl {
   }
 };
 
-JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality)
+JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const JpegMeta* meta)
     : impl_(std::make_unique<Impl>()) {
   Impl& m = *impl_;
   m.f = std::fopen(path.c_str(), "wb");
@@ -134,6 +150,18 @@ JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality)
   m.cinfo.err = jpeg_std_error(&m.err.pub);
   m.err.pub.error_exit = on_error;
   m.err.pub.output_message = on_message;
+  // Marker payloads are built before setjmp: longjmp must not skip destructors.
+  constexpr size_t kMaxMarker = 65533;
+  std::vector<uint8_t> exif_seg, xmp_seg;
+  if (meta && !meta->exif.empty() && meta->exif.size() + 6 <= kMaxMarker) {
+    exif_seg = {'E', 'x', 'i', 'f', 0, 0};
+    exif_seg.insert(exif_seg.end(), meta->exif.begin(), meta->exif.end());
+  }
+  const size_t ns = std::strlen(kXmpNamespace) + 1;  // includes the NUL
+  if (meta && !meta->xmp.empty() && meta->xmp.size() + ns <= kMaxMarker) {
+    xmp_seg.assign(kXmpNamespace, kXmpNamespace + ns);
+    xmp_seg.insert(xmp_seg.end(), meta->xmp.begin(), meta->xmp.end());
+  }
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   jpeg_create_compress(&m.cinfo);
   m.created = true;
@@ -147,7 +175,12 @@ JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality)
   // No optimize_coding: two-pass Huffman keeps the coefficients of the whole image in memory
   // (~600 MB at 192 MP), which defeats streaming export from the BandStore.
   m.cinfo.optimize_coding = FALSE;
+  // EXIF readers expect APP1 right after SOI; JFIF is redundant with it.
+  if (!exif_seg.empty()) m.cinfo.write_JFIF_header = FALSE;
   jpeg_start_compress(&m.cinfo, TRUE);
+  if (!exif_seg.empty()) jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, exif_seg.data(), unsigned(exif_seg.size()));
+  if (!xmp_seg.empty()) jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, xmp_seg.data(), unsigned(xmp_seg.size()));
+  if (meta && !meta->icc.empty()) jpeg_write_icc_profile(&m.cinfo, meta->icc.data(), unsigned(meta->icc.size()));
 }
 
 JpegWriter::~JpegWriter() = default;

@@ -1,4 +1,4 @@
-// Job runner (ADR-0006, ADR-0012 for the 0.1 subset): decode -> orient -> [fast 2x] ->
+// Job runner (ADR-0006, ADR-0012 for the 0.1 subset): decode (any format) -> orient -> [fast 2x] ->
 // SR banded (prep -> infer -> post, depth-2 queues) -> BandStore -> preview -> result.
 // Cancel/pause are checked at tile boundaries; queued tiles are dropped, the tile in flight
 // finishes (S6: latency <= 1 tile). Exactly one terminal event per started job.
@@ -21,6 +21,7 @@
 
 #include "backend/backend.hpp"
 #include "enh.h"
+#include "image/decode.hpp"
 #include "image/jpeg.hpp"
 #include "image/ops.hpp"
 #include "job/events.hpp"
@@ -339,8 +340,7 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   // ---- decode ----
   sink.emit(ENH_EV_STAGE, kStageDecode, 0, 0, {{"stage", "decode"}});
-  if (!is_jpeg_file(req.input)) fail(ENH_E_INVALID, "unsupported input format (0.1: JPEG only)");
-  JpegInfo info = jpeg_probe(req.input);
+  ImageInfo info = probe_image(req.input);
   ModelInfo model = resolve_model(s->models_dir, req.sr_model);
 
   auto out_mp = [&](const JobRequest& r) {  // fast 2x: (w/2)*4 = 2w
@@ -368,8 +368,14 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   std::string input_sha = Sha256::of_file(req.input);
   if (input_sha.empty()) fail(ENH_E_IO, "cannot read input");
-  Rgb8 img = jpeg_decode(req.input, &info);
+  SourceMeta meta;
+  Rgb8 img = decode_image(req.input, &info, &meta);
   img = apply_orientation(std::move(img), info.orientation);
+  // Kept for enh_export (metaio, ADR-0018): the input may be gone by then.
+  if (!meta.exif.empty()) fs::write_atomic(fs::join(dir, kSourceExifFile), meta.exif.data(), meta.exif.size());
+  if (!meta.icc.empty()) fs::write_atomic(fs::join(dir, kSourceIccFile), meta.icc.data(), meta.icc.size());
+  if (info.alpha) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "alpha_flattened"}});
+  if (info.animated) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
   const int src_w = img.w, src_h = img.h;
   if (req.fast2) img = area_down(img, 2);
   if (stop()) throw Stopped{};
@@ -644,7 +650,8 @@ void enh_job::run_impl(nlohmann::json& result) {
             {"height", g.out_h},
             {"band_rows", band_rows},
             {"preview", {{"file", kPreviewFile}, {"width", pv.w}, {"height", pv.h}}},
-            {"input", {{"width", src_w}, {"height", src_h}, {"orientation", info.orientation}}},
+            {"input",
+             {{"width", src_w}, {"height", src_h}, {"orientation", info.orientation}, {"format", info.format}}},
             {"scale", req.scale},
             {"fast2", req.fast2},
             {"model", model.id},
