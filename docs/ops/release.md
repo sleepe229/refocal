@@ -48,5 +48,5 @@ tools/models/fetch.sh                                   # must now succeed from 
 1. Device check on at least one real phone: [device-checklist.md](device-checklist.md).
 2. Bump `version:` in `app/pubspec.yaml` and `appVersion` in `app/lib/version.dart`; add the
    section to `CHANGELOG.md` (its text becomes the release notes).
-3. `git tag v0.0.1-alpha.1 && git push origin v0.0.1-alpha.1`
+3. `git tag v0.0.2-alpha.1 && git push origin v0.0.2-alpha.1` (the version from step 2)
 4. Approve the `release` environment run; review the draft (APK, SHA256SUMS, notes); publish.

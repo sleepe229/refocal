@@ -2,12 +2,16 @@
 # End-to-end check on a headless AOSP emulator (no phone needed):
 # pick a photo in the system Photo Picker -> enhance -> save -> verify the gallery entry.
 #   docker build -t refocal-emulator:35 tools/emulator
-#   tools/emulator/e2e.sh APK [PHOTO.jpg] [SCALE_LABEL]
+#   [SCENARIO=basic|background|pause] tools/emulator/e2e.sh APK [PHOTO.jpg|png|webp] [SCALE_LABEL]
+# background: Home during processing -> FGS notification, "Photo ready" -> reopen -> save.
+# pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
 # The APK must contain x86_64 libs (e.g. flutter build apk --profile --target-platform android-x64).
 set -euo pipefail
 APK=$(realpath "${1:?apk}")
 PHOTO=$(realpath "${2:-$(dirname "$0")/../../spikes/s2-streaming/data/stockholm_1mp.jpg}")
 SCALE=${3:-}
+SCENARIO=${SCENARIO:-basic}
+EXT=${PHOTO##*.}
 OUT=${OUT:-$(mktemp -d)}
 mkdir -p "$OUT"
 DOCKER=${DOCKER:-docker --context default}
@@ -18,7 +22,7 @@ cleanup() { $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 $DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" \
-  -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.jpg:ro" refocal-emulator:35 bash -c '
+  -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.$EXT:ro" refocal-emulator:35 bash -c '
     emulator -avd refocal35 -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
       -gpu swiftshader_indirect -memory 4096 -cores 4 > /tmp/emu.log 2>&1 &
     adb wait-for-device
@@ -56,7 +60,8 @@ for _ in $(seq 120); do $DOCKER logs "$NAME" 2>&1 | grep -q BOOTED && break; sle
 adb_ shell getprop ro.build.version.release
 echo "== install"
 adb_ install -r /in/app.apk | tail -1
-adb_ push /in/photo.jpg /sdcard/Pictures/e2e_input.jpg >/dev/null
+adb_ push "/in/photo.$EXT" "/sdcard/Pictures/e2e_input.$EXT" >/dev/null
+adb_ shell pm grant io.github.refocal.app android.permission.POST_NOTIFICATIONS
 adb_ shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null
 adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
 
@@ -78,6 +83,29 @@ echo "  picked photo at $xy"
 if [[ -n "$SCALE" ]]; then tap_text "$SCALE" 30; fi
 tap_text "Enhance" 30
 t0=$SECONDS
+notif() { adb_ shell dumpsys notification --noredact 2>/dev/null | grep -E "android\.(title|text)=" | grep -c "$1" || true; }
+case "$SCENARIO" in
+  background)
+    sleep 4
+    adb_ shell input keyevent KEYCODE_HOME
+    for _ in $(seq 60); do [[ $(notif "Enhancing a photo") -gt 0 ]] && break; sleep 1; done
+    [[ $(notif "Enhancing a photo") -gt 0 ]] || { echo "FAIL: no processing notification"; exit 1; }
+    echo "  processing notification shown"
+    for _ in $(seq 600); do [[ $(notif "Photo ready") -gt 0 ]] && break; sleep 1; done
+    [[ $(notif "Photo ready") -gt 0 ]] || { echo "FAIL: no 'Photo ready' notification"; exit 1; }
+    echo "  finished in the background"
+    adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
+    ;;
+  pause)
+    sleep 6
+    tap_text "Pause" 60
+    sleep 3  # pause lands at the next tile boundary
+    adb_ shell am force-stop io.github.refocal.app
+    echo "  paused and killed"
+    adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
+    tap_text "Paused enhancement" 60
+    ;;
+esac
 tap_text "Save to gallery" 600
 echo "  enhance took ~$((SECONDS - t0)) s"
 shot result
