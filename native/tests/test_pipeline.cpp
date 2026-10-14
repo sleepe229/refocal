@@ -106,7 +106,7 @@ static void test_jpeg(const std::string& dir) {
   Rgb8 img = pattern(97, 61);
   std::string p = fs::join(dir, "t.jpg");
   jpeg_encode(p, img, 95);
-  CHECK(is_jpeg_file(p));
+  CHECK(sniff_format(p) == "jpeg");
   JpegInfo ji = jpeg_probe(p);
   CHECK(ji.w == 97 && ji.h == 61 && ji.orientation == 1);
   Rgb8 back = jpeg_decode(p);

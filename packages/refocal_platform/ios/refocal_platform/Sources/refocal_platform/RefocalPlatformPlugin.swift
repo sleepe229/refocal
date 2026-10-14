@@ -36,7 +36,7 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
 
   // ADR-0019: iOS pauses on willResignActive instead of a background service (TODO with S5).
   func requestNotificationPermission() async throws -> Bool { true }
-  func startProcessing(title: String) throws {}
+  func startProcessing(texts: ProcessingTexts) throws {}
   func updateProcessing(text: String, percent: Int64) throws {}
   func stopProcessing(finishedText: String?) throws {}
 }

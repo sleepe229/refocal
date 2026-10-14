@@ -148,7 +148,18 @@ class EnhanceController extends Notifier<EnhanceState> {
     state = const Running(JobStage.queued, 0, null);
     await _guard(platform.requestNotificationPermission);
     final l10n = ref.read(l10nProvider);
-    await _guard(() => platform.startProcessing(l10n.notifEnhancing));
+    await _guard(
+      () => platform.startProcessing(
+        ProcessingTexts(
+          title: l10n.notifEnhancing,
+          pause: l10n.pause,
+          cancel: l10n.cancel,
+          timedOut: l10n.notifTimedOut,
+          channelName: l10n.notifChannelName,
+          channelDescription: l10n.notifChannelDescription,
+        ),
+      ),
+    );
     var lastPercent = -2;
     try {
       final job = _job = create(engine);

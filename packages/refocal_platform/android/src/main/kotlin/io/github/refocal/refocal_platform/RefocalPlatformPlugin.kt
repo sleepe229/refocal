@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -201,7 +202,7 @@ class RefocalPlatformPlugin :
     return true
   }
 
-  override fun startProcessing(title: String) = ProcessingService.start(context, title)
+  override fun startProcessing(texts: ProcessingTexts) = ProcessingService.start(context, texts)
 
   override fun updateProcessing(text: String, percent: Long) =
       ProcessingService.update(context, text, percent.toInt())
@@ -231,32 +232,51 @@ class RefocalPlatformPlugin :
     }
     val dst = File(inbox, "in-${System.currentTimeMillis()}.$ext")
     val tmp = File(inbox, dst.name + ".part")
-    (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->
-      tmp.outputStream().use { input.copyTo(it, 1 shl 16) }
+    try {
+      (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->
+        tmp.outputStream().use { input.copyTo(it, 1 shl 16) }
+      }
+      if (!tmp.renameTo(dst)) throw IOException("rename failed")
+    } finally {
+      tmp.delete() // no-op after the rename
     }
-    if (!tmp.renameTo(dst)) throw IOException("rename failed")
     if (Build.VERSION.SDK_INT < 30 && ext == "heic") return heicToPng(dst, name)
     return PickedImage(path = dst.absolutePath, sizeBytes = dst.length(), displayName = name, mimeType = mime)
   }
 
   /**
-   * Android 10 has no AImageDecoder for the core (ADR-0003): decode HEIC here (orientation and
-   * color handled by the platform) and hand the core a lossless PNG. EXIF is not carried.
+   * Android 10 has no AImageDecoder for the core (ADR-0003): decode HEIC here and hand the core a
+   * lossless PNG. The size limits of the core (SEC-INP-002) are checked on the header, before the
+   * pixels are allocated; colors are converted to sRGB as the core's platform decoder does.
+   * EXIF is not carried. Neither the HEIC copy nor a partial PNG is left behind on failure.
    */
   private fun heicToPng(src: File, name: String?): PickedImage {
-    val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(src)) { d, _, _ ->
-      d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-    }
     val png = File(src.parentFile, src.nameWithoutExtension + ".png")
     val tmp = File(png.path + ".part")
     try {
-      tmp.outputStream().use { if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, it)) throw IOException("PNG encode failed") }
+      val bmp =
+          ImageDecoder.decodeBitmap(ImageDecoder.createSource(src)) { d, info, _ ->
+            val w = info.size.width.toLong()
+            val h = info.size.height.toLong()
+            if (w > MAX_SIDE || h > MAX_SIDE || w * h > MAX_PIXELS) {
+              throw FlutterError("limit", "Image is larger than ${MAX_SIDE}px per side or 200 MP")
+            }
+            d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            d.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
+          }
+      try {
+        tmp.outputStream().use {
+          if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, it)) throw IOException("PNG encode failed")
+        }
+      } finally {
+        bmp.recycle()
+      }
+      if (!tmp.renameTo(png)) throw IOException("rename failed")
+      return PickedImage(path = png.absolutePath, sizeBytes = png.length(), displayName = name, mimeType = "image/png")
     } finally {
-      bmp.recycle()
+      tmp.delete()
+      src.delete()
     }
-    if (!tmp.renameTo(png)) throw IOException("rename failed")
-    src.delete()
-    return PickedImage(path = png.absolutePath, sizeBytes = png.length(), displayName = name, mimeType = "image/png")
   }
 
   override suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String =
@@ -289,17 +309,30 @@ class RefocalPlatformPlugin :
     private const val REQUEST_PICK = 0x5EF0
     private const val REQUEST_NOTIFICATIONS = 0x5EF1
     private const val REQUEST_CREATE = 0x5EF2
+    // SEC-INP-002, as in the core (native/core/src/image/decode.hpp: kMaxSide, kMaxPixels).
+    private const val MAX_SIDE = 30000L
+    private const val MAX_PIXELS = 200_000_000L
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     @Volatile private var instance: RefocalPlatformPlugin? = null
 
-    /** From [ProcessingService] (notification actions, FGS timeout) to Dart. */
-    fun dispatchAction(action: String) {
+    /**
+     * From [ProcessingService] (notification actions, FGS timeout) to Dart. Without a Dart side
+     * nothing can pause or cancel, nor receive the job's events: the service and its
+     * notification are removed instead of staying with dead buttons.
+     */
+    fun dispatchAction(context: Context, action: String) {
+      val app = context.applicationContext
       main.launch {
-        try {
-          instance?.events?.onProcessingAction(action)
-        } catch (_: Exception) {
-          // Dart side gone: nothing is running to pause or cancel.
-        }
+        val events = instance?.events
+        val delivered =
+            events != null &&
+                try {
+                  events.onProcessingAction(action)
+                  true
+                } catch (_: Exception) {
+                  false // the Dart side went away meanwhile
+                }
+        if (!delivered) ProcessingService.stop(app, null, appInForeground = true)
       }
     }
   }

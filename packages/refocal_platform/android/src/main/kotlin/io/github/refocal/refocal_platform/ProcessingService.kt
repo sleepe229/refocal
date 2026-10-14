@@ -26,10 +26,10 @@ class ProcessingService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
-      ACTION_PAUSE -> RefocalPlatformPlugin.dispatchAction("pause")
-      ACTION_CANCEL -> RefocalPlatformPlugin.dispatchAction("cancel")
+      ACTION_PAUSE -> RefocalPlatformPlugin.dispatchAction(this, "pause")
+      ACTION_CANCEL -> RefocalPlatformPlugin.dispatchAction(this, "cancel")
       else -> {
-        val n = buildNotification(this, intent?.getStringExtra(EXTRA_TITLE) ?: "", "", -1)
+        val n = buildNotification(this, "", -1)
         if (Build.VERSION.SDK_INT >= 35) {
           startForeground(ID_PROGRESS, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING)
         } else {
@@ -42,8 +42,8 @@ class ProcessingService : Service() {
   }
 
   override fun onTimeout(startId: Int, fgsType: Int) {
-    RefocalPlatformPlugin.dispatchAction("timeout")
-    postFinished(this, "Paused: Android's time limit for background work was reached. Tap to continue.")
+    RefocalPlatformPlugin.dispatchAction(this, "timeout")
+    postFinished(this, texts?.timedOut ?: "")
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
   }
@@ -56,20 +56,19 @@ class ProcessingService : Service() {
     private const val ID_FINISHED = 2
     private const val ACTION_PAUSE = "io.github.refocal.PAUSE"
     private const val ACTION_CANCEL = "io.github.refocal.CANCEL"
-    private const val EXTRA_TITLE = "title"
 
-    @Volatile private var title = ""
+    /** From Dart with every start, in the app's language. */
+    @Volatile private var texts: ProcessingTexts? = null
 
-    fun start(context: Context, t: String) {
-      title = t
+    fun start(context: Context, t: ProcessingTexts) {
+      texts = t
       context.getSystemService(NotificationManager::class.java)?.cancel(ID_FINISHED)
-      context.startForegroundService(
-          Intent(context, ProcessingService::class.java).putExtra(EXTRA_TITLE, t))
+      context.startForegroundService(Intent(context, ProcessingService::class.java))
     }
 
     fun update(context: Context, text: String, percent: Int) {
       val nm = context.getSystemService(NotificationManager::class.java) ?: return
-      nm.notify(ID_PROGRESS, buildNotification(context, title, text, percent))
+      nm.notify(ID_PROGRESS, buildNotification(context, text, percent))
     }
 
     fun stop(context: Context, finishedText: String?, appInForeground: Boolean) {
@@ -78,14 +77,15 @@ class ProcessingService : Service() {
       if (finishedText != null && !appInForeground) postFinished(context, finishedText)
     }
 
+    /** Creates the channel, or renames it after a language change (same call, same id). */
     private fun ensureChannel(context: Context) {
       val nm = context.getSystemService(NotificationManager::class.java) ?: return
-      if (nm.getNotificationChannel(CHANNEL) == null) {
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Processing", NotificationManager.IMPORTANCE_LOW).apply {
-              description = "Progress of photos being enhanced"
-            })
-      }
+      val t = texts
+      if (t == null && nm.getNotificationChannel(CHANNEL) != null) return
+      nm.createNotificationChannel(
+          NotificationChannel(CHANNEL, t?.channelName ?: CHANNEL, NotificationManager.IMPORTANCE_LOW).apply {
+            description = t?.channelDescription
+          })
     }
 
     private fun openApp(context: Context): PendingIntent? {
@@ -99,18 +99,19 @@ class ProcessingService : Service() {
             context, code, Intent(context, ProcessingService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE)
 
-    private fun buildNotification(context: Context, title: String, text: String, percent: Int): Notification {
+    private fun buildNotification(context: Context, text: String, percent: Int): Notification {
       ensureChannel(context)
+      val t = texts
       val b = Notification.Builder(context, CHANNEL)
           .setSmallIcon(R.drawable.ic_stat_refocal)
-          .setContentTitle(title)
+          .setContentTitle(t?.title)
           .setContentText(text)
           .setOngoing(true)
           .setOnlyAlertOnce(true)
           .setContentIntent(openApp(context))
           .setProgress(100, percent.coerceIn(0, 100), percent < 0)
-          .addAction(Notification.Action.Builder(null, "Pause", action(context, ACTION_PAUSE, 1)).build())
-          .addAction(Notification.Action.Builder(null, "Cancel", action(context, ACTION_CANCEL, 2)).build())
+          .addAction(Notification.Action.Builder(null, t?.pause, action(context, ACTION_PAUSE, 1)).build())
+          .addAction(Notification.Action.Builder(null, t?.cancel, action(context, ACTION_CANCEL, 2)).build())
       if (Build.VERSION.SDK_INT >= 31) b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
       return b.build()
     }
@@ -119,7 +120,7 @@ class ProcessingService : Service() {
       ensureChannel(context)
       val n = Notification.Builder(context, CHANNEL)
           .setSmallIcon(R.drawable.ic_stat_refocal)
-          .setContentTitle("Refocal")
+          .setContentTitle(context.applicationInfo.loadLabel(context.packageManager))
           .setContentText(text)
           .setStyle(Notification.BigTextStyle().bigText(text))
           .setAutoCancel(true)

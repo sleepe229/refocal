@@ -62,7 +62,7 @@ ImageInfo webp_probe(const std::string& path) {
   Demux dm(data);
   if (dm.d) {
     const auto exif = chunk(dm.d, "EXIF");
-    i.orientation = tiff_orientation(exif.data(), exif.size());
+    i.orientation = exif_orientation(exif.data(), exif.size());
     if (i.animated) {  // the canvas, not the first frame's bitstream, is what we decode
       i.w = int(WebPDemuxGetI(dm.d, WEBP_FF_CANVAS_WIDTH));
       i.h = int(WebPDemuxGetI(dm.d, WEBP_FF_CANVAS_HEIGHT));

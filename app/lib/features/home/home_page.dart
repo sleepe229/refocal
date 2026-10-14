@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -69,7 +70,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     String? path;
     try {
       path = await take();
-    } catch (e) {
+    } on PlatformException catch (e) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        final text = e.code == 'limit' ? l10n.failLimit : l10n.homeOpenFailed(e.message ?? e.code);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      }
+    } on Exception catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context)

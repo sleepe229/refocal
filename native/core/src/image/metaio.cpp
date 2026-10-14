@@ -5,6 +5,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <utility>
 
 namespace enh {
 namespace {
@@ -234,18 +235,24 @@ int64_t read_int(const Entry& e, bool le) {
 
 }  // namespace
 
-std::vector<uint8_t> exif_to_tiff(const uint8_t* d, size_t n) {
-  if (n >= 6 && std::memcmp(d, "Exif\0\0", 6) == 0) {
-    d += 6;
-    n -= 6;
-  }
-  if (n < 8 || !((d[0] == 'I' && d[1] == 'I') || (d[0] == 'M' && d[1] == 'M'))) return {};
-  return std::vector<uint8_t>(d, d + n);
+namespace {
+// The one place that knows the prefix: everything else sees a bare TIFF block.
+std::pair<const uint8_t*, size_t> tiff_view(const uint8_t* d, size_t n) {
+  if (d && n >= 6 && std::memcmp(d, "Exif\0\0", 6) == 0) return {d + 6, n - 6};
+  return {d, d ? n : 0};
+}
+}  // namespace
+
+std::vector<uint8_t> exif_to_tiff(const uint8_t* exif, size_t n) {
+  const auto [d, len] = tiff_view(exif, n);
+  if (len < 8 || !((d[0] == 'I' && d[1] == 'I') || (d[0] == 'M' && d[1] == 'M'))) return {};
+  return std::vector<uint8_t>(d, d + len);
 }
 
-int tiff_orientation(const uint8_t* tiff, size_t n) {
+int exif_orientation(const uint8_t* exif, size_t n) {
+  const auto [d, len] = tiff_view(exif, n);
   try {
-    Tiff t(tiff, n);
+    Tiff t(d, len);
     auto ifd0 = t.ifd(t.root(), 0);
     for (const Entry& e : ifd0->entries) {
       if (e.tag == kOrientation && e.type == kTypeShort) {
@@ -256,11 +263,6 @@ int tiff_orientation(const uint8_t* tiff, size_t n) {
   } catch (const Bad&) {
   }
   return 1;
-}
-
-int exif_orientation(const uint8_t* d, size_t n) {
-  if (n < 14 || std::memcmp(d, "Exif\0\0", 6) != 0) return 1;
-  return tiff_orientation(d + 6, n - 6);
 }
 
 std::vector<uint8_t> exif_rewrite(const uint8_t* tiff, size_t n, const ExifPolicy& p) {

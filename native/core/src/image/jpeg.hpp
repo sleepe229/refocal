@@ -18,7 +18,6 @@ struct JpegInfo {
   int orientation = 1;  // EXIF 1..8
 };
 
-bool is_jpeg_file(const std::string& path);
 JpegInfo jpeg_probe(const std::string& path);
 // Decodes to RGB8 (grayscale is expanded). Orientation is reported, not applied.
 // `meta` receives the EXIF (TIFF block) and the ICC profile.

@@ -13,6 +13,7 @@
 #include <webp/encode.h>
 
 #include "image/decode.hpp"
+#include "image/encode.hpp"
 #include "image/jpeg.hpp"
 #include "image/metaio.hpp"
 #include "util/error.hpp"
@@ -126,14 +127,14 @@ static bool contains(const Bytes& hay, const std::string& needle) {
 static void test_exif_rewrite() {
   for (bool le : {true, false}) {
     const Bytes src = camera_exif(le);
-    CHECK(tiff_orientation(src.data(), src.size()) == 6);
+    CHECK(exif_orientation(src.data(), src.size()) == 6);
     CHECK(exif_get(src, kGpsIfd, 0x0000) >= 0);
     CHECK(exif_get(src, kExifIfd, 0xA431) > 0);
 
     const Bytes out = exif_rewrite(src.data(), src.size(), {4000, 3000, false});
     CHECK(!out.empty());
     CHECK(out[0] == (le ? 'I' : 'M'));                       // source byte order kept
-    CHECK(tiff_orientation(out.data(), out.size()) == 1);    // FR-META-001
+    CHECK(exif_orientation(out.data(), out.size()) == 1);    // FR-META-001
     CHECK(exif_get(out, kExifIfd, 0xA002) == 4000);          // FR-META-007
     CHECK(exif_get(out, kExifIfd, 0xA003) == 3000);
     CHECK(exif_get(out, kIfd0, 0x010F) == 6);                // Make kept ("Canon\0")
@@ -168,7 +169,7 @@ static void test_exif_rewrite() {
     }
     if (it % 5 == 0) m.resize((r >> 4) % m.size());
     (void)exif_rewrite(m.data(), m.size(), {1, 1, it % 3 == 0});
-    (void)tiff_orientation(m.data(), m.size());
+    (void)exif_orientation(m.data(), m.size());
   }
 }
 
@@ -447,6 +448,37 @@ static void test_jpeg_meta(const std::string& dir) {
   CHECK(back.icc == meta.icc);
 }
 
+// EXIF written with the "Exif\0\0" prefix (some apps do). WebP: orientation and the carried
+// metadata both come from the same TIFF block. PNG: libpng drops such an eXIf chunk (PNGv3
+// requires a bare TIFF header), so neither is taken from it.
+static void test_prefixed_exif(const std::string& dir) {
+  Bytes prefixed = {'E', 'x', 'i', 'f', 0, 0};
+  const Bytes cam = camera_exif(true);
+  prefixed.insert(prefixed.end(), cam.begin(), cam.end());
+  JpegMeta md;
+  md.exif = prefixed;
+  std::vector<uint8_t> px(16 * 8 * 3, 128);
+  const std::string png = fs::join(dir, "prefixed.png"), webp = fs::join(dir, "prefixed.webp");
+  {
+    PngWriter w(png, 16, 8, &md);
+    w.write_rows(px.data(), 8);
+    w.finish();
+  }
+  {
+    WebpWriter w(webp, 16, 8, 90, true, &md);
+    w.write_rows(px.data(), 8);
+    w.finish();
+  }
+  for (const auto& [f, kept] : {std::pair{webp, true}, std::pair{png, false}}) {
+    CHECK(probe_image(f).orientation == (kept ? 6 : 1));
+    ImageInfo info;
+    SourceMeta m;
+    decode_image(f, &info, &m);
+    CHECK(info.orientation == (kept ? 6 : 1));
+    CHECK(m.exif == (kept ? cam : Bytes{}));
+  }
+}
+
 int main(int argc, char** argv) {
   std::string dir = argc > 1 ? argv[1] : "test-work-codecs";
   fs::remove_tree(dir);
@@ -457,6 +489,7 @@ int main(int argc, char** argv) {
   test_webp(dir);
   test_sniff(dir);
   test_jpeg_meta(dir);
+  test_prefixed_exif(dir);
   std::printf("test_codecs: %d failures\n", fails);
   return fails ? 1 : 0;
 }

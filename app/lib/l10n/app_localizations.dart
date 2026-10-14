@@ -483,6 +483,24 @@ abstract class AppLocalizations {
   /// **'Enhancement failed. Tap to open.'**
   String get notifFailed;
 
+  /// No description provided for @notifTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: Android\'s time limit for background work was reached. Tap to continue.'**
+  String get notifTimedOut;
+
+  /// No description provided for @notifChannelName.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing'**
+  String get notifChannelName;
+
+  /// No description provided for @notifChannelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress of photos being enhanced'**
+  String get notifChannelDescription;
+
   /// No description provided for @formatJpeg.
   ///
   /// In en, this message translates to:

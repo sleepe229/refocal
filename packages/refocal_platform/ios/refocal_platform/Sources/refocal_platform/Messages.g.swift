@@ -282,6 +282,70 @@ struct PickedImage: Hashable, CustomStringConvertible {
   }
 }
 
+/// Texts of the processing notification, in the app's language (the platform has no access to
+/// the Dart localizations).
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct ProcessingTexts: Hashable, CustomStringConvertible {
+  var title: String
+  var pause: String
+  var cancel: String
+  /// Left as a tappable notification when Android's background time limit pauses the job.
+  var timedOut: String
+  var channelName: String
+  var channelDescription: String
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ProcessingTexts? {
+    let title = pigeonVar_list[0] as! String
+    let pause = pigeonVar_list[1] as! String
+    let cancel = pigeonVar_list[2] as! String
+    let timedOut = pigeonVar_list[3] as! String
+    let channelName = pigeonVar_list[4] as! String
+    let channelDescription = pigeonVar_list[5] as! String
+
+    return ProcessingTexts(
+      title: title,
+      pause: pause,
+      cancel: cancel,
+      timedOut: timedOut,
+      channelName: channelName,
+      channelDescription: channelDescription
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      title,
+      pause,
+      cancel,
+      timedOut,
+      channelName,
+      channelDescription,
+    ]
+  }
+  static func == (lhs: ProcessingTexts, rhs: ProcessingTexts) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return MessagesPigeonInternal.deepEquals(lhs.title, rhs.title) && MessagesPigeonInternal.deepEquals(lhs.pause, rhs.pause) && MessagesPigeonInternal.deepEquals(lhs.cancel, rhs.cancel) && MessagesPigeonInternal.deepEquals(lhs.timedOut, rhs.timedOut) && MessagesPigeonInternal.deepEquals(lhs.channelName, rhs.channelName) && MessagesPigeonInternal.deepEquals(lhs.channelDescription, rhs.channelDescription)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("ProcessingTexts")
+    MessagesPigeonInternal.deepHash(value: title, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: pause, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: cancel, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: timedOut, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: channelName, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: channelDescription, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "ProcessingTexts(title: \(String(describing: title)), pause: \(String(describing: pause)), cancel: \(String(describing: cancel)), timedOut: \(String(describing: timedOut)), channelName: \(String(describing: channelName)), channelDescription: \(String(describing: channelDescription)))"
+  }
+}
+
 private class MessagesPigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
@@ -289,6 +353,8 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
       return AppDirs.fromList(self.readValue() as! [Any?])
     case 130:
       return PickedImage.fromList(self.readValue() as! [Any?])
+    case 131:
+      return ProcessingTexts.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
@@ -302,6 +368,9 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
       super.writeValue(value.toList())
     } else if let value = value as? PickedImage {
       super.writeByte(130)
+      super.writeValue(value.toList())
+    } else if let value = value as? ProcessingTexts {
+      super.writeByte(131)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -346,7 +415,7 @@ protocol RefocalPlatformApi {
   /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
   /// Android foreground service with a progress notification and Pause/Cancel actions.
   /// Must be called while the app is in the foreground (a user action).
-  func startProcessing(title: String) throws
+  func startProcessing(texts: ProcessingTexts) throws
   /// [percent] 0..100, or -1 for indeterminate.
   func updateProcessing(text: String, percent: Int64) throws
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
@@ -490,9 +559,9 @@ class RefocalPlatformApiSetup {
     if let api = api {
       startProcessingChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
-        let titleArg = args[0] as! String
+        let textsArg = args[0] as! ProcessingTexts
         do {
-          try api.startProcessing(title: titleArg)
+          try api.startProcessing(texts: textsArg)
           reply(wrapResult(nil))
         } catch {
           reply(wrapError(error))

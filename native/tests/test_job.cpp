@@ -465,7 +465,7 @@ static void test_export_metadata(Session& se) {
     auto [st, r] = exported("{\"format\":\"jpeg\"}", m);
     CHECK(st == ENH_OK);
     CHECK(r["metadata"]["exif"] == true && r["metadata"]["icc"] == true && r["metadata"]["ai_marker"] == true);
-    CHECK(tiff_orientation(m.exif.data(), m.exif.size()) == 1);  // baked: result is 80x128
+    CHECK(exif_orientation(m.exif.data(), m.exif.size()) == 1);  // baked: result is 80x128
     CHECK(exif_get(m.exif, kExifIfd, 0xA002) == 80 && exif_get(m.exif, kExifIfd, 0xA003) == 128);
     CHECK(exif_get(m.exif, kIfd0, 0x010F) == 4);
     CHECK(exif_get(m.exif, kGpsIfd, 0) == -1);

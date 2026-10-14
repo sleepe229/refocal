@@ -236,6 +236,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifFailed => 'Enhancement failed. Tap to open.';
 
   @override
+  String get notifTimedOut =>
+      'Paused: Android\'s time limit for background work was reached. Tap to continue.';
+
+  @override
+  String get notifChannelName => 'Processing';
+
+  @override
+  String get notifChannelDescription => 'Progress of photos being enhanced';
+
+  @override
   String get formatJpeg => 'JPEG';
 
   @override

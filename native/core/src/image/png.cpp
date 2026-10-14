@@ -45,7 +45,7 @@ void read_header(const std::string& path, ImageInfo* info, SourceMeta* meta) {
     png_bytep exif = nullptr;
     png_uint_32 exif_len = 0;
     if (png_get_eXIf_1(png, pi, &exif_len, &exif) && exif) {
-      info->orientation = tiff_orientation(exif, exif_len);
+      info->orientation = exif_orientation(exif, exif_len);
       if (meta && exif_len <= kMaxMetaBytes) meta->exif = exif_to_tiff(exif, exif_len);
     }
     png_charp name = nullptr;
@@ -76,7 +76,9 @@ Rgb8 png_decode(const std::string& path, SourceMeta* meta) {
   png_image im{};
   im.version = PNG_IMAGE_VERSION;
   if (!png_image_begin_read_from_file(&im, path.c_str())) {
-    fail(ENH_E_INVALID, std::string("PNG decode failed: ") + im.message);
+    const std::string msg = im.message;
+    png_image_free(&im);
+    fail(ENH_E_INVALID, "PNG decode failed: " + msg);
   }
   im.format = PNG_FORMAT_RGB;  // alpha is composited onto `bg` by libpng
   const png_color bg{255, 255, 255};

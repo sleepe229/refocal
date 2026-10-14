@@ -66,24 +66,40 @@ const Api& api() {
   return a;
 }
 
+// The fd stays ours (AImageDecoder_createFromFd does not take it) and must outlive the decoder.
+class Fd {
+ public:
+  explicit Fd(const std::string& path) : fd_(::open(path.c_str(), O_RDONLY | O_CLOEXEC)) {}
+  ~Fd() {
+    if (fd_ >= 0) ::close(fd_);
+  }
+  Fd(const Fd&) = delete;
+  Fd& operator=(const Fd&) = delete;
+  int get() const { return fd_; }
+
+ private:
+  int fd_;
+};
+
 class Decoder {
  public:
-  explicit Decoder(const std::string& path) {
-    fd_ = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
-    if (fd_ < 0) fail(ENH_E_IO, "cannot open input");
-    if (api().create_from_fd(fd_, &d_) != kDecoderSuccess || !d_) {
+  // Members are complete objects before the body runs: a throw here still closes the fd.
+  explicit Decoder(const std::string& path) : fd_(path) {
+    if (fd_.get() < 0) fail(ENH_E_IO, "cannot open input");
+    if (api().create_from_fd(fd_.get(), &d_) != kDecoderSuccess || !d_) {
       fail(ENH_E_INVALID, "unsupported or corrupt image");
     }
   }
   ~Decoder() {
     if (d_) api().destroy(d_);
-    if (fd_ >= 0) ::close(fd_);
   }
+  Decoder(const Decoder&) = delete;
+  Decoder& operator=(const Decoder&) = delete;
   AImageDecoder* get() const { return d_; }
   const AImageDecoderHeaderInfo* header() const { return api().header(d_); }
 
  private:
-  int fd_ = -1;
+  Fd fd_;  // declared first: destroyed after the decoder
   AImageDecoder* d_ = nullptr;
 };
 

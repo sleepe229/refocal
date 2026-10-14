@@ -221,6 +221,79 @@ class PickedImage {
   }
 }
 
+/// Texts of the processing notification, in the app's language (the platform has no access to
+/// the Dart localizations).
+class ProcessingTexts {
+  ProcessingTexts({
+    required this.title,
+    required this.pause,
+    required this.cancel,
+    required this.timedOut,
+    required this.channelName,
+    required this.channelDescription,
+  });
+
+  String title;
+
+  String pause;
+
+  String cancel;
+
+  /// Left as a tappable notification when Android's background time limit pauses the job.
+  String timedOut;
+
+  String channelName;
+
+  String channelDescription;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      title,
+      pause,
+      cancel,
+      timedOut,
+      channelName,
+      channelDescription,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static ProcessingTexts decode(Object result) {
+    result as List<Object?>;
+    return ProcessingTexts(
+      title: result[0]! as String,
+      pause: result[1]! as String,
+      cancel: result[2]! as String,
+      timedOut: result[3]! as String,
+      channelName: result[4]! as String,
+      channelDescription: result[5]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ProcessingTexts || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(title, other.title) && _deepEquals(pause, other.pause) && _deepEquals(cancel, other.cancel) && _deepEquals(timedOut, other.timedOut) && _deepEquals(channelName, other.channelName) && _deepEquals(channelDescription, other.channelDescription);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'ProcessingTexts(title: $title, pause: $pause, cancel: $cancel, timedOut: $timedOut, channelName: $channelName, channelDescription: $channelDescription)';
+  }
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -235,6 +308,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PickedImage) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
+    }    else if (value is ProcessingTexts) {
+      buffer.putUint8(131);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -247,6 +323,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return AppDirs.decode(readValue(buffer)!);
       case 130:
         return PickedImage.decode(readValue(buffer)!);
+      case 131:
+        return ProcessingTexts.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -416,14 +494,14 @@ class RefocalPlatformApi {
   /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
   /// Android foreground service with a progress notification and Pause/Cancel actions.
   /// Must be called while the app is in the foreground (a user action).
-  Future<void> startProcessing(String title) async {
+  Future<void> startProcessing(ProcessingTexts texts) async {
     final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.startProcessing$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[title]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[texts]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(

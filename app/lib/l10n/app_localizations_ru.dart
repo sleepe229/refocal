@@ -236,6 +236,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get notifFailed => 'Улучшение не удалось. Нажмите, чтобы открыть.';
 
   @override
+  String get notifTimedOut =>
+      'Пауза: Android ограничил время работы в фоне. Нажмите, чтобы продолжить.';
+
+  @override
+  String get notifChannelName => 'Обработка';
+
+  @override
+  String get notifChannelDescription => 'Ход улучшения фото';
+
+  @override
   String get formatJpeg => 'JPEG';
 
   @override

@@ -294,6 +294,69 @@ data class PickedImage (
     return "PickedImage(path=$path, sizeBytes=$sizeBytes, displayName=$displayName, mimeType=$mimeType)"
   }
 }
+
+/**
+ * Texts of the processing notification, in the app's language (the platform has no access to
+ * the Dart localizations).
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class ProcessingTexts (
+  val title: String,
+  val pause: String,
+  val cancel: String,
+  /** Left as a tappable notification when Android's background time limit pauses the job. */
+  val timedOut: String,
+  val channelName: String,
+  val channelDescription: String
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): ProcessingTexts {
+      val title = pigeonVar_list[0] as String
+      val pause = pigeonVar_list[1] as String
+      val cancel = pigeonVar_list[2] as String
+      val timedOut = pigeonVar_list[3] as String
+      val channelName = pigeonVar_list[4] as String
+      val channelDescription = pigeonVar_list[5] as String
+      return ProcessingTexts(title, pause, cancel, timedOut, channelName, channelDescription)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      title,
+      pause,
+      cancel,
+      timedOut,
+      channelName,
+      channelDescription,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as ProcessingTexts
+    return MessagesPigeonUtils.deepEquals(this.title, other.title) && MessagesPigeonUtils.deepEquals(this.pause, other.pause) && MessagesPigeonUtils.deepEquals(this.cancel, other.cancel) && MessagesPigeonUtils.deepEquals(this.timedOut, other.timedOut) && MessagesPigeonUtils.deepEquals(this.channelName, other.channelName) && MessagesPigeonUtils.deepEquals(this.channelDescription, other.channelDescription)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.title)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.pause)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cancel)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.timedOut)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.channelName)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.channelDescription)
+    return result
+  }
+  override fun toString(): String {
+    return "ProcessingTexts(title=$title, pause=$pause, cancel=$cancel, timedOut=$timedOut, channelName=$channelName, channelDescription=$channelDescription)"
+  }
+}
 private open class MessagesPigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
@@ -307,6 +370,11 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
           PickedImage.fromList(it)
         }
       }
+      131.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          ProcessingTexts.fromList(it)
+        }
+      }
       else -> super.readValueOfType(type, buffer)
     }
   }
@@ -318,6 +386,10 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       is PickedImage -> {
         stream.write(130)
+        writeValue(stream, value.toList())
+      }
+      is ProcessingTexts -> {
+        stream.write(131)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -358,7 +430,7 @@ interface RefocalPlatformApi {
    * Android foreground service with a progress notification and Pause/Cancel actions.
    * Must be called while the app is in the foreground (a user action).
    */
-  fun startProcessing(title: String)
+  fun startProcessing(texts: ProcessingTexts)
   /** [percent] 0..100, or -1 for indeterminate. */
   fun updateProcessing(text: String, percent: Long)
   /**
@@ -508,9 +580,9 @@ interface RefocalPlatformApi {
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
-            val titleArg = args[0] as String
+            val textsArg = args[0] as ProcessingTexts
             val wrapped: List<Any?> = try {
-              api.startProcessing(titleArg)
+              api.startProcessing(textsArg)
               listOf(null)
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)

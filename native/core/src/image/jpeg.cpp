@@ -4,6 +4,7 @@
 #include <csetjmp>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 // clang-format off
@@ -60,62 +61,55 @@ int orientation_of(jpeg_decompress_struct& cinfo) {
 
 }  // namespace
 
-bool is_jpeg_file(const std::string& path) {
-  File f(path, "rb");
-  if (!f.f) return false;
-  unsigned char sig[3] = {};
-  return std::fread(sig, 1, 3, f.f) == 3 && sig[0] == 0xFF && sig[1] == 0xD8 && sig[2] == 0xFF;
-}
-
 static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_only,
                         SourceMeta* meta = nullptr) {
   File f(path, "rb");
   if (!f.f) fail(ENH_E_IO, "cannot open input");
-  Decoder d;
-  d.cinfo.err = jpeg_std_error(&d.err.pub);
-  d.err.pub.error_exit = on_error;
-  d.err.pub.output_message = on_message;
   // Everything mutated after setjmp lives on the heap: after longjmp, automatic variables
-  // changed since setjmp are indeterminate.
+  // changed since setjmp are indeterminate (d->created decides the cleanup).
+  auto d = std::make_unique<Decoder>();
+  d->cinfo.err = jpeg_std_error(&d->err.pub);
+  d->err.pub.error_exit = on_error;
+  d->err.pub.output_message = on_message;
   auto img = std::make_unique<Rgb8>();
   auto ji = std::make_unique<JpegInfo>();
-  if (setjmp(d.err.jb)) fail(ENH_E_INVALID, std::string("JPEG decode failed: ") + d.err.msg);
-  jpeg_create_decompress(&d.cinfo);
-  d.created = true;
-  jpeg_stdio_src(&d.cinfo, f.f);
-  jpeg_save_markers(&d.cinfo, JPEG_APP0 + 1, 0xFFFF);
-  if (meta) jpeg_save_markers(&d.cinfo, JPEG_APP0 + 2, 0xFFFF);  // ICC
-  jpeg_read_header(&d.cinfo, TRUE);
-  if (d.cinfo.jpeg_color_space == JCS_CMYK || d.cinfo.jpeg_color_space == JCS_YCCK) {
+  if (setjmp(d->err.jb)) fail(ENH_E_INVALID, std::string("JPEG decode failed: ") + d->err.msg);
+  jpeg_create_decompress(&d->cinfo);
+  d->created = true;
+  jpeg_stdio_src(&d->cinfo, f.f);
+  jpeg_save_markers(&d->cinfo, JPEG_APP0 + 1, 0xFFFF);
+  if (meta) jpeg_save_markers(&d->cinfo, JPEG_APP0 + 2, 0xFFFF);  // ICC
+  jpeg_read_header(&d->cinfo, TRUE);
+  if (d->cinfo.jpeg_color_space == JCS_CMYK || d->cinfo.jpeg_color_space == JCS_YCCK) {
     fail(ENH_E_INVALID, "CMYK JPEG is not supported");
   }
-  ji->w = int(d.cinfo.image_width);
-  ji->h = int(d.cinfo.image_height);
-  ji->components = d.cinfo.num_components;
-  ji->orientation = orientation_of(d.cinfo);
+  ji->w = int(d->cinfo.image_width);
+  ji->h = int(d->cinfo.image_height);
+  ji->components = d->cinfo.num_components;
+  ji->orientation = orientation_of(d->cinfo);
   if (info) *info = *ji;
   if (header_only) return {};
   if (meta) {
-    for (jpeg_saved_marker_ptr m = d.cinfo.marker_list; m; m = m->next) {
+    for (jpeg_saved_marker_ptr m = d->cinfo.marker_list; m; m = m->next) {
       if (m->marker == JPEG_APP0 + 1 && meta->exif.empty()) meta->exif = exif_to_tiff(m->data, m->data_length);
     }
     JOCTET* icc = nullptr;
     unsigned int icc_len = 0;
-    if (jpeg_read_icc_profile(&d.cinfo, &icc, &icc_len) && icc) {
+    if (jpeg_read_icc_profile(&d->cinfo, &icc, &icc_len) && icc) {
       if (icc_len <= kMaxMetaBytes) meta->icc.assign(icc, icc + icc_len);
       std::free(icc);
     }
   }
-  d.cinfo.out_color_space = JCS_RGB;
-  jpeg_start_decompress(&d.cinfo);
-  img->w = int(d.cinfo.output_width);
-  img->h = int(d.cinfo.output_height);
+  d->cinfo.out_color_space = JCS_RGB;
+  jpeg_start_decompress(&d->cinfo);
+  img->w = int(d->cinfo.output_width);
+  img->h = int(d->cinfo.output_height);
   img->px.resize(size_t(img->w) * img->h * 3);
-  while (d.cinfo.output_scanline < d.cinfo.output_height) {
-    JSAMPROW row = img->row(int(d.cinfo.output_scanline));
-    jpeg_read_scanlines(&d.cinfo, &row, 1);
+  while (d->cinfo.output_scanline < d->cinfo.output_height) {
+    JSAMPROW row = img->row(int(d->cinfo.output_scanline));
+    jpeg_read_scanlines(&d->cinfo, &row, 1);
   }
-  jpeg_finish_decompress(&d.cinfo);
+  jpeg_finish_decompress(&d->cinfo);
   return std::move(*img);
 }
 

@@ -29,6 +29,28 @@ class PickedImage {
   String? mimeType;
 }
 
+/// Texts of the processing notification, in the app's language (the platform has no access to
+/// the Dart localizations).
+class ProcessingTexts {
+  ProcessingTexts({
+    required this.title,
+    required this.pause,
+    required this.cancel,
+    required this.timedOut,
+    required this.channelName,
+    required this.channelDescription,
+  });
+
+  String title;
+  String pause;
+  String cancel;
+
+  /// Left as a tappable notification when Android's background time limit pauses the job.
+  String timedOut;
+  String channelName;
+  String channelDescription;
+}
+
 @HostApi()
 abstract class RefocalPlatformApi {
   AppDirs getDirs();
@@ -63,7 +85,7 @@ abstract class RefocalPlatformApi {
   /// Keeps processing alive while the app is in the background (ADR-0019, FR-BATCH-004):
   /// Android foreground service with a progress notification and Pause/Cancel actions.
   /// Must be called while the app is in the foreground (a user action).
-  void startProcessing(String title);
+  void startProcessing(ProcessingTexts texts);
 
   /// [percent] 0..100, or -1 for indeterminate.
   void updateProcessing(String text, int percent);

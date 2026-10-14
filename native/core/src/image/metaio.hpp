@@ -14,12 +14,12 @@ namespace enh {
 // SEC-INP-002: EXIF/XMP/ICC blocks larger than this are ignored.
 inline constexpr size_t kMaxMetaBytes = 1 << 20;
 
-// `app1` is the payload of a JPEG APP1 marker ("Exif\0\0" + TIFF). Returns 1..8, 1 if absent.
-int exif_orientation(const uint8_t* app1, size_t n);
-// Same for a bare TIFF block.
-int tiff_orientation(const uint8_t* tiff, size_t n);
-// Strips a leading "Exif\0\0" if present; returns the TIFF block (empty if it is not one).
-std::vector<uint8_t> exif_to_tiff(const uint8_t* d, size_t n);
+// Both accept an EXIF block as any container stores it: with the "Exif\0\0" prefix (JPEG APP1,
+// some PNG eXIf / WebP EXIF writers) or as a bare TIFF block.
+// Orientation 1..8; 1 if absent or not valid EXIF.
+int exif_orientation(const uint8_t* exif, size_t n);
+// The bare TIFF block (empty if it is not one).
+std::vector<uint8_t> exif_to_tiff(const uint8_t* exif, size_t n);
 
 struct ExifPolicy {
   int width = 0, height = 0;  // of the result: PixelX/YDimension
