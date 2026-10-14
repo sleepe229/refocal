@@ -518,8 +518,7 @@ static void test_cancel(Session& se, const std::string& in) {
   std::string r = slow_req("cx", in).dump();
   CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
   CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
-  CHECK(wait_for(c, ENH_EV_PROGRESS));
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  CHECK(wait_for(c, ENH_EV_PROGRESS));  // in the upscale stage; the input keeps it busy for seconds
   auto t0 = std::chrono::steady_clock::now();
   enh_job_cancel(j);
   CHECK(wait_terminal(c, 10));
@@ -654,7 +653,8 @@ int main(int argc, char** argv) {
     test_png_input(se);
     test_export_metadata(se);
     std::string slow = make_jpeg("slow.jpg", 640, 480);
-    test_cancel(se, slow);
+    // Large enough that the job cannot finish before the cancel, even with AVX kernels.
+    test_cancel(se, make_jpeg("slower.jpg", 2048, 1536));
     test_pause_resume(se, slow);
     test_needs_user(se);
     test_errors(se);
