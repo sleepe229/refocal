@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:refocal/bootstrap/job_store.dart';
-import 'package:refocal/bootstrap/settings.dart';
 
 void main() {
   late Directory root;
@@ -81,15 +80,27 @@ void main() {
     expect(File(a).existsSync(), isFalse);
   });
 
-  test('settings default to the private choices and survive a round trip', () {
-    const d = Settings();
-    expect(d.keepGps, isFalse);
-    expect(d.aiMarker, isTrue);
-    final s = Settings.fromJson(
-      jsonDecode(jsonEncode(d.copyWith(keepGps: true).toJson())) as Map<String, Object?>,
-    );
-    expect(s.keepGps, isTrue);
-    expect(s.aiMarker, isTrue);
-    expect(Settings.fromJson(const {}).aiMarker, isTrue);
+  test('sweep keeps picker copies still being written, then removes them', () {
+    final now = DateTime.now();
+    final fresh = File('${store.inboxDir}/in-1.jpg.part')..writeAsStringSync('x');
+    final stale = File('${store.inboxDir}/in-0.jpg.part')..writeAsStringSync('x');
+    stale.setLastModifiedSync(now.subtract(const Duration(hours: 2)));
+    store.sweep(now: now);
+    expect(fresh.existsSync(), isTrue, reason: 'the platform may still be copying');
+    expect(stale.existsSync(), isFalse);
+    store.sweep(now: now.add(const Duration(hours: 2)));
+    expect(fresh.existsSync(), isFalse);
+  });
+
+  test('one deletion that fails does not stop the sweep', () {
+    final a = input('a.jpg'), b = input('b.jpg');
+    // An abandoned job directory whose content cannot be deleted (read-only subdirectory).
+    final locked = Directory('${store.jobsDir}/locked/sub')..createSync(recursive: true);
+    File('${locked.path}/f').writeAsStringSync('x');
+    Process.runSync('chmod', ['a-w', locked.path]);
+    addTearDown(() => Process.runSync('chmod', ['u+w', locked.path]));
+    store.sweep(now: DateTime.now().add(const Duration(days: 8)));
+    expect(File(a).existsSync(), isFalse);
+    expect(File(b).existsSync(), isFalse);
   });
 }

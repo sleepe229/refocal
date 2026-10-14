@@ -17,11 +17,12 @@ final platformApiProvider = Provider((_) => RefocalPlatformApi());
 
 final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiProvider).getDirs());
 
+/// Jobs and inbox copies under AppSupport (07 §2).
+JobStore jobStoreOf(AppDirs d) =>
+    JobStore(jobsDir: '${d.support}/jobs', inboxDir: '${d.support}/inbox');
+
 class Engine {
   Engine(this.native, this.session, this.dirs, this.modelReady);
-
-  static JobStore _store(AppDirs d) =>
-      JobStore(jobsDir: '${d.support}/jobs', inboxDir: '${d.support}/inbox');
 
   final RefocalNative native;
   final RefocalSession session;
@@ -31,7 +32,7 @@ class Engine {
   String get inboxDir => '${dirs.support}/inbox';
   String get jobsDir => '${dirs.support}/jobs';
   String get exportDir => '${dirs.cache}/export';
-  JobStore get jobs => JobStore(jobsDir: jobsDir, inboxDir: inboxDir);
+  JobStore get jobs => jobStoreOf(dirs);
 }
 
 /// Opens the native core once per process and installs the bundled model on first run.
@@ -41,9 +42,9 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final ready = await _installBundledModel(models);
   final native = RefocalNative.open();
   try {
-    Engine._store(dirs).sweep(); // once per process: no screen holds an input yet
+    jobStoreOf(dirs).sweep(); // once per process: no screen holds an input yet
   } on FileSystemException {
-    // cleanup is best effort
+    // jobs/ or inbox/ could not be listed: the sweep is retried at the next start
   }
   final session = native.openSession(
     modelsDir: models,

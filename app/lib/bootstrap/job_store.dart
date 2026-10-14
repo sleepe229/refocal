@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 /// What is on disk under `jobs/` and `inbox/` (07 §1, ADR-0004, ADR-0010). The job directory is
-/// the source of truth until the history database (0.3): request.json, checkpoint.json while
-/// running or paused, result.json when finished.
+/// the source of truth for unfinished jobs (the checkpoint, ADR-0004) until the queue keeps
+/// them in `queue_jobs`: request.json, checkpoint.json while running or paused, result.json when
+/// finished.
 class JobEntry {
   JobEntry({
     required this.id,
@@ -101,22 +102,38 @@ class JobStore {
   }
 
   /// Startup cleanup: jobs older than [maxAge], directories without a readable request, and
-  /// inbox copies no job refers to (nothing is open yet when this runs).
+  /// inbox copies no job refers to (nothing is open yet when this runs). A copy the platform is
+  /// still writing (`*.part`, ADR-0010) is kept until it is [partialAge] old. Each deletion is
+  /// best effort: one that fails (e.g. a file the system holds) does not stop the others and is
+  /// retried at the next start.
   void sweep({DateTime? now}) {
     final t = now ?? DateTime.now();
-    final root = Directory(jobsDir);
-    if (root.existsSync()) {
-      for (final d in root.listSync().whereType<Directory>()) {
-        final e = _read(d);
-        final age = t.difference(e?.modified ?? d.statSync().modified);
-        if (age > maxAge || (e == null && age > const Duration(hours: 1))) _deleteDir(d.path);
-      }
+    for (final d in _children<Directory>(jobsDir)) {
+      final e = _read(d);
+      final age = t.difference(e?.modified ?? d.statSync().modified);
+      if (age > maxAge || (e == null && age > partialAge)) _tryDelete(d);
     }
-    final inbox = Directory(inboxDir);
-    if (!inbox.existsSync()) return;
     final referenced = list().map((j) => j.input).toSet();
-    for (final f in inbox.listSync().whereType<File>()) {
-      if (!referenced.contains(f.path)) f.deleteSync();
+    for (final f in _children<File>(inboxDir)) {
+      if (referenced.contains(f.path)) continue;
+      if (f.path.endsWith('.part') && t.difference(f.statSync().modified) <= partialAge) continue;
+      _tryDelete(f);
+    }
+  }
+
+  /// Unfinished writes younger than this may still be in progress.
+  static const partialAge = Duration(hours: 1);
+
+  static Iterable<T> _children<T extends FileSystemEntity>(String dir) {
+    final d = Directory(dir);
+    return d.existsSync() ? d.listSync().whereType<T>() : const [];
+  }
+
+  static void _tryDelete(FileSystemEntity e) {
+    try {
+      e.deleteSync(recursive: true);
+    } on FileSystemException {
+      // Retried at the next start (see sweep).
     }
   }
 
