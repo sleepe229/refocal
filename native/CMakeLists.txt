@@ -2,7 +2,16 @@
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
 cmake_minimum_required(VERSION 3.24)
-project(refocal_native VERSION 0.0.3 LANGUAGES C CXX)
+# The app's pubspec.yaml is the single source of the version: x.y.z for project(), the full
+# version without build metadata (e.g. 0.0.3-alpha.1) for enh_version() and xmp:CreatorTool.
+cmake_path(SET ENH_PUBSPEC NORMALIZE ${CMAKE_CURRENT_SOURCE_DIR}/../app/pubspec.yaml)
+file(STRINGS ${ENH_PUBSPEC} ENH_PUBSPEC_VERSION REGEX "^version:")
+if(NOT ENH_PUBSPEC_VERSION MATCHES "^version: *(([0-9]+\\.[0-9]+\\.[0-9]+)[^+ ]*)")
+  message(FATAL_ERROR "no 'version: x.y.z[-pre][+build]' line in ${ENH_PUBSPEC}")
+endif()
+set(ENH_VERSION ${CMAKE_MATCH_1})
+project(refocal_native VERSION ${CMAKE_MATCH_2} LANGUAGES C CXX)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ENH_PUBSPEC})
 find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -199,7 +208,7 @@ target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux libw
   Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
 target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
-target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${PROJECT_VERSION}")
+target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${ENH_VERSION}")
 if(ANDROID)
   target_link_libraries(enh_core PUBLIC log)
 endif()
