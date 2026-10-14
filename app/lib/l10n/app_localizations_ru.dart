@@ -396,6 +396,143 @@ class AppLocalizationsRu extends AppLocalizations {
       'Двигайте ползунок по результату, чтобы увидеть оригинал, и уменьшите силу, если эффект слишком сильный. Оригинал никогда не меняется.';
 
   @override
+  String get historyTitle => 'История';
+
+  @override
+  String get historyEmpty => 'Здесь появятся сохранённые фото: их настройки и маленькое превью.';
+
+  @override
+  String get historyOff => 'История выключена. Включить её можно в настройках.';
+
+  @override
+  String get historyDeleteAll => 'Удалить всё';
+
+  @override
+  String get historyDeleteAllTitle => 'Удалить всю историю?';
+
+  @override
+  String get historyDeleteAllBody =>
+      'Превью и настройки удаляются. Сохранённые фото остаются в галерее.';
+
+  @override
+  String historyDeleteFailed(String error) {
+    return 'Не все файлы удалось удалить: $error';
+  }
+
+  @override
+  String get historyEntryGone => 'Запись удалена.';
+
+  @override
+  String get historyScale => 'Масштаб';
+
+  @override
+  String get historyOriginalSize => 'Оригинал';
+
+  @override
+  String get historyResultSize => 'Результат';
+
+  @override
+  String get historyModel => 'Модель';
+
+  @override
+  String get historyBackend => 'Обработано на';
+
+  @override
+  String get historyDuration => 'Время';
+
+  @override
+  String historySeconds(int seconds) {
+    return '$seconds с';
+  }
+
+  @override
+  String get historyProcessAgain => 'Обработать ещё раз с другими настройками';
+
+  @override
+  String get historyOriginalGone =>
+      'Оригинала больше нет на устройстве: история хранит только настройки и маленькое превью. Чтобы обработать фото, откройте его заново.';
+
+  @override
+  String get historyDeleteEntry => 'Удалить из истории';
+
+  @override
+  String historyNotRecorded(String error) {
+    return 'Сохранено, но не добавлено в историю: $error';
+  }
+
+  @override
+  String get historyOffTitle => 'Выключить историю?';
+
+  @override
+  String get historyOffBody => 'Текущая история удаляется, новые фото не записываются.';
+
+  @override
+  String get historyOffConfirm => 'Выключить';
+
+  @override
+  String get settingsKeepHistory => 'Вести историю';
+
+  @override
+  String get settingsKeepHistorySub =>
+      'Настройки и маленькое превью каждого сохранённого фото, только на этом устройстве.';
+
+  @override
+  String settingsSaveFailed(String error) {
+    return 'Не удалось сохранить настройку: $error';
+  }
+
+  @override
+  String get presetsTitle => 'Пресеты';
+
+  @override
+  String get presetsBuiltin => 'Встроенные';
+
+  @override
+  String get presetsYours => 'Ваши';
+
+  @override
+  String get presetsEmpty => 'Сохраните пресет в редакторе после обработки фото.';
+
+  @override
+  String get presetFast => 'Быстро';
+
+  @override
+  String get presetQuality => 'Качество';
+
+  @override
+  String get presetRename => 'Переименовать';
+
+  @override
+  String get presetSaveAs => 'Сохранить как пресет';
+
+  @override
+  String get presetSaved => 'Пресет сохранён';
+
+  @override
+  String get presetSave => 'Сохранить';
+
+  @override
+  String presetSaveFailed(String error) {
+    return 'Не удалось изменить пресеты: $error';
+  }
+
+  @override
+  String get presetModelMissing => 'Для этого нужна модель, которая не установлена.';
+
+  @override
+  String get presetName => 'Название';
+
+  @override
+  String presetNameTooLong(int max) {
+    return 'Не больше $max символов';
+  }
+
+  @override
+  String presetStrengthAfter(String strength) {
+    return 'Сила эффекта после обработки: $strength';
+  }
+
+  @override
   String get reportTitle => 'Сообщить о проблеме';
 
   @override

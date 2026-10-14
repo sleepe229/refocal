@@ -3,22 +3,28 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
-import '../../bootstrap/settings.dart';
+import '../../bootstrap/engine.dart';
+import '../../bootstrap/presets.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/labels.dart';
+import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
 
 /// What the editor opens: a new photo, or a job from the home screen list.
 class EditorArgs {
-  const EditorArgs(this.input, {this.jobDir, this.finished = false});
+  const EditorArgs(this.input, {this.jobDir, this.finished = false, this.recipe});
   final String input;
 
   /// Set: continue this job (paused/interrupted) or show its result ([finished]).
   final String? jobDir;
   final bool finished;
+
+  /// Parameters to start from, changeable before Enhance (a history entry, FR-HIST-003).
+  final Recipe? recipe;
 }
 
 class EditorPage extends ConsumerStatefulWidget {
@@ -35,9 +41,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   ScaleChoice? _choice;
   ui.Size? _size;
 
+  /// Strength the result starts with: from a preset or a history entry, else 100%.
+  double _strength = 1;
+
   @override
   void initState() {
     super.initState();
+    if (widget.args.recipe case final r?) _apply(r);
     _readSize();
     final dir = widget.args.jobDir;
     if (dir != null) {
@@ -121,6 +131,40 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
+  void _apply(Recipe r) {
+    _choice = ScaleChoice.of(r);
+    _strength = r.strength;
+  }
+
+  bool _matches(Recipe r) => _choice == ScaleChoice.of(r) && _strength == r.strength;
+
+  /// Presets apply before Enhance (FR-PRE-001/002). Only the bundled model exists until the
+  /// model manager (0.2): a preset of another model cannot run.
+  Widget _presets(AppLocalizations l10n) {
+    final user = ref.watch(presetsProvider).value ?? const <Preset>[];
+    final messenger = ScaffoldMessenger.of(context);
+    Widget chip(String label, Recipe r) => ChoiceChip(
+      label: Text(label),
+      selected: _matches(r),
+      onSelected: (_) {
+        if (r.srModel != bundledSrModel) {
+          messenger.showSnackBar(SnackBar(content: Text(l10n.presetModelMissing)));
+          return;
+        }
+        setState(() => _apply(r));
+      },
+    );
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      alignment: WrapAlignment.center,
+      children: [
+        for (final b in BuiltinPreset.values) chip(builtinPresetLabel(l10n, b), b.recipe),
+        for (final p in user) chip(p.name, p.recipe),
+      ],
+    );
+  }
+
   Widget _controls(EnhanceController ctl, AppLocalizations l10n) {
     final size = _size;
     return Column(
@@ -129,6 +173,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         if (size != null)
           Text(l10n.sizePx(size.width.toInt(), size.height.toInt()), textAlign: TextAlign.center),
         const SizedBox(height: 12),
+        _presets(l10n),
+        const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
           segments: [
             for (final c in ScaleChoice.values)
@@ -145,9 +191,18 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           const SizedBox(height: 8),
           Text(l10n.scaleX1Hint, textAlign: TextAlign.center),
         ],
+        if (_strength != 1) ...[
+          const SizedBox(height: 8),
+          Text(
+            l10n.presetStrengthAfter(l10n.strengthValue((_strength * 100).round())),
+            textAlign: TextAlign.center,
+          ),
+        ],
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: _choice == null ? null : () => ctl.start(widget.input, _choice!),
+          onPressed: _choice == null
+              ? null
+              : () => ctl.start(widget.input, _choice!, strength: _strength),
           icon: const Icon(Icons.auto_fix_high),
           label: Text(l10n.enhance),
         ),
@@ -276,9 +331,28 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           icon: const Icon(Icons.description_outlined),
           label: Text(l10n.saveAsFile),
         ),
+        TextButton(
+          onPressed: busy ? null : () => _saveAsPreset(ctl, l10n),
+          child: Text(l10n.presetSaveAs),
+        ),
         TextButton(onPressed: busy ? null : ctl.reset, child: Text(l10n.tryAnotherScale)),
       ],
     );
+  }
+
+  Future<void> _saveAsPreset(EnhanceController ctl, AppLocalizations l10n) async {
+    final recipe = ctl.recipe;
+    if (recipe == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final name = await showPresetNameDialog(context, title: l10n.presetSaveAs);
+    if (name == null) return;
+    try {
+      final repo = await ref.read(presetRepositoryProvider.future);
+      await repo.add(name, recipe);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaved)));
+    } on Exception catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaveFailed('$e'))));
+    }
   }
 
   Future<void> _save(Future<String?> Function() save, String done) async {
@@ -286,6 +360,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       if (await save() != null) messenger.showSnackBar(SnackBar(content: Text(done)));
+    } on HistoryNotRecorded catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.historyNotRecorded('${e.cause}'))));
     } on EnhException catch (e) {
       messenger.showSnackBar(
         SnackBar(

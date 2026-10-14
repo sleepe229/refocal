@@ -8,6 +8,7 @@ import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/history.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/settings.dart';
 
@@ -22,6 +23,9 @@ enum ScaleChoice {
   const ScaleChoice(this.scale, this.fastPath);
   final int scale;
   final bool fastPath;
+
+  static ScaleChoice of(Recipe r) =>
+      values.firstWhere((c) => c.scale == r.scale && c.fastPath == r.fast2);
 }
 
 sealed class EnhanceState {
@@ -78,6 +82,16 @@ class Failed extends EnhanceState {
   final String? message;
 }
 
+/// The result was saved ([uri]) but its history entry could not be written.
+class HistoryNotRecorded implements Exception {
+  const HistoryNotRecorded(this.uri, this.cause);
+  final String uri;
+  final Object cause;
+
+  @override
+  String toString() => '$cause';
+}
+
 class EnhanceController extends Notifier<EnhanceState> {
   RefocalJob? _job;
   StreamSubscription<JobEvent>? _sub;
@@ -85,6 +99,9 @@ class EnhanceController extends Notifier<EnhanceState> {
   Engine? _engine;
   String? _input;
   bool _timedOut = false;
+
+  /// Strength the result starts with (a preset's, FR-PRE-002; else 100%).
+  double _strength = 1;
 
   @override
   EnhanceState build() {
@@ -111,7 +128,9 @@ class EnhanceController extends Notifier<EnhanceState> {
     }
   }
 
-  Future<void> start(String input, ScaleChoice choice) async {
+  /// [strength]: what the result starts with (from a preset or a history entry).
+  Future<void> start(String input, ScaleChoice choice, {double strength = 1}) async {
+    _strength = strength;
     final id = 'job-${DateTime.now().millisecondsSinceEpoch}';
     AppLog.info('job $id: scale ${choice.scale}${choice.fastPath ? ' fast' : ''}');
     await _run(
@@ -208,7 +227,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         'job done: ${result.width}x${result.height}, backend ${result.backend}, '
         'fallbacks ${result.fallbacks}, timings ${result.raw['timings_ms']}',
       );
-      state = Finished(result);
+      state = Finished(result, strength: _strength);
       await _guard(() => platform.stopProcessing(l10n.notifReady));
     } on JobFailure catch (f) {
       AppLog.info(
@@ -270,6 +289,17 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// The input is needed to export below 100% strength (the blend base).
   bool get originalExists => _input != null && File(_input!).existsSync();
 
+  /// The parameters of the shown result, for "Save as preset" (FR-PRE-002).
+  Recipe? get recipe => switch (state) {
+    Finished(:final result, :final strength) => Recipe(
+      scale: result.scale,
+      fast2: result.fast2,
+      srModel: result.model,
+      strength: strength,
+    ),
+    _ => null,
+  };
+
   /// Exports in the default format into the app album (FR-EXP-004). Returns the gallery URI.
   Future<String?> saveToGallery() async {
     final settings = await ref.read(settingsProvider.future);
@@ -283,7 +313,9 @@ class EnhanceController extends Notifier<EnhanceState> {
   Future<String?> saveToFile(ExportFormat format) =>
       _export(format, (platform, path, name) => platform.saveToFile(path, name, format.mimeType));
 
-  /// Any number of exports from one result, without processing again (FR-EXP-007).
+  /// Any number of exports from one result, without processing again (FR-EXP-007). Each one
+  /// that reaches its destination becomes a history entry unless history is off (FR-HIST-001,
+  /// FR-HIST-005); a failure to record it throws [HistoryNotRecorded] after the save.
   Future<String?> _export(
     ExportFormat format,
     Future<String?> Function(RefocalPlatformApi, String path, String name) deliver,
@@ -292,10 +324,14 @@ class EnhanceController extends Notifier<EnhanceState> {
     if (s is! Finished || s.saving) return null;
     final engine = await ref.read(engineProvider.future);
     final settings = await ref.read(settingsProvider.future);
+    final history = settings.historyEnabled ? await ref.read(historyStoreProvider.future) : null;
+    final entryId = newId();
+    final preview = history?.previewPathFor(entryId);
     Directory(engine.exportDir).createSync(recursive: true);
     final name = 'Refocal_${s.result.jobId}.${format.extension}';
     final tmp = '${engine.exportDir}/$name';
     state = s.copyWith(saving: true);
+    String? uri;
     try {
       await engine.session.export(
         s.result.jobDir,
@@ -306,21 +342,71 @@ class EnhanceController extends Notifier<EnhanceState> {
         strength: s.strength,
         keepGps: settings.keepGps,
         aiMarker: settings.aiMarker,
+        thumbnail: preview,
+        thumbnailMaxSide: HistoryStore.previewMaxSide,
       );
-      final uri = await deliver(ref.read(platformApiProvider), tmp, name);
+      uri = await deliver(ref.read(platformApiProvider), tmp, name);
       AppLog.info(
         'export ${format.name} q${settings.quality} strength ${s.strength}: '
         '${uri == null ? 'cancelled' : 'saved'}',
       );
-      state = s.copyWith(saved: s.saved || uri != null, saving: false);
-      return uri;
     } catch (e, stack) {
       AppLog.error('export ${format.name} failed', e, stack);
       state = s.copyWith(saving: false);
+      _deletePreview(preview);
       rethrow;
     } finally {
       final f = File(tmp);
       if (f.existsSync()) f.deleteSync();
+    }
+    state = s.copyWith(saved: s.saved || uri != null, saving: false);
+    if (history == null || preview == null) return uri;
+    if (uri == null) {
+      _deletePreview(preview); // cancelled: nothing was saved
+      return null;
+    }
+    final r = s.result;
+    try {
+      await history.repo.add(
+        HistoryEntry(
+          id: entryId,
+          createdAt: DateTime.now(),
+          recipe: Recipe(
+            scale: r.scale,
+            fast2: r.fast2,
+            srModel: r.model,
+            strength: s.strength,
+            output: OutputSpec(format, quality: settings.quality),
+          ),
+          inputPath: history.relative(_input!),
+          sourceWidth: r.inputWidth,
+          sourceHeight: r.inputHeight,
+          width: r.width,
+          height: r.height,
+          previewPath: history.relative(preview),
+          resultUri: uri,
+          modelIds: [r.model],
+          backend: r.backend,
+          duration: r.duration,
+          jobId: r.jobId,
+        ),
+      );
+    } on Object catch (e) {
+      _deletePreview(preview);
+      throw HistoryNotRecorded(uri, e);
+    }
+    return uri;
+  }
+
+  /// A preview without an entry; if it cannot be deleted now, the history sweep removes it at
+  /// the next start.
+  static void _deletePreview(String? path) {
+    if (path == null) return;
+    try {
+      final f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } on FileSystemException {
+      // see above
     }
   }
 
@@ -333,6 +419,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         // best effort
       }
     }
+    _strength = 1;
     state = const Idle();
   }
 }

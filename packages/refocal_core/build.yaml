@@ -1,0 +1,16 @@
+# drift (ADR-0009): generated code and schema dumps are committed; regenerate with
+#   dart run build_runner build && dart run drift_dev make-migrations && dart format .
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          databases:
+            refocal: lib/src/db/database.dart
+          schema_dir: drift_schemas/
+          test_dir: test/drift/
+          # SQL is checked against the newest version drift_dev knows (the bundled one is 3.54).
+          sql:
+            dialect: sqlite
+            options:
+              version: "3.53"

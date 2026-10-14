@@ -4,38 +4,14 @@ import 'dart:ui';
 
 import 'package:flutter/widgets.dart' show basicLocaleListResolution;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:refocal_core/refocal_core.dart';
 
 import '../l10n/app_localizations.dart';
+import 'database.dart';
 import 'engine.dart';
 
-/// Output formats of the native export (FR-EXP-001). HEIC output is 0.5+ (FR-EXP-002).
-enum ExportFormat {
-  jpeg('jpeg', false, 'jpg', 'image/jpeg'),
-  png('png', false, 'png', 'image/png'),
-  webp('webp', false, 'webp', 'image/webp'),
-  webpLossless('webp', true, 'webp', 'image/webp');
-
-  const ExportFormat(this.format, this.lossless, this.extension, this.mimeType);
-
-  /// `format` of enh_export.
-  final String format;
-  final bool lossless;
-  final String extension, mimeType;
-
-  /// Uses the quality setting (lossy).
-  bool get hasQuality => this == jpeg || this == webp;
-
-  /// WebP encodes a whole picture in memory: the core refuses larger results (ENH_E_LIMIT).
-  double get maxMegapixels => switch (this) {
-    webp => 50,
-    webpLossless => 24,
-    _ => double.infinity,
-  };
-}
-
-/// Export and metadata policy, language, first-run state (FR-SET-001/002/006, FR-ONB-001).
-/// A JSON file until the drift database arrives with history (ADR-0009): a few flags do not
-/// justify bundling SQLite into a 30 MB APK.
+/// Export and metadata policy, language, history, first-run state (FR-SET-001/002/006,
+/// FR-HIST-005, FR-ONB-001). Stored in the `settings` table (ADR-0009, 07 §3) as strings.
 class Settings {
   const Settings({
     this.keepGps = false,
@@ -44,6 +20,7 @@ class Settings {
     this.quality = 92,
     this.languageCode,
     this.onboardingDone = false,
+    this.historyEnabled = true,
   });
 
   /// PRIV-META-001: location is removed from results unless the user asks to keep it.
@@ -63,7 +40,8 @@ class Settings {
 
   final bool onboardingDone;
 
-  static const minQuality = 60, maxQuality = 100;
+  /// FR-HIST-005: off records nothing (and the history is cleared when it is turned off).
+  final bool historyEnabled;
 
   Settings copyWith({
     bool? keepGps,
@@ -72,6 +50,7 @@ class Settings {
     int? quality,
     String? Function()? languageCode,
     bool? onboardingDone,
+    bool? historyEnabled,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
     aiMarker: aiMarker ?? this.aiMarker,
@@ -79,55 +58,125 @@ class Settings {
     quality: quality ?? this.quality,
     languageCode: languageCode != null ? languageCode() : this.languageCode,
     onboardingDone: onboardingDone ?? this.onboardingDone,
+    historyEnabled: historyEnabled ?? this.historyEnabled,
   );
 
-  Map<String, Object?> toJson() => {
-    'version': 2,
-    'keep_gps': keepGps,
-    'ai_marker': aiMarker,
+  /// Rows of the `settings` table; null removes the key (the system language).
+  Map<String, String?> toStore() => {
+    'keep_gps': '$keepGps',
+    'ai_marker': '$aiMarker',
     'format': format.name,
-    'quality': quality,
+    'quality': '$quality',
     'language': languageCode,
-    'onboarding_done': onboardingDone,
+    'onboarding_done': '$onboardingDone',
+    'history_enabled': '$historyEnabled',
   };
 
-  factory Settings.fromJson(Map<String, Object?> j) {
+  /// The values are validated here, once: anything missing, unknown or out of range is the
+  /// default, and the defaults are the private choices.
+  factory Settings.fromStore(Map<String, String> m) {
+    const d = Settings();
+    bool flag(String key, bool fallback) => switch (m[key]) {
+      'true' => true,
+      'false' => false,
+      _ => fallback,
+    };
+    final quality = int.tryParse(m['quality'] ?? '');
+    return Settings(
+      keepGps: flag('keep_gps', d.keepGps),
+      aiMarker: flag('ai_marker', d.aiMarker),
+      format: ExportFormat.values.asNameMap()[m['format']] ?? d.format,
+      quality: quality?.clamp(ExportFormat.minQuality, ExportFormat.maxQuality) ?? d.quality,
+      languageCode: _supported(m['language']),
+      onboardingDone: flag('onboarding_done', d.onboardingDone),
+      historyEnabled: flag('history_enabled', d.historyEnabled),
+    );
+  }
+
+  /// settings.json of 0.0.2–0.0.3 (see [importLegacySettings]).
+  factory Settings.fromLegacyJson(Map<String, Object?> j) {
     final lang = j['language'];
     return Settings(
       keepGps: j['keep_gps'] == true,
       aiMarker: j['ai_marker'] != false,
       format: ExportFormat.values.asNameMap()[j['format']] ?? ExportFormat.jpeg,
-      quality: ((j['quality'] as num?)?.toInt() ?? 92).clamp(minQuality, maxQuality),
-      languageCode: AppLocalizations.supportedLocales.any((l) => l.languageCode == lang)
-          ? lang as String
-          : null,
+      quality: ((j['quality'] as num?)?.toInt() ?? 92).clamp(
+        ExportFormat.minQuality,
+        ExportFormat.maxQuality,
+      ),
+      languageCode: _supported(lang is String ? lang : null),
       // Version 1 files come from 0.0.2: those users have seen the app already.
       onboardingDone: j['onboarding_done'] == true || j['version'] == 1,
     );
   }
+
+  static String? _supported(String? code) =>
+      AppLocalizations.supportedLocales.any((l) => l.languageCode == code) ? code : null;
+}
+
+/// Moves settings.json of 0.0.2–0.0.3 into the database once (ADR-0009) and deletes it.
+///
+/// The file is imported only into an empty table: settings already in the database were
+/// imported or changed after an earlier import whose delete failed. A file that is not JSON
+/// holds nothing to import (0.0.3 read it as the defaults) and is deleted as well. A file that
+/// cannot be read or deleted now stays for the next start: the app runs on the database values.
+Future<void> importLegacySettings(SettingsStore store, String supportDir) async {
+  final file = File('$supportDir/settings.json');
+  // The temporary file of an interrupted 0.0.3 save: never the current settings.
+  final part = File('${file.path}.part');
+  try {
+    if (await part.exists()) await part.delete();
+    if (!await file.exists()) return;
+    Map<String, Object?>? legacy;
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+      legacy = decoded is Map<String, Object?> ? decoded : null;
+    } on FormatException {
+      legacy = null;
+    }
+    if (legacy != null && (await store.read()).isEmpty) {
+      await store.write(Settings.fromLegacyJson(legacy).toStore());
+    }
+    await file.delete();
+  } on FileSystemException {
+    // Retried on the next start (see above).
+  }
 }
 
 class SettingsController extends AsyncNotifier<Settings> {
-  File? _file;
+  late SettingsStore _store;
+
+  /// The last queued write; updates run one after another.
+  Future<void> _writes = Future.value();
 
   @override
   Future<Settings> build() async {
+    final db = await ref.watch(databaseProvider.future);
     final dirs = await ref.watch(appDirsProvider.future);
-    final f = _file = File('${dirs.support}/settings.json');
-    try {
-      return Settings.fromJson(jsonDecode(await f.readAsString()) as Map<String, Object?>);
-    } on Object {
-      return const Settings(); // missing or unreadable: defaults are the private ones
-    }
+    _store = SettingsStore(db);
+    await importLegacySettings(_store, dirs.support);
+    return Settings.fromStore(await _store.read());
   }
 
-  Future<void> save(Settings s) async {
-    state = AsyncData(s);
-    final f = _file;
-    if (f == null) return;
-    final tmp = File('${f.path}.part');
-    await tmp.writeAsString(jsonEncode(s.toJson()), flush: true);
-    await tmp.rename(f.path);
+  /// Applies [edit] to the stored settings. Updates are serialized, each starts from the
+  /// result of the previous one, and the state changes only after the write: it always shows
+  /// what is stored. A failed write throws here and leaves the state as it was.
+  Future<void> change(Settings Function(Settings) edit) {
+    final run = _writes.then((_) async {
+      final current = await future;
+      final next = edit(current);
+      final before = current.toStore();
+      final changed = {
+        for (final MapEntry(:key, :value) in next.toStore().entries)
+          if (before[key] != value) key: value,
+      };
+      if (changed.isEmpty) return;
+      await _store.write(changed);
+      state = AsyncData(next);
+    });
+    // The queue goes on after a failure; the caller gets the error from `run`.
+    _writes = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
   }
 }
 

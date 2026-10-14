@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:refocal_core/refocal_core.dart';
 
+import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
 
-/// Export format and quality, metadata policy, language (FR-SET-001/002/006, FR-META-003/005).
+/// Export format and quality, metadata policy, history and presets, language (FR-SET-001/002/006,
+/// FR-META-003/005, FR-HIST-005, FR-PRE-002).
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -14,7 +17,18 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final settings = ref.watch(settingsProvider);
-    final ctl = ref.read(settingsProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    // The control shows the stored value; a failed write leaves it and says why.
+    Future<bool> change(Settings Function(Settings) f) async {
+      try {
+        await ref.read(settingsProvider.notifier).change(f);
+        return true;
+      } on Exception catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaveFailed('$e'))));
+        return false;
+      }
+    }
+
     final header = Theme.of(context).textTheme.titleSmall;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -28,7 +42,7 @@ class SettingsPage extends ConsumerWidget {
               title: Text(l10n.settingsFormat),
               trailing: DropdownButton<ExportFormat>(
                 value: s.format,
-                onChanged: (f) => f == null ? null : ctl.save(s.copyWith(format: f)),
+                onChanged: (f) => f == null ? null : change((c) => c.copyWith(format: f)),
                 items: [
                   for (final f in ExportFormat.values)
                     DropdownMenuItem(value: f, child: Text(formatLabel(l10n, f))),
@@ -43,12 +57,12 @@ class SettingsPage extends ConsumerWidget {
             ),
             Slider(
               value: s.quality.toDouble(),
-              min: Settings.minQuality.toDouble(),
-              max: Settings.maxQuality.toDouble(),
-              divisions: Settings.maxQuality - Settings.minQuality,
+              min: ExportFormat.minQuality.toDouble(),
+              max: ExportFormat.maxQuality.toDouble(),
+              divisions: ExportFormat.maxQuality - ExportFormat.minQuality,
               label: '${s.quality}',
               onChanged: s.format.hasQuality
-                  ? (v) => ctl.save(s.copyWith(quality: v.round()))
+                  ? (v) => change((c) => c.copyWith(quality: v.round()))
                   : null,
             ),
             const Divider(),
@@ -60,7 +74,7 @@ class SettingsPage extends ConsumerWidget {
               title: Text(l10n.settingsKeepLocation),
               subtitle: Text(l10n.settingsKeepLocationSub),
               value: s.keepGps,
-              onChanged: (v) => ctl.save(s.copyWith(keepGps: v)),
+              onChanged: (v) => change((c) => c.copyWith(keepGps: v)),
             ),
             SwitchListTile(
               title: Text(l10n.settingsAiMarker),
@@ -68,15 +82,38 @@ class SettingsPage extends ConsumerWidget {
               value: s.aiMarker,
               onChanged: (v) async {
                 if (!v && !await _confirmMarkerOff(context)) return;
-                await ctl.save(s.copyWith(aiMarker: v));
+                await change((c) => c.copyWith(aiMarker: v));
               },
             ),
+            const Divider(),
+            ListTile(title: Text(l10n.historyTitle, style: header)),
+            SwitchListTile(
+              title: Text(l10n.settingsKeepHistory),
+              subtitle: Text(l10n.settingsKeepHistorySub),
+              value: s.historyEnabled,
+              onChanged: (v) async {
+                if (v) {
+                  await change((c) => c.copyWith(historyEnabled: true));
+                  return;
+                }
+                if (!await _confirmHistoryOff(context)) return;
+                // Recording stops first, so nothing is added while the history is cleared.
+                if (!await change((c) => c.copyWith(historyEnabled: false))) return;
+                try {
+                  await (await ref.read(historyStoreProvider.future)).clear();
+                } on Exception catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(l10n.historyDeleteFailed('$e'))));
+                }
+              },
+            ),
+            ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
+            ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
             const Divider(),
             ListTile(
               title: Text(l10n.settingsLanguage),
               trailing: DropdownButton<String?>(
                 value: s.languageCode,
-                onChanged: (code) => ctl.save(s.copyWith(languageCode: () => code)),
+                onChanged: (code) => change((c) => c.copyWith(languageCode: () => code)),
                 items: [
                   DropdownMenuItem(child: Text(l10n.languageSystem)),
                   for (final l in AppLocalizations.supportedLocales)
@@ -92,6 +129,25 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmHistoryOff(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(l10n.historyOffTitle),
+            content: Text(l10n.historyOffBody),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.historyOffConfirm),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<bool> _confirmMarkerOff(BuildContext context) async {

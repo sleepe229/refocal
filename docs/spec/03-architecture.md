@@ -41,7 +41,7 @@
 │ NcnnVulkanBackend │ NcnnCpuBackend │ CoreMLBackend (.mm) │ [R1.3] OrtQnnBackend     │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 Хранилище: drift SQLite │ AppSupport/models │ AppSupport/jobs/<id> │ AppSupport/inbox │
-           Cache/previews │ logs/
+           AppSupport/history (превью) │ logs/
 Сеть (только по действию/согласию): HF / GitHub Releases (манифест, паки) │
            GitHub issue URL
 ```
@@ -315,7 +315,7 @@ sequenceDiagram
 | `AppSupport/models/<id>@<ver>/` | файлы моделей + `pack.json` |
 | `AppSupport/jobs/<id>/` | `bands/`, `faces/`, `pyramid/`, `checkpoint.json`, `preview.jpg` |
 | `AppSupport/inbox/` | копии входных файлов (квота) |
-| `Cache/previews/` | превью истории |
+| `AppSupport/history/` | превью истории ≤ 512 px (не `Cache/`: запись живёт дольше кэша) |
 | `AppSupport/logs/` | ротируемый лог ≤ 5 МБ |
 
 ## 12. Флейворы сборки
