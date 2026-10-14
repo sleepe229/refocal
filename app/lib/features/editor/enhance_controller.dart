@@ -4,21 +4,23 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
+import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/settings.dart';
 
-/// Output scale choices (ADR-0014). Fast 2x runs x4 on a half-size input: 4x cheaper.
+/// Output scale choices (ADR-0014). Fast 2x runs x4 on a half-size input: 4x cheaper; 1x runs
+/// x4 and scales back down: noise and blur removal without enlarging (FR-ENH-004).
 enum ScaleChoice {
-  x4(4, false, '4×'),
-  x2(2, false, '2×'),
-  fast2(2, true, 'Fast 2×');
+  x4(4, false),
+  x2(2, false),
+  fast2(2, true),
+  x1(1, false);
 
-  const ScaleChoice(this.scale, this.fastPath, this.label);
+  const ScaleChoice(this.scale, this.fastPath);
   final int scale;
   final bool fastPath;
-  final String label;
 }
 
 sealed class EnhanceState {
@@ -51,9 +53,22 @@ class Paused extends EnhanceState {
 }
 
 class Finished extends EnhanceState {
-  const Finished(this.result, {this.savedUri});
+  const Finished(this.result, {this.strength = 1, this.saved = false, this.saving = false});
   final JobResult result;
-  final String? savedUri;
+
+  /// FR-ENH-005: blend with the original, applied at export (ADR-0012 amendment).
+  final double strength;
+
+  /// Exported at least once: the job is deleted when the editor closes (ADR-0010).
+  final bool saved;
+  final bool saving;
+
+  Finished copyWith({double? strength, bool? saved, bool? saving}) => Finished(
+    result,
+    strength: strength ?? this.strength,
+    saved: saved ?? this.saved,
+    saving: saving ?? this.saving,
+  );
 }
 
 class Failed extends EnhanceState {
@@ -88,7 +103,7 @@ class EnhanceController extends Notifier<EnhanceState> {
     if (engine == null) return;
     try {
       final s = state;
-      if (s is Finished && s.savedUri != null) engine.jobs.discard(s.result.jobDir);
+      if (s is Finished && s.saved) engine.jobs.discard(s.result.jobDir);
       if (input != null) engine.jobs.releaseInput(input);
     } on FileSystemException {
       // best effort; the startup sweep catches the rest
@@ -132,7 +147,8 @@ class EnhanceController extends Notifier<EnhanceState> {
     final platform = ref.read(platformApiProvider);
     state = const Running(JobStage.queued, 0, null);
     await _guard(platform.requestNotificationPermission);
-    await _guard(() => platform.startProcessing('Enhancing a photo'));
+    final l10n = ref.read(l10nProvider);
+    await _guard(() => platform.startProcessing(l10n.notifEnhancing));
     var lastPercent = -2;
     try {
       final job = _job = create(engine);
@@ -160,11 +176,11 @@ class EnhanceController extends Notifier<EnhanceState> {
               _guard(() => platform.updateProcessing('$pct%', pct));
             }
           case FallbackEvent():
-            note = 'Switched to ${e.to}';
+            note = l10n.noteSwitchedTo(e.to);
           case WarningEvent(code: 'alpha_flattened'):
-            note = 'Transparent areas become white';
+            note = l10n.noteAlphaFlattened;
           case WarningEvent(code: 'animation_first_frame'):
-            note = 'Only the first frame of the animation is enhanced';
+            note = l10n.noteFirstFrame;
           case NeedsUserEvent():
             state = AskUser(e);
           default:
@@ -172,7 +188,7 @@ class EnhanceController extends Notifier<EnhanceState> {
       });
       final result = await job.done;
       state = Finished(result);
-      await _guard(() => platform.stopProcessing('Photo ready. Tap to open.'));
+      await _guard(() => platform.stopProcessing(l10n.notifReady));
     } on JobFailure catch (f) {
       final dir = f.event.jobDir;
       if (f.status == EnhStatus.paused && dir != null) {
@@ -183,7 +199,7 @@ class EnhanceController extends Notifier<EnhanceState> {
       // A timeout already left its own "tap to continue" notification.
       final text = switch (f.status) {
         EnhStatus.cancelled || EnhStatus.paused => null,
-        _ => 'Enhancement failed. Tap to open.',
+        _ => l10n.notifFailed,
       };
       await _guard(() => platform.stopProcessing(text));
     } on EnhException catch (e) {
@@ -221,23 +237,57 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   void pause() => _job?.pause();
 
-  Future<void> save() async {
+  void setStrength(double v) {
     final s = state;
-    if (s is! Finished) return;
+    if (s is Finished) state = s.copyWith(strength: v.clamp(0.0, 1.0));
+  }
+
+  /// The input is needed to export below 100% strength (the blend base).
+  bool get originalExists => _input != null && File(_input!).existsSync();
+
+  /// Exports in the default format into the app album (FR-EXP-004). Returns the gallery URI.
+  Future<String?> saveToGallery() async {
+    final settings = await ref.read(settingsProvider.future);
+    return _export(
+      settings.format,
+      (platform, path, name) => platform.saveToGallery(path, name, settings.format.mimeType),
+    );
+  }
+
+  /// Exports in [format] to a document the user picks (FR-EXP-006). Null when cancelled.
+  Future<String?> saveToFile(ExportFormat format) =>
+      _export(format, (platform, path, name) => platform.saveToFile(path, name, format.mimeType));
+
+  /// Any number of exports from one result, without processing again (FR-EXP-007).
+  Future<String?> _export(
+    ExportFormat format,
+    Future<String?> Function(RefocalPlatformApi, String path, String name) deliver,
+  ) async {
+    final s = state;
+    if (s is! Finished || s.saving) return null;
     final engine = await ref.read(engineProvider.future);
     final settings = await ref.read(settingsProvider.future);
     Directory(engine.exportDir).createSync(recursive: true);
-    final name = 'Refocal_${s.result.jobId}.jpg';
+    final name = 'Refocal_${s.result.jobId}.${format.extension}';
     final tmp = '${engine.exportDir}/$name';
+    state = s.copyWith(saving: true);
     try {
       await engine.session.export(
         s.result.jobDir,
         tmp,
+        format: format.format,
+        quality: settings.quality,
+        lossless: format.lossless,
+        strength: s.strength,
         keepGps: settings.keepGps,
         aiMarker: settings.aiMarker,
       );
-      final uri = await ref.read(platformApiProvider).saveToGallery(tmp, name, 'image/jpeg');
-      state = Finished(s.result, savedUri: uri);
+      final uri = await deliver(ref.read(platformApiProvider), tmp, name);
+      state = s.copyWith(saved: s.saved || uri != null, saving: false);
+      return uri;
+    } catch (_) {
+      state = s.copyWith(saving: false);
+      rethrow;
     } finally {
       final f = File(tmp);
       if (f.existsSync()) f.deleteSync();
@@ -246,7 +296,7 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   void reset() {
     final s = state;
-    if (s is Finished && s.savedUri != null) {
+    if (s is Finished && s.saved) {
       try {
         _engine?.jobs.discard(s.result.jobDir, inUse: {?_input});
       } on FileSystemException {

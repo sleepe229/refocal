@@ -66,6 +66,7 @@ adb_ shell content call --method scan_volume --uri content://media --arg externa
 adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
 
 echo "== flow"
+tap_text "Skip" 60  # first run: the introduction (FR-ONB-001)
 tap_text "Choose a photo" 60
 sleep 3
 # Photo Picker: first thumbnail in "Recent".
@@ -113,5 +114,16 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+echo "== share intake (FR-SHARE-001)"
+id=$(adb_ shell content query --uri content://media/external/images/media --projection _id \
+  --where "_display_name=\'e2e_input.$EXT\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1)
+[[ -n "$id" ]] || { echo "FAIL: input not in MediaStore"; exit 1; }
+adb_ shell input keyevent KEYCODE_BACK
+mime=image/${EXT/jpg/jpeg}
+adb_ shell am start -a android.intent.action.SEND -t "$mime" --grant-read-uri-permission \
+  --eu android.intent.extra.STREAM "content://media/external/images/media/$id" \
+  -n io.github.refocal.app/.MainActivity >/dev/null
+tap_text "Enhance" 60 || { echo "FAIL: shared photo did not open the editor"; exit 1; }  # starts it
+echo "  shared photo opened"
 adb_ logcat -d | grep -E " enh |FATAL|AndroidRuntime" | tail -5 || true
 echo PASS

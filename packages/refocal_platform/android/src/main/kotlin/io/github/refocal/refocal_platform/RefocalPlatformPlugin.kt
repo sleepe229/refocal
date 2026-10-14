@@ -31,17 +31,21 @@ import kotlinx.coroutines.withContext
 
 /**
  * Platform services over Pigeon (ADR-0005). No GMS/androidx dependencies (COMP-FDR-007):
- * the system photo picker (ACTION_PICK_IMAGES) where available, else the document picker.
+ * the system photo picker (ACTION_PICK_IMAGES) where available, else the document picker;
+ * images shared to the app (ACTION_SEND, FR-SHARE-001); saving to a user-chosen document.
  */
 class RefocalPlatformPlugin :
     FlutterPlugin,
     ActivityAware,
     RefocalPlatformApi,
     PluginRegistry.ActivityResultListener,
-    PluginRegistry.RequestPermissionsResultListener {
+    PluginRegistry.RequestPermissionsResultListener,
+    PluginRegistry.NewIntentListener {
   private lateinit var context: Context
   private var binding: ActivityPluginBinding? = null
   private var pending: CompletableDeferred<Uri?>? = null
+  private var pendingCreate: CompletableDeferred<Uri?>? = null
+  private var shared: Uri? = null
   private var pendingPermission: CompletableDeferred<Boolean>? = null
   private var events: RefocalPlatformEvents? = null
 
@@ -62,6 +66,8 @@ class RefocalPlatformPlugin :
     binding = b
     b.addActivityResultListener(this)
     b.addRequestPermissionsResultListener(this)
+    b.addOnNewIntentListener(this)
+    takeShare(b.activity.intent)
   }
 
   override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
@@ -71,6 +77,7 @@ class RefocalPlatformPlugin :
   override fun onDetachedFromActivity() {
     binding?.removeActivityResultListener(this)
     binding?.removeRequestPermissionsResultListener(this)
+    binding?.removeOnNewIntentListener(this)
     binding = null
   }
 
@@ -103,11 +110,63 @@ class RefocalPlatformPlugin :
   }
 
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-    if (requestCode != REQUEST_PICK) return false
-    val d = pending ?: return true
-    pending = null
+    val d =
+        when (requestCode) {
+          REQUEST_PICK -> pending.also { pending = null }
+          REQUEST_CREATE -> pendingCreate.also { pendingCreate = null }
+          else -> return false
+        } ?: return true
     d.complete(if (resultCode == Activity.RESULT_OK) data?.data else null)
     return true
+  }
+
+  override fun onNewIntent(intent: Intent): Boolean {
+    if (!takeShare(intent)) return false
+    main.launch {
+      try {
+        events?.onSharedImage()
+      } catch (_: Exception) {
+        // Dart side not ready: it asks for the share when the home screen starts anyway.
+      }
+    }
+    return true
+  }
+
+  /** Remembers an image shared with ACTION_SEND; the intent is consumed so a recreated activity does not repeat it. */
+  private fun takeShare(intent: Intent?): Boolean {
+    if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("image/") != true) return false
+    val uri =
+        if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
+    intent.action = null
+    shared = uri ?: return false
+    return true
+  }
+
+  override suspend fun takeSharedImage(inboxDir: String): PickedImage? {
+    val uri = shared ?: return null
+    shared = null
+    return withContext(Dispatchers.IO) { copyToInbox(uri, File(inboxDir)) }
+  }
+
+  override suspend fun saveToFile(path: String, displayName: String, mimeType: String): String? {
+    val activity = binding?.activity ?: throw FlutterError("no_activity", "No foreground activity")
+    if (pendingCreate != null) throw FlutterError("busy", "A save dialog is already open")
+    val deferred = CompletableDeferred<Uri?>()
+    pendingCreate = deferred
+    activity.startActivityForResult(
+        Intent(Intent.ACTION_CREATE_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType(mimeType)
+            .putExtra(Intent.EXTRA_TITLE, displayName),
+        REQUEST_CREATE)
+    val uri = deferred.await() ?: return null
+    withContext(Dispatchers.IO) {
+      (context.contentResolver.openOutputStream(uri, "wt") ?: throw IOException("cannot open document")).use { out ->
+        File(path).inputStream().use { it.copyTo(out, 1 shl 16) }
+      }
+    }
+    return uri.toString()
   }
 
   private fun pickerIntent(): Intent {
@@ -229,6 +288,7 @@ class RefocalPlatformPlugin :
   companion object {
     private const val REQUEST_PICK = 0x5EF0
     private const val REQUEST_NOTIFICATIONS = 0x5EF1
+    private const val REQUEST_CREATE = 0x5EF2
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     @Volatile private var instance: RefocalPlatformPlugin? = null
 

@@ -339,6 +339,16 @@ interface RefocalPlatformApi {
   /** Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI. */
   suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String
   /**
+   * Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
+   * there. Returns the document URI, or null when cancelled.
+   */
+  suspend fun saveToFile(path: String, displayName: String, mimeType: String): String?
+  /**
+   * The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
+   * been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+   */
+  suspend fun takeSharedImage(inboxDir: String): PickedImage?
+  /**
    * Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
    * granted or not needed. Processing works either way; only the notification is hidden.
    */
@@ -426,6 +436,46 @@ interface RefocalPlatformApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.saveToGallery(pathArg, displayNameArg, mimeTypeArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToFile$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val pathArg = args[0] as String
+            val displayNameArg = args[1] as String
+            val mimeTypeArg = args[2] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.saveToFile(pathArg, displayNameArg, mimeTypeArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val inboxDirArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.takeSharedImage(inboxDirArg))
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }
@@ -534,6 +584,26 @@ class RefocalPlatformEvents(private val binaryMessenger: BinaryMessenger, privat
       val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction$separatedMessageChannelSuffix"
       val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
       channel.send(listOf(actionArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
+  /** An image was shared to the running app; fetch it with takeSharedImage(). */
+  suspend fun onSharedImage()
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(null) {
         if (it is List<*>) {
           if (it.size > 1) {
             continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))

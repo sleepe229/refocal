@@ -1,0 +1,5 @@
+# gen-l10n: en (template) + ru (FR-SET-006). Translations move to Weblate in 0.5.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+nullable-getter: false

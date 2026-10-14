@@ -41,6 +41,11 @@ inline constexpr uint16_t kIfd0 = 0;
 inline constexpr uint16_t kExifIfd = 0x8769;
 inline constexpr uint16_t kGpsIfd = 0x8825;
 
+// ICC profile header sanity (ICC.1 §7.2): size field equals the block size, "acsp" signature,
+// v4 profiles 4-byte aligned. Source profiles failing it are dropped on read, so every encoder
+// can embed what it gets (libpng refuses to write such a profile).
+bool icc_header_valid(const uint8_t* icc, size_t n);
+
 // XMP packet with Iptc4xmpExt:DigitalSourceType = compositeWithTrainedAlgorithmicMedia and
 // xmp:CreatorTool (FR-META-004).
 std::string ai_marker_xmp(const std::string& creator_tool);

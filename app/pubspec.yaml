@@ -10,8 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   flutter_riverpod: ^3.4.3
   go_router: ^18.0.2
+  intl: any
   refocal_core: any
   refocal_ffi: any
   refocal_platform: any
@@ -23,6 +26,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true # lib/l10n (FR-SET-006)
   assets:
     # Filled by tools/models/fetch.sh (weights are not in git); empty in CI builds.
     - assets/models/sr.general-x4v3/

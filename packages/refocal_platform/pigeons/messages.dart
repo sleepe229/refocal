@@ -45,6 +45,16 @@ abstract class RefocalPlatformApi {
   @async
   String saveToGallery(String path, String displayName, String mimeType);
 
+  /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
+  /// there. Returns the document URI, or null when cancelled.
+  @async
+  String? saveToFile(String path, String displayName, String mimeType);
+
+  /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
+  /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+  @async
+  PickedImage? takeSharedImage(String inboxDir);
+
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
   /// granted or not needed. Processing works either way; only the notification is hidden.
   @async
@@ -69,4 +79,7 @@ abstract class RefocalPlatformEvents {
   /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
   /// pause and checkpoint now, the user continues later).
   void onProcessingAction(String action);
+
+  /// An image was shared to the running app; fetch it with takeSharedImage().
+  void onSharedImage();
 }

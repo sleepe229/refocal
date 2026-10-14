@@ -332,4 +332,11 @@ std::string ai_marker_xmp(const std::string& creator_tool) {
          "<?xpacket end=\"w\"?>";
 }
 
+bool icc_header_valid(const uint8_t* p, size_t n) {
+  if (!p || n < 132 || n > kMaxMetaBytes) return false;
+  const uint32_t size = uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+  if (size != n || std::memcmp(p + 36, "acsp", 4) != 0) return false;
+  return p[8] < 4 || n % 4 == 0;
+}
+
 }  // namespace enh

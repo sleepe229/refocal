@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../bootstrap/engine.dart';
+import '../../l10n/app_localizations.dart';
 import '../../version.dart';
 
 const sourceUrl = 'https://github.com/sleepe229/refocal';
@@ -29,30 +30,22 @@ class AboutPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final core = ref.watch(engineProvider).value?.native.version ?? '…';
     final t = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('About')),
+      appBar: AppBar(title: Text(l10n.aboutTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text('Refocal $appVersion', style: t.titleLarge),
-          Text('Native core $core', style: t.bodySmall),
+          Text(l10n.aboutCore(core), style: t.bodySmall),
           const SizedBox(height: 16),
-          const Text(
-            'Early alpha. Expect rough edges: Android only, JPEG input only, keep the app '
-            'open while a photo is processed.',
-          ),
+          Text(l10n.aboutAlpha),
           const SizedBox(height: 16),
-          const Text(
-            'All processing happens on this device. Refocal has no accounts, no ads and no '
-            'telemetry; the network is used only to download optional models when you ask.',
-          ),
+          Text(l10n.aboutPrivacy),
           const SizedBox(height: 16),
-          const Text(
-            'AI enhancement adds plausible detail that was not in the original photo. Do not '
-            'use results as evidence of what a scene or person looked like.',
-          ),
+          Text(l10n.aboutAiWarning),
           const SizedBox(height: 24),
-          Text('Credits', style: t.titleMedium),
+          Text(l10n.aboutCredits, style: t.titleMedium),
           const SizedBox(height: 8),
           const Text(
             'Upscaling model: Real-ESRGAN realesr-general-x4v3, © 2021 Xintao Wang, BSD-3-Clause.',
@@ -63,7 +56,7 @@ class AboutPage extends ConsumerWidget {
             '(libjpeg-turbo).',
           ),
           const SizedBox(height: 24),
-          const SelectableText('Source code (Apache-2.0): $sourceUrl'),
+          SelectableText(l10n.aboutSource(sourceUrl)),
           const SizedBox(height: 16),
           FilledButton.tonal(
             onPressed: () => showLicensePage(
@@ -72,7 +65,7 @@ class AboutPage extends ConsumerWidget {
               applicationVersion: appVersion,
               applicationLegalese: '© 2026 The Refocal Authors · Apache-2.0',
             ),
-            child: const Text('Open-source licenses'),
+            child: Text(l10n.aboutLicenses),
           ),
         ],
       ),

@@ -27,6 +27,13 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
     throw PigeonError(code: "unimplemented", message: "saveToGallery is not implemented on iOS yet", details: nil)
   }
 
+  func saveToFile(path: String, displayName: String, mimeType: String) async throws -> String? {
+    throw PigeonError(code: "unimplemented", message: "saveToFile is not implemented on iOS yet", details: nil)
+  }
+
+  // FR-SHARE-003: the Share Extension (App Group inbox) comes with the iOS build.
+  func takeSharedImage(inboxDir: String) async throws -> PickedImage? { nil }
+
   // ADR-0019: iOS pauses on willResignActive instead of a background service (TODO with S5).
   func requestNotificationPermission() async throws -> Bool { true }
   func startProcessing(title: String) throws {}

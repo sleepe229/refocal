@@ -1,10 +1,16 @@
-// enh_export: streams the BandStore of a finished job into the output file (ADR-0004); the full
-// image is never in memory. JPEG with metadata (ADR-0018): the source EXIF rewritten by metaio
-// (GPS removed unless asked), the source ICC profile, the XMP AI marker. PNG/WebP/HEIC are 0.3.
+// enh_export: streams the BandStore of a finished job into the output file (ADR-0004). JPEG and
+// PNG never hold the full image; WebP holds it as YUV/ARGB (encode.hpp). Any number of exports
+// from one result, without processing again (FR-EXP-007). Metadata (ADR-0018): the source EXIF
+// rewritten by metaio (GPS removed unless asked), the source ICC profile, the XMP AI marker.
 //
-// output_json: {"format":"jpeg","quality":92,
+// Strength (FR-ENH-005, ADR-0012): lerp(lanczos_up(input), sr, strength), applied here rather
+// than in the SR stage so changing it needs no reprocessing. Below 1 the input must still exist;
+// it is decoded whole (as in the job).
+//
+// output_json: {"format":"jpeg","quality":92,"lossless":false,"strength":1.0,
 //               "metadata":{"exif":true,"gps":false,"ai_marker":true,"creator_tool":"Refocal x"}}
-// (all optional; the values shown are the defaults).
+// (all optional; the values shown are the defaults). format: jpeg | png | webp; quality: JPEG
+// and lossy WebP; lossless: WebP only.
 // SPDX-License-Identifier: Apache-2.0
 #include <unistd.h>
 
@@ -14,8 +20,11 @@
 #include <nlohmann/json.hpp>
 
 #include "enh.h"
+#include "image/decode.hpp"
+#include "image/encode.hpp"
 #include "image/jpeg.hpp"
 #include "image/metaio.hpp"
+#include "image/ops.hpp"
 #include "job/events.hpp"
 #include "job/job.hpp"
 #include "job/session.hpp"
@@ -37,8 +46,12 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     if (opt.is_discarded() || !opt.is_object()) fail(ENH_E_INVALID, "bad output_json");
     const std::string format = opt.value("format", "jpeg");
     const int quality = opt.value("quality", 92);
-    if (format != "jpeg") fail(ENH_E_INVALID, "unsupported format (0.1: jpeg)");
+    const bool lossless = opt.value("lossless", false);
+    const double strength = opt.value("strength", 1.0);
+    if (format != "jpeg" && format != "png" && format != "webp") fail(ENH_E_INVALID, "unsupported format");
     if (quality < 1 || quality > 100) fail(ENH_E_INVALID, "bad quality");
+    if (lossless && format != "webp") fail(ENH_E_INVALID, "lossless is for webp");
+    if (!(strength >= 0 && strength <= 1)) fail(ENH_E_INVALID, "strength must be 0..1");
 
     const int w = res.at("width").get<int>(), h = res.at("height").get<int>();
     const auto rows = res.at("band_rows").get<std::vector<int>>();
@@ -59,23 +72,50 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     nlohmann::json written = {{"exif", !meta.exif.empty()}, {"icc", !meta.icc.empty()},
                               {"ai_marker", !meta.xmp.empty()}};
 
+    // Base of the strength blend: the oriented input, resampled to the result size.
+    Rgb8 src;
+    std::unique_ptr<LanczosResampler> base;
+    if (strength < 1) {
+      const auto req = parse_job_request(fs::read_text(fs::join(job_dir, kRequestFile)));
+      if (!fs::exists(req.input)) fail(ENH_E_IO, "the original photo is gone");
+      ImageInfo info;
+      src = apply_orientation(decode_image(req.input, &info), info.orientation);
+      base = std::make_unique<LanczosResampler>(src, w, h);
+    }
+
     BandStore store(job_dir);
-    {
-      JpegWriter jw(tmp, w, h, quality, &meta);
-      std::vector<uint8_t> buf;
+    auto pump = [&](auto& writer) {
+      std::vector<uint8_t> buf, lo;
       int y = 0;
       for (size_t b = 0; b < rows.size(); ++b) {
-        store.read_band(int(b), buf, size_t(rows[b]) * w * 3);
-        jw.write_rows(buf.data(), rows[b]);
+        const size_t n = size_t(rows[b]) * w * 3;
+        store.read_band(int(b), buf, n);
+        if (base) {
+          lo.resize(n);
+          base->rows(y, rows[b], lo.data());
+          blend(lo.data(), buf.data(), n, float(strength), buf.data());
+        }
+        writer.write_rows(buf.data(), rows[b]);
         y += rows[b];
       }
       if (y != h) fail(ENH_E_INTERNAL, "band rows do not add up");
-      jw.finish();
+      writer.finish();
+    };
+    if (format == "jpeg") {
+      JpegWriter jw(tmp, w, h, quality, &meta);
+      pump(jw);
+    } else if (format == "png") {
+      PngWriter pw(tmp, w, h, &meta);
+      pump(pw);
+    } else {
+      WebpWriter ww(tmp, w, h, quality, lossless, &meta);
+      pump(ww);
     }
     if (::rename(tmp.c_str(), dst_path) != 0) fail(ENH_E_IO, "rename failed");
     if (out_json) {
       nlohmann::json r = {{"path", dst_path}, {"format", format}, {"width", w}, {"height", h},
-                          {"bytes", fs::file_size(dst_path)}, {"metadata", written}};
+                          {"bytes", fs::file_size(dst_path)}, {"strength", strength},
+                          {"metadata", written}};
       std::string d = dump_json(r);
       *out_json = static_cast<char*>(std::malloc(d.size() + 1));
       if (!*out_json) return ENH_E_OOM;

@@ -43,7 +43,7 @@ void main() {
     expect(jobs.keys, unorderedEquals(['j1', 'j2']));
     expect(jobs['j1']!.progress, 0.5);
     expect(jobs['j1']!.resumable, isTrue);
-    expect(jobs['j1']!.scaleLabel, 'Fast 2×');
+    expect(jobs['j1']!.fast2, isTrue);
     expect(jobs['j2']!.finished, isTrue);
     expect(jobs['j2']!.resumable, isFalse);
   });

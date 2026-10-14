@@ -334,6 +334,12 @@ protocol RefocalPlatformApi {
   func pickImage(inboxDir: String) async throws -> PickedImage?
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   func saveToGallery(path: String, displayName: String, mimeType: String) async throws -> String
+  /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
+  /// there. Returns the document URI, or null when cancelled.
+  func saveToFile(path: String, displayName: String, mimeType: String) async throws -> String?
+  /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
+  /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+  func takeSharedImage(inboxDir: String) async throws -> PickedImage?
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
   /// granted or not needed. Processing works either way; only the notification is hidden.
   func requestNotificationPermission() async throws -> Bool
@@ -420,6 +426,46 @@ class RefocalPlatformApiSetup {
     } else {
       saveToGalleryChannel.setMessageHandler(nil)
     }
+    /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
+    /// there. Returns the document URI, or null when cancelled.
+    let saveToFileChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToFile\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      saveToFileChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let pathArg = args[0] as! String
+        let displayNameArg = args[1] as! String
+        let mimeTypeArg = args[2] as! String
+        Task { @MainActor in
+          do {
+            let result = try await api.saveToFile(path: pathArg, displayName: displayNameArg, mimeType: mimeTypeArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      saveToFileChannel.setMessageHandler(nil)
+    }
+    /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
+    /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+    let takeSharedImageChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      takeSharedImageChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let inboxDirArg = args[0] as! String
+        Task { @MainActor in
+          do {
+            let result = try await api.takeSharedImage(inboxDir: inboxDirArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      takeSharedImageChannel.setMessageHandler(nil)
+    }
     /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
     /// granted or not needed. Processing works either way; only the notification is hidden.
     let requestNotificationPermissionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.requestNotificationPermission\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
@@ -499,6 +545,8 @@ protocol RefocalPlatformEventsProtocol {
   /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
   /// pause and checkpoint now, the user continues later).
   @MainActor func onProcessingAction(action actionArg: String) async throws
+  /// An image was shared to the running app; fetch it with takeSharedImage().
+  @MainActor func onSharedImage() async throws
 }
 class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
@@ -517,6 +565,27 @@ class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
       let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction\(messageChannelSuffix)"
       let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
       channel.sendMessage([actionArg] as [Any?]) { response in
+        guard let listResponse = response as? [Any?] else {
+          continuation.resume(throwing: createConnectionError(withChannelName: channelName))
+          return
+        }
+        if listResponse.count > 1 {
+          let code: String = listResponse[0] as! String
+          let message: String? = nilOrValue(listResponse[1])
+          let details: String? = nilOrValue(listResponse[2])
+          continuation.resume(throwing: PigeonError(code: code, message: message, details: details))
+        } else {
+          continuation.resume()
+        }
+      }
+    }
+  }
+  /// An image was shared to the running app; fetch it with takeSharedImage().
+  @MainActor func onSharedImage() async throws {
+    return try await withCheckedThrowingContinuation { continuation in
+      let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage\(messageChannelSuffix)"
+      let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+      channel.sendMessage(nil) { response in
         guard let listResponse = response as? [Any?] else {
           continuation.resume(throwing: createConnectionError(withChannelName: channelName))
           return

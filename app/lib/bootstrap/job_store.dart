@@ -30,7 +30,6 @@ class JobEntry {
   bool get inputExists => File(input).existsSync();
   bool get resumable => !finished && inputExists;
   String get previewPath => '$dir/preview.jpg';
-  String get scaleLabel => fast2 ? 'Fast 2×' : '$scale×';
 }
 
 class JobStore {

@@ -116,4 +116,106 @@ Rgb8 PreviewAccumulator::finish() const {
   return out;
 }
 
+// ---- Lanczos-3 ----
+
+namespace {
+float lanczos3(float x) {
+  x = std::fabs(x);
+  if (x < 1e-6f) return 1.f;
+  if (x >= 3.f) return 0.f;
+  const float px = float(M_PI) * x;
+  return 3.f * std::sin(px) * std::sin(px / 3.f) / (px * px);
+}
+}  // namespace
+
+LanczosResampler::Axis LanczosResampler::make_axis(int in, int out) {
+  Axis a;
+  const double ratio = double(in) / out;
+  const double scale = ratio > 1 ? ratio : 1;  // widen the kernel when downscaling
+  const double support = 3 * scale;
+  a.taps = int(std::ceil(support)) * 2 + 1;
+  a.idx.resize(size_t(out) * a.taps);
+  a.w.resize(size_t(out) * a.taps);
+  for (int o = 0; o < out; ++o) {
+    const double c = (o + 0.5) * ratio - 0.5;
+    const int first = int(std::floor(c - support)) + 1;
+    double sum = 0;
+    for (int t = 0; t < a.taps; ++t) {
+      const int j = first + t;
+      const float wt = lanczos3(float((j - c) / scale));
+      a.idx[size_t(o) * a.taps + t] = j < 0 ? 0 : (j >= in ? in - 1 : j);
+      a.w[size_t(o) * a.taps + t] = wt;
+      sum += wt;
+    }
+    for (int t = 0; t < a.taps; ++t) a.w[size_t(o) * a.taps + t] = float(a.w[size_t(o) * a.taps + t] / sum);
+  }
+  return a;
+}
+
+LanczosResampler::LanczosResampler(const Rgb8& src, int out_w, int out_h)
+    : src_(src), out_w_(out_w), out_h_(out_h) {
+  if (src.w == out_w && src.h == out_h) return;
+  ax_ = make_axis(src.w, out_w);
+  ay_ = make_axis(src.h, out_h);
+  // A window of ay_.taps consecutive source rows never collides in a ring of that size.
+  ring_.assign(size_t(ay_.taps), std::vector<float>(size_t(out_w) * 3));
+  ring_y_.assign(size_t(ay_.taps), -1);
+}
+
+const float* LanczosResampler::hrow(int sy) {
+  const size_t slot = size_t(sy) % ring_.size();
+  std::vector<float>& r = ring_[slot];
+  if (ring_y_[slot] != sy) {
+    const uint8_t* s = src_.row(sy);
+    const int T = ax_.taps;
+    for (int x = 0; x < out_w_; ++x) {
+      const int* ix = &ax_.idx[size_t(x) * T];
+      const float* wx = &ax_.w[size_t(x) * T];
+      float a = 0, b = 0, c = 0;
+      for (int t = 0; t < T; ++t) {
+        const uint8_t* p = s + ix[t] * 3;
+        a += wx[t] * p[0];
+        b += wx[t] * p[1];
+        c += wx[t] * p[2];
+      }
+      r[size_t(x) * 3] = a;
+      r[size_t(x) * 3 + 1] = b;
+      r[size_t(x) * 3 + 2] = c;
+    }
+    ring_y_[slot] = sy;
+  }
+  return r.data();
+}
+
+void LanczosResampler::rows(int y0, int rows, uint8_t* dst) {
+  const size_t stride = size_t(out_w_) * 3;
+  if (ring_.empty()) {  // same size
+    std::memcpy(dst, src_.row(y0), stride * rows);
+    return;
+  }
+  const int T = ay_.taps;
+  std::vector<float> acc(stride);
+  for (int r = 0; r < rows; ++r) {
+    const int y = y0 + r;
+    const int* iy = &ay_.idx[size_t(y) * T];
+    const float* wy = &ay_.w[size_t(y) * T];
+    std::fill(acc.begin(), acc.end(), 0.f);
+    for (int t = 0; t < T; ++t) {
+      const float* h = hrow(iy[t]);  // the T-row window fits the ring: no eviction here
+      const float k = wy[t];
+      for (size_t i = 0; i < stride; ++i) acc[i] += k * h[i];
+    }
+    uint8_t* d = dst + size_t(r) * stride;
+    for (size_t i = 0; i < stride; ++i) {
+      const float v = acc[i] < 0.f ? 0.f : (acc[i] > 255.f ? 255.f : acc[i]);
+      d[i] = uint8_t(v + 0.5f);
+    }
+  }
+}
+
+void blend(const uint8_t* base, const uint8_t* sr, size_t n, float strength, uint8_t* out) {
+  const int s = int(strength * 256.f + 0.5f), k = 256 - s;
+  for (size_t i = 0; i < n; ++i) out[i] = uint8_t((sr[i] * s + base[i] * k + 128) >> 8);
+}
+
 }  // namespace enh

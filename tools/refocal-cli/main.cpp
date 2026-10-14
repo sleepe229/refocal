@@ -2,10 +2,11 @@
 // Uses the public C ABI for jobs (same path as the app) and core internals only for compare.
 //
 //   refocal-cli probe
-//   refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg [--model ID] [--scale 4|2|1]
+//   refocal-cli run --models DIR --work DIR --input IN --out OUT [--model ID] [--scale 4|2|1]
 //                   [--fast2] [--tile N] [--backend auto|cpu|vulkan] [--threads N] [--quality Q]
-//                   [--job-id ID] [--resume] [--json] [--cache DIR] [--tier T0|T1|T2]
-//                   [--no-exif] [--keep-gps] [--no-ai-marker]
+//                   [--lossless] [--strength 0..1] [--job-id ID] [--resume] [--json]
+//                   [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]
+// OUT: .jpg, .png or .webp (the format follows the extension).
 //   refocal-cli compare A B [--min-psnr DB]   (exit 1 if below)
 // IN, A, B: JPEG, PNG or WebP (HEIC/AVIF need the platform decoder: Android only).
 //
@@ -48,9 +49,10 @@ struct Args {
 int usage() {
   std::fprintf(stderr,
                "usage:\n  refocal-cli probe\n"
-               "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg [--model ID]\n"
-               "              [--scale 4|2|1] [--fast2] [--tile N] [--backend auto|cpu|vulkan]\n"
-               "              [--threads N] [--quality Q] [--job-id ID] [--resume] [--json]\n"
+               "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg|.png|.webp\n"
+               "              [--model ID] [--scale 4|2|1] [--fast2] [--tile N] [--backend auto|cpu|vulkan]\n"
+               "              [--threads N] [--quality Q] [--lossless] [--strength 0..1]\n"
+               "              [--job-id ID] [--resume] [--json]\n"
                "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
                "  refocal-cli compare A B [--min-psnr DB]\n");
   return 2;
@@ -174,8 +176,15 @@ int cmd_run(const Args& a) {
     rc = 1;
   } else {
     char* ex = nullptr;
-    std::string opt = json{{"format", "jpeg"},
+    auto ends = [&](const char* ext) {
+      const size_t n = std::strlen(ext);
+      return out.size() >= n && out.compare(out.size() - n, n, ext) == 0;
+    };
+    const char* format = ends(".png") ? "png" : ends(".webp") ? "webp" : "jpeg";
+    std::string opt = json{{"format", format},
                            {"quality", std::atoi(a.get("--quality", "92").c_str())},
+                           {"lossless", a.has("--lossless")},
+                           {"strength", std::atof(a.get("--strength", "1").c_str())},
                            {"metadata",
                             {{"exif", !a.has("--no-exif")},
                              {"gps", a.has("--keep-gps")},

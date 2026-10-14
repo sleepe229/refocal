@@ -5,7 +5,9 @@
 // Also: EXIF orientation, cancel, pause + resume (byte-identical), NEEDS_USER, errors, export,
 // and the event invariants (one terminal event, nothing after it, monotonic progress).
 // SPDX-License-Identifier: Apache-2.0
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -275,18 +277,76 @@ static void test_orientation(Session& se) {
   CHECK(out.px == apply_orientation(jpeg_decode(in), 6).px);
 }
 
+static double psnr(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+  double se = 0;
+  for (size_t i = 0; i < a.size(); ++i) se += double(a[i] - b[i]) * (a[i] - b[i]);
+  return se == 0 ? 99 : 10 * std::log10(255.0 * 255.0 * a.size() / se);
+}
+
 static void test_export(Session& se) {
+  const std::string job = fs::join(g_work, "n2");
+  const Rgb8 sr = read_output(job);
   std::string dst = fs::join(g_root, "exported.jpg");
   char* out = nullptr;
-  CHECK(enh_export(se.s, fs::join(g_work, "n2").c_str(), "{\"format\":\"jpeg\",\"quality\":90}",
-                   dst.c_str(), &out) == ENH_OK);
+  CHECK(enh_export(se.s, job.c_str(), "{\"format\":\"jpeg\",\"quality\":90}", dst.c_str(), &out) == ENH_OK);
   CHECK(out && json::parse(out)["width"] == 300);
   enh_free(out);
   JpegInfo ji = jpeg_probe(dst);
   CHECK(ji.w == 300 && ji.h == 202);
   CHECK(!fs::exists(dst + ".part"));
-  CHECK(enh_export(se.s, fs::join(g_work, "n2").c_str(), "{\"format\":\"png\"}", dst.c_str(),
-                   nullptr) == ENH_E_INVALID);
+
+  // Lossless formats reproduce the BandStore exactly (FR-EXP-001); lossy WebP comes close.
+  auto exported = [&](const char* opts, const char* name) {
+    const std::string d = fs::join(g_root, name);
+    const enh_status st = enh_export(se.s, job.c_str(), opts, d.c_str(), nullptr);
+    return st == ENH_OK ? decode_image(d) : Rgb8{};
+  };
+  CHECK(exported("{\"format\":\"png\"}", "e.png").px == sr.px);
+  CHECK(sniff_format(fs::join(g_root, "e.png")) == "png");
+  CHECK(exported("{\"format\":\"webp\",\"lossless\":true}", "el.webp").px == sr.px);
+  const Rgb8 lossy = exported("{\"format\":\"webp\",\"quality\":95}", "e.webp");
+  CHECK(lossy.w == 300 && lossy.h == 202 && psnr(lossy.px, sr.px) > 28);
+
+  // Strength (FR-ENH-005): 0 is the Lanczos upscale of the input, 1 the SR result.
+  Rgb8 src = jpeg_decode(json::parse(fs::read_text(fs::join(job, "request.json")))["input"].get<std::string>());
+  Rgb8 lz;
+  lz.w = sr.w;
+  lz.h = sr.h;
+  lz.px.resize(sr.px.size());
+  LanczosResampler(src, sr.w, sr.h).rows(0, sr.h, lz.px.data());
+  CHECK(exported("{\"format\":\"png\",\"strength\":0}", "s0.png").px == lz.px);
+  CHECK(exported("{\"format\":\"png\",\"strength\":1.0}", "s1.png").px == sr.px);
+  const Rgb8 half = exported("{\"format\":\"png\",\"strength\":0.5}", "s5.png");
+  bool between = half.px.size() == sr.px.size();
+  for (size_t i = 0; between && i < sr.px.size(); ++i) {
+    const int lo = std::min(sr.px[i], lz.px[i]), hi = std::max(sr.px[i], lz.px[i]);
+    between = half.px[i] >= lo && half.px[i] <= hi && std::abs(2 * half.px[i] - lo - hi) <= 2;
+  }
+  CHECK(between);
+
+  for (const char* bad : {"{\"format\":\"gif\"}", "{\"format\":\"jpeg\",\"lossless\":true}",
+                          "{\"strength\":1.5}", "{\"strength\":-0.1}", "{\"quality\":0}"}) {
+    CHECK(enh_export(se.s, job.c_str(), bad, dst.c_str(), nullptr) == ENH_E_INVALID);
+  }
+}
+
+// Lanczos: the same size is a copy; a flat image stays flat; x2 of a ramp stays monotonic.
+static void test_lanczos() {
+  Rgb8 t = texture(37, 23);
+  std::vector<uint8_t> o(t.px.size());
+  LanczosResampler(t, t.w, t.h).rows(0, t.h, o.data());
+  CHECK(o == t.px);
+  Rgb8 flat;
+  flat.w = 9;
+  flat.h = 7;
+  flat.px.assign(9 * 7 * 3, 77);
+  std::vector<uint8_t> f(36 * 28 * 3);
+  LanczosResampler lf(flat, 36, 28);
+  lf.rows(0, 10, f.data());
+  lf.rows(10, 18, f.data() + 10 * 36 * 3);
+  bool all = true;
+  for (uint8_t v : f) all &= v == 77;
+  CHECK(all);
 }
 
 // PNG input runs through the same pipeline (alpha is composited onto white).
@@ -320,6 +380,46 @@ static void test_png_input(Session& se) {
   CHECK(out.w == w && out.h == h && out.px == src.px);
 }
 
+// A well-formed ICC v2 display profile: header, one tag ("cprt") with non-trivial data, so
+// that it passes icc_header_valid and libpng's checks on write and read.
+static std::vector<uint8_t> icc_profile() {
+  constexpr size_t kSize = 600, kTag = 144;
+  std::vector<uint8_t> p(kSize, 0);
+  auto put = [&](size_t at, const char* s) { std::memcpy(&p[at], s, 4); };
+  auto be32 = [&](size_t at, uint32_t v) {
+    for (int i = 0; i < 4; ++i) p[at + i] = uint8_t(v >> (24 - 8 * i));
+  };
+  be32(0, kSize);
+  p[8] = 2;  // version 2.1
+  p[9] = 0x10;
+  put(12, "mntr");
+  put(16, "RGB ");
+  put(20, "XYZ ");
+  put(36, "acsp");
+  const uint8_t d50[12] = {0, 0, 0xF6, 0xD6, 0, 1, 0, 0, 0, 0, 0xD3, 0x2D};
+  std::memcpy(&p[68], d50, 12);  // PCS illuminant
+  be32(128, 1);                  // tag count
+  put(132, "cprt");
+  be32(136, kTag);
+  be32(140, kSize - kTag);
+  put(kTag, "text");
+  for (size_t i = kTag + 8; i < kSize; ++i) p[i] = uint8_t('a' + (i * 7) % 26);
+  return p;
+}
+
+// Source ICC profiles with a broken header are dropped on read, not carried to the result.
+static void test_icc_validation() {
+  auto good = icc_profile();
+  CHECK(icc_header_valid(good.data(), good.size()));
+  auto bad = good;
+  bad[3] = 136;  // size field disagrees
+  CHECK(!icc_header_valid(bad.data(), bad.size()));
+  bad = good;
+  bad[36] = 'x';
+  CHECK(!icc_header_valid(bad.data(), bad.size()));
+  CHECK(!icc_header_valid(good.data(), 100));
+}
+
 // EXIF (orientation 6, Make, GPS) + ICC in the input -> the export carries them per policy.
 static void test_export_metadata(Session& se) {
   const uint8_t tiff[] = {'I', 'I', 42, 0, 8, 0, 0, 0,
@@ -333,8 +433,7 @@ static void test_export_metadata(Session& se) {
                           0, 0, 0, 0};
   JpegMeta in_meta;
   in_meta.exif.assign(tiff, tiff + sizeof tiff);
-  in_meta.icc.assign(600, 0);
-  for (size_t i = 0; i < in_meta.icc.size(); ++i) in_meta.icc[i] = uint8_t(i * 7);
+  in_meta.icc = icc_profile();
   std::string in = fs::join(g_root, "meta_in.jpg");
   {
     Rgb8 t = texture(64, 40);
@@ -382,6 +481,21 @@ static void test_export_metadata(Session& se) {
     SourceMeta m;
     auto [st, r] = exported("{\"metadata\":{\"exif\":false}}", m);
     CHECK(st == ENH_OK && m.exif.empty() && m.icc == in_meta.icc);
+  }
+  // PNG (eXIf, iCCP, iTXt) and WebP (EXIF, ICCP, XMP chunks) carry the same blocks.
+  for (const char* fmt : {"png", "webp"}) {
+    const std::string d = fs::join(g_root, std::string("md.") + fmt);
+    const std::string opts = std::string("{\"format\":\"") + fmt + "\"}";
+    CHECK(enh_export(se.s, job.c_str(), opts.c_str(), d.c_str(), nullptr) == ENH_OK);
+    SourceMeta m;
+    ImageInfo info;
+    Rgb8 img = decode_image(d, &info, &m);
+    CHECK(img.w == 80 && img.h == 128 && info.orientation == 1);
+    CHECK(exif_get(m.exif, kIfd0, 0x010F) == 4 && exif_get(m.exif, kGpsIfd, 0) == -1);
+    CHECK(m.icc == in_meta.icc);
+    auto b = fs::read_all(d);
+    const std::string needle = kDigitalSourceType;
+    CHECK(std::search(b.begin(), b.end(), needle.begin(), needle.end()) != b.end());
   }
   {
     SourceMeta m;
@@ -535,6 +649,8 @@ int main(int argc, char** argv) {
     test_tiled_equals_whole(se);
     test_orientation(se);
     test_export(se);
+    test_lanczos();
+    test_icc_validation();
     test_png_input(se);
     test_export_metadata(se);
     std::string slow = make_jpeg("slow.jpg", 640, 480);

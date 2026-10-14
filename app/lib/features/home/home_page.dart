@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/job_store.dart';
+import '../../bootstrap/processing.dart';
+import '../../l10n/app_localizations.dart';
+import '../../ui_kit/labels.dart';
 import '../editor/editor_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -17,26 +21,64 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   bool _picking = false;
+  bool _editorOpen = false;
+  StreamSubscription<void>? _shares;
 
-  Future<void> _openEditor(EditorArgs args) async {
-    await context.push('/editor', extra: args);
-    ref.invalidate(jobListProvider); // the editor may have finished, paused or cleaned up jobs
+  @override
+  void initState() {
+    super.initState();
+    _shares = ref.read(sharedImageEventsProvider).listen((_) => _openShared());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openShared());
   }
 
-  Future<void> _pick() async {
-    final engine = await ref.read(engineProvider.future);
-    setState(() => _picking = true);
+  @override
+  void dispose() {
+    _shares?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _openEditor(EditorArgs args) async {
+    _editorOpen = true;
     try {
-      final picked = await ref.read(platformApiProvider).pickImage(engine.inboxDir);
-      if (picked != null && mounted) await _openEditor(EditorArgs(picked.path));
+      await context.push('/editor', extra: args);
+    } finally {
+      _editorOpen = false;
+    }
+    ref.invalidate(jobListProvider); // the editor may have finished, paused or cleaned up jobs
+    await _openShared(); // shared while the editor was open
+  }
+
+  /// A photo shared to the app (FR-SHARE-001). One editor at a time: a share that arrives
+  /// while one is open waits on the platform side until it closes (the queue is 0.0.4).
+  Future<void> _openShared() async {
+    if (_editorOpen || _picking || !mounted) return;
+    await _open(() async {
+      final engine = await ref.read(engineProvider.future);
+      if (!engine.modelReady) return null;
+      return (await ref.read(platformApiProvider).takeSharedImage(engine.inboxDir))?.path;
+    });
+  }
+
+  Future<void> _pick() => _open(() async {
+    final engine = await ref.read(engineProvider.future);
+    return (await ref.read(platformApiProvider).pickImage(engine.inboxDir))?.path;
+  });
+
+  Future<void> _open(Future<String?> Function() take) async {
+    setState(() => _picking = true);
+    String? path;
+    try {
+      path = await take();
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not open the photo: $e')));
+            .showSnackBar(SnackBar(content: Text(l10n.homeOpenFailed('$e'))));
       }
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+    if (path != null && mounted) await _openEditor(EditorArgs(path));
   }
 
   Future<void> _discard(JobEntry j) async {
@@ -53,19 +95,20 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final engine = ref.watch(engineProvider);
     final jobs = ref.watch(jobListProvider).value ?? const <JobEntry>[];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Refocal'),
+        title: Text(l10n.appTitle),
         actions: [
           IconButton(
-            tooltip: 'Settings',
+            tooltip: l10n.settingsTooltip,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(
-            tooltip: 'About',
+            tooltip: l10n.aboutTooltip,
             onPressed: () => context.push('/about'),
             icon: const Icon(Icons.info_outline),
           ),
@@ -76,7 +119,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Native core unavailable: $e'),
+            child: Text(l10n.homeCoreUnavailable('$e')),
           ),
         ),
         data: (e) => ListView(
@@ -86,20 +129,17 @@ class _HomePageState extends ConsumerState<HomePage> {
             const Icon(Icons.auto_fix_high, size: 64),
             const SizedBox(height: 16),
             Text(
-              'Bring your photos back into focus.',
+              l10n.homeTagline,
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Everything runs on this phone. Photos never leave it.',
-              textAlign: TextAlign.center,
-            ),
+            Text(l10n.homePrivacy, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             if (!e.modelReady)
-              const Text(
-                'The enhancement model is missing from this build.',
-                style: TextStyle(color: Colors.red),
+              Text(
+                l10n.homeModelMissing,
+                style: const TextStyle(color: Colors.red),
                 textAlign: TextAlign.center,
               )
             else
@@ -107,17 +147,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: FilledButton.icon(
                   onPressed: _picking ? null : _pick,
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Choose a photo'),
+                  label: Text(l10n.homeChoosePhoto),
                 ),
               ),
             if (jobs.isNotEmpty) ...[
               const SizedBox(height: 32),
-              Text('Not finished', style: Theme.of(context).textTheme.titleSmall),
+              Text(l10n.homeNotFinished, style: Theme.of(context).textTheme.titleSmall),
               for (final j in jobs) _JobTile(job: j, onOpen: _openEditor, onDiscard: _discard),
             ],
             const SizedBox(height: 24),
             Text(
-              'Core ${e.native.version}',
+              l10n.homeCore(e.native.version),
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
@@ -137,11 +177,13 @@ class _JobTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scale = scaleLabel(l10n, job.scale, fast2: job.fast2);
     final subtitle = job.finished
-        ? '${job.scaleLabel} · ready, not saved'
+        ? l10n.jobReadyNotSaved(scale)
         : job.inputExists
-        ? '${job.scaleLabel} · paused at ${(job.progress * 100).round()}%'
-        : '${job.scaleLabel} · the original is gone, cannot continue';
+        ? l10n.jobPausedAt(scale, (job.progress * 100).round())
+        : l10n.jobOriginalGone(scale);
     final thumb = job.finished ? File(job.previewPath) : File(job.input);
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -156,13 +198,13 @@ class _JobTile extends StatelessWidget {
               const SizedBox(width: 48, height: 48, child: Icon(Icons.image)),
         ),
       ),
-      title: Text(job.finished ? 'Enhanced photo' : 'Paused enhancement'),
+      title: Text(job.finished ? l10n.jobTitleFinished : l10n.jobTitlePaused),
       subtitle: Text(subtitle),
       onTap: job.finished || job.resumable
           ? () => onOpen(EditorArgs(job.input, jobDir: job.dir, finished: job.finished))
           : null,
       trailing: IconButton(
-        tooltip: 'Delete',
+        tooltip: l10n.deleteTooltip,
         icon: const Icon(Icons.delete_outline),
         onPressed: () => onDiscard(job),
       ),

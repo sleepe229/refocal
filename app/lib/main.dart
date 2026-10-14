@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'bootstrap/processing.dart';
+import 'bootstrap/settings.dart';
 import 'features/about/about_page.dart';
 import 'features/editor/editor_page.dart';
 import 'features/home/home_page.dart';
+import 'features/onboarding/onboarding_page.dart';
 import 'features/settings/settings_page.dart';
+import 'l10n/app_localizations.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,17 +29,30 @@ final _router = GoRouter(
     ),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
+    GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),
   ],
 );
 
-class RefocalApp extends StatelessWidget {
+class RefocalApp extends ConsumerWidget {
   const RefocalApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'Refocal',
-    theme: ThemeData(colorSchemeSeed: Colors.indigo),
-    darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, brightness: Brightness.dark),
-    routerConfig: _router,
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final code = settings.value?.languageCode;
+    // First run: the introduction once settings are read (FR-ONB-001).
+    ref.listen(settingsProvider, (prev, next) {
+      final s = next.value;
+      if (prev?.value == null && s != null && !s.onboardingDone) _router.push('/onboarding');
+    });
+    return MaterialApp.router(
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+      theme: ThemeData(colorSchemeSeed: Colors.indigo),
+      darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, brightness: Brightness.dark),
+      locale: code == null ? null : Locale(code),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: _router,
+    );
+  }
 }

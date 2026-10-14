@@ -136,8 +136,8 @@ set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
 set(PNG_FRAMEWORK OFF CACHE BOOL "" FORCE)
 set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL)
-# Decoder + demux only: WebP export is 0.3 (FR-EXP-001).
-foreach(o ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO LIBWEBPMUX WEBPMUX EXTRAS)
+# Library only: encoder, demux (input metadata), mux (output metadata, FR-EXP-001).
+foreach(o ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO WEBPMUX EXTRAS)
   set(WEBP_BUILD_${o} OFF CACHE BOOL "" FORCE)
 endforeach()
 add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
@@ -174,7 +174,7 @@ list(APPEND ENH_SOURCES ${DART_DL_DIR}/dart_api_dl.c)
 add_library(enh_core STATIC ${ENH_SOURCES})
 target_include_directories(enh_core PUBLIC include core/src
   PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include)
-target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux ZLIB::ZLIB
+target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux libwebpmux ZLIB::ZLIB
   Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
 target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)

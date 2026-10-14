@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 /// Before/after slider over two images of the same aspect ratio (0.1: previews; the tiled
-/// zoomable CompareViewer is S7).
+/// zoomable CompareViewer is S7). [strength] < 1 previews the export blend (FR-ENH-005): the
+/// result drawn over the original at that opacity is the same lerp the core applies.
 class CompareSlider extends StatefulWidget {
   const CompareSlider({
     super.key,
     required this.before,
     required this.after,
     required this.aspectRatio,
+    this.strength = 1,
   });
 
   final ImageProvider before, after;
-  final double aspectRatio;
+  final double aspectRatio, strength;
 
   @override
   State<CompareSlider> createState() => _CompareSliderState();
@@ -22,16 +26,18 @@ class _CompareSliderState extends State<CompareSlider> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    String pct(double v) => l10n.comparePercentOriginal((v.clamp(0.0, 1.0) * 100).round());
     return AspectRatio(
       aspectRatio: widget.aspectRatio,
       child: LayoutBuilder(
         builder: (context, c) {
           void move(Offset local) => setState(() => _pos = (local.dx / c.maxWidth).clamp(0.0, 1.0));
           return Semantics(
-            label: 'Before and after comparison',
-            value: '${(_pos * 100).round()}% original',
-            increasedValue: '${((_pos + 0.1).clamp(0, 1) * 100).round()}% original',
-            decreasedValue: '${((_pos - 0.1).clamp(0, 1) * 100).round()}% original',
+            label: l10n.compareLabel,
+            value: pct(_pos),
+            increasedValue: pct(_pos + 0.1),
+            decreasedValue: pct(_pos - 0.1),
             onIncrease: () => setState(() => _pos = (_pos + 0.1).clamp(0.0, 1.0)),
             onDecrease: () => setState(() => _pos = (_pos - 0.1).clamp(0.0, 1.0)),
             child: GestureDetector(
@@ -40,7 +46,16 @@ class _CompareSliderState extends State<CompareSlider> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image(image: widget.after, fit: BoxFit.contain, gaplessPlayback: true),
+                  if (widget.strength < 1)
+                    Image(
+                      image: widget.before,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  Opacity(
+                    opacity: widget.strength,
+                    child: Image(image: widget.after, fit: BoxFit.contain, gaplessPlayback: true),
+                  ),
                   ClipRect(
                     clipper: _LeftClipper(_pos),
                     child: Image(
@@ -55,8 +70,8 @@ class _CompareSliderState extends State<CompareSlider> {
                     bottom: 0,
                     child: Container(width: 2, color: Colors.white70),
                   ),
-                  const Positioned(left: 8, top: 8, child: _Tag('Original')),
-                  const Positioned(right: 8, top: 8, child: _Tag('Enhanced')),
+                  Positioned(left: 8, top: 8, child: _Tag(l10n.tagOriginal)),
+                  Positioned(right: 8, top: 8, child: _Tag(l10n.tagEnhanced)),
                 ],
               ),
             ),

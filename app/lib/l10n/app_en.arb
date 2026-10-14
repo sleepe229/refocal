@@ -1,0 +1,244 @@
+{
+  "@@locale": "en",
+  "appTitle": "Refocal",
+  "homeTagline": "Bring your photos back into focus.",
+  "homePrivacy": "Everything runs on this phone. Photos never leave it.",
+  "homeModelMissing": "The enhancement model is missing from this build.",
+  "homeChoosePhoto": "Choose a photo",
+  "homeNotFinished": "Not finished",
+  "homeCore": "Core {version}",
+  "@homeCore": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "homeCoreUnavailable": "Native core unavailable: {error}",
+  "@homeCoreUnavailable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeOpenFailed": "Could not open the photo: {error}",
+  "@homeOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTooltip": "Settings",
+  "aboutTooltip": "About",
+  "deleteTooltip": "Delete",
+  "jobTitleFinished": "Enhanced photo",
+  "jobTitlePaused": "Paused enhancement",
+  "jobReadyNotSaved": "{scale} · ready, not saved",
+  "@jobReadyNotSaved": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  },
+  "jobPausedAt": "{scale} · paused at {percent}%",
+  "@jobPausedAt": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "jobOriginalGone": "{scale} · the original is gone, cannot continue",
+  "@jobOriginalGone": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleX4": "4×",
+  "scaleX2": "2×",
+  "scaleFast2": "Fast 2×",
+  "scaleX1": "1×",
+  "scaleX1Hint": "1×: same size, only noise and blur are cleaned up.",
+  "editorTitle": "Enhance",
+  "sizePx": "{width} × {height} px",
+  "@sizePx": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "enhance": "Enhance",
+  "aiDisclaimer": "AI adds plausible detail that was not in the original photo.",
+  "stageWaiting": "Waiting…",
+  "stageReading": "Reading the photo…",
+  "stageEnhancing": "Enhancing {percent}%",
+  "@stageEnhancing": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "stageEnhancingEta": "Enhancing {percent}% · ~{seconds} s left",
+  "@stageEnhancingEta": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "stageFinishing": "Finishing…",
+  "stageWorking": "Working…",
+  "pause": "Pause",
+  "cancel": "Cancel",
+  "backgroundHint": "You can leave the app: processing continues in the background.",
+  "pausedByTimeout": "Paused: Android limits background work. Continue when you are ready.",
+  "pausedAt": "Paused at {percent}%.",
+  "@pausedAt": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "continueAction": "Continue",
+  "continueLater": "Continue later",
+  "noteSwitchedTo": "Switched to {backend}",
+  "@noteSwitchedTo": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "noteAlphaFlattened": "Transparent areas become white",
+  "noteFirstFrame": "Only the first frame of the animation is enhanced",
+  "strength": "Strength",
+  "strengthValue": "{percent}%",
+  "@strengthValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "strengthNeedsOriginal": "The original photo is gone: only 100% strength can be saved.",
+  "saveToGallery": "Save to gallery",
+  "saveAsFile": "Save as file…",
+  "savedToGallery": "Saved to Pictures/Refocal",
+  "savedToFile": "Saved",
+  "saveFailed": "Save failed: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveAsTitle": "Save as",
+  "tryAnotherScale": "Try another scale",
+  "failCancelled": "Cancelled.",
+  "failPaused": "Paused.",
+  "failDiskFull": "Not enough free storage for this size.",
+  "failInvalid": "This photo could not be read: the format is not supported or the file is damaged.",
+  "failLimit": "This photo is too large (the limit is 30000 px per side and 200 MP).",
+  "failOom": "Not enough memory. Try Fast 2×.",
+  "failOther": "Something went wrong ({status}).",
+  "@failOther": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "back": "Back",
+  "tooLargeTitle": "This photo is too large for that scale",
+  "tooLargeBody": "Choose a smaller output size.",
+  "notifEnhancing": "Enhancing a photo",
+  "notifReady": "Photo ready. Tap to open.",
+  "notifFailed": "Enhancement failed. Tap to open.",
+  "formatJpeg": "JPEG",
+  "formatPng": "PNG (lossless)",
+  "formatWebp": "WebP",
+  "formatWebpLossless": "WebP (lossless)",
+  "formatWebpTooLarge": "WebP is limited to 50 MP (lossless: 24 MP).",
+  "settingsTitle": "Settings",
+  "settingsSavedPhotos": "Saved photos",
+  "settingsFormat": "Format",
+  "settingsQuality": "Quality",
+  "settingsQualityHint": "JPEG and WebP. Higher is larger and closer to the result on screen.",
+  "settingsMetadata": "Metadata",
+  "settingsMetadataBody": "Date, camera and color profile are kept. Camera serial numbers and the maker notes are always removed.",
+  "settingsKeepLocation": "Keep location",
+  "settingsKeepLocationSub": "Off: GPS coordinates are removed from the result.",
+  "settingsAiMarker": "Mark as AI-enhanced",
+  "settingsAiMarkerSub": "Writes the IPTC \"trained algorithmic media\" tag, which other apps can show.",
+  "markerOffTitle": "Turn off the AI marker?",
+  "markerOffBody": "Enhanced photos contain detail the AI invented. Without the marker, people who see the photo cannot tell it was changed.",
+  "markerKeep": "Keep it",
+  "markerTurnOff": "Turn off",
+  "settingsLanguage": "Language",
+  "languageSystem": "System",
+  "languageName": "English",
+  "@languageName": {
+    "description": "The name of this language, in itself."
+  },
+  "settingsShowIntro": "Show the introduction",
+  "aboutTitle": "About",
+  "aboutCore": "Native core {version}",
+  "@aboutCore": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutAlpha": "Early alpha. Expect rough edges: Android only, one photo at a time.",
+  "aboutPrivacy": "All processing happens on this device. Refocal has no accounts, no ads and no telemetry; the network is used only to download optional models when you ask.",
+  "aboutAiWarning": "AI enhancement adds plausible detail that was not in the original photo. Do not use results as evidence of what a scene or person looked like.",
+  "aboutCredits": "Credits",
+  "aboutSource": "Source code (Apache-2.0): {url}",
+  "@aboutSource": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutLicenses": "Open-source licenses",
+  "compareLabel": "Before and after comparison",
+  "comparePercentOriginal": "{percent}% original",
+  "@comparePercentOriginal": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "tagOriginal": "Original",
+  "tagEnhanced": "Enhanced",
+  "onbSkip": "Skip",
+  "onbNext": "Next",
+  "onbStart": "Start",
+  "onb1Title": "Everything stays on your phone",
+  "onb1Body": "Photos are enhanced on this device. Nothing is uploaded, there are no accounts and no tracking.",
+  "onb2Title": "AI can change details",
+  "onb2Body": "The model adds detail that looks right but was not in the photo: text, faces and textures may differ from reality. Saved photos are marked as AI-enhanced.",
+  "onb3Title": "Compare before you save",
+  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed."
+}

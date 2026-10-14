@@ -1,10 +1,17 @@
-// WebP input on libwebp (ADR-0003): still images via WebPDecode, animations via WebPAnimDecoder
-// (first frame, FR-IMP-007), EXIF/ICCP chunks via WebPDemux.
+// WebP on libwebp (ADR-0003). Input: still images via WebPDecode, animations via WebPAnimDecoder
+// (first frame, FR-IMP-007), EXIF/ICCP chunks via WebPDemux. Output (FR-EXP-001): WebPEncode,
+// metadata chunks via WebPMux.
 // SPDX-License-Identifier: Apache-2.0
 #include <webp/decode.h>
 #include <webp/demux.h>
+#include <webp/encode.h>
+#include <webp/mux.h>
+
+#include <cstdio>
+#include <cstring>
 
 #include "image/decode.hpp"
+#include "image/encode.hpp"
 #include "image/metaio.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -115,6 +122,112 @@ Rgb8 webp_decode(const std::string& path, SourceMeta* meta) {
     }
   }
   return img;
+}
+
+// ---- output ----
+
+struct WebpWriter::Impl {
+  std::string path;
+  int w = 0, h = 0, quality = 0, y = 0;
+  bool lossless = false, finished = false;
+  JpegMeta meta;
+  std::vector<uint8_t> rgb;  // libwebp encodes a whole picture
+};
+
+WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
+                       const JpegMeta* meta)
+    : impl_(std::make_unique<Impl>()) {
+  if (w > kWebpMaxSide || h > kWebpMaxSide) fail(ENH_E_LIMIT, "WebP is limited to 16383 px per side");
+  if (double(w) * h > (lossless ? kWebpLosslessMaxPixels : kWebpMaxPixels)) {
+    fail(ENH_E_LIMIT, lossless ? "lossless WebP is limited to 24 MP" : "WebP is limited to 50 MP");
+  }
+  Impl& m = *impl_;
+  m.path = path;
+  m.w = w;
+  m.h = h;
+  m.quality = quality;
+  m.lossless = lossless;
+  if (meta) m.meta = *meta;
+  m.rgb.resize(size_t(w) * h * 3);
+}
+
+WebpWriter::~WebpWriter() = default;
+
+void WebpWriter::write_rows(const uint8_t* rgb, int rows) {
+  Impl& m = *impl_;
+  if (rows > m.h - m.y) fail(ENH_E_INTERNAL, "WebP: too many rows");
+  std::memcpy(m.rgb.data() + size_t(m.y) * m.w * 3, rgb, size_t(rows) * m.w * 3);
+  m.y += rows;
+}
+
+void WebpWriter::finish() {
+  Impl& m = *impl_;
+  if (m.finished) return;
+  if (m.y != m.h) fail(ENH_E_INTERNAL, "WebP: rows do not add up");
+
+  WebPConfig cfg;
+  if (!WebPConfigInit(&cfg)) fail(ENH_E_INTERNAL, "libwebp version mismatch");
+  if (m.lossless) {
+    WebPConfigLosslessPreset(&cfg, 3);  // levels above 3 cost minutes on large photos
+  } else {
+    cfg.quality = float(m.quality);
+    cfg.method = 4;
+  }
+  WebPPicture pic;
+  if (!WebPPictureInit(&pic)) fail(ENH_E_INTERNAL, "libwebp version mismatch");
+  pic.width = m.w;
+  pic.height = m.h;
+  pic.use_argb = m.lossless;
+  WebPMemoryWriter mw;
+  WebPMemoryWriterInit(&mw);
+  pic.writer = WebPMemoryWrite;
+  pic.custom_ptr = &mw;
+  bool ok = WebPPictureImportRGB(&pic, m.rgb.data(), m.w * 3);
+  std::vector<uint8_t>().swap(m.rgb);  // the picture holds its own copy now
+  ok = ok && WebPEncode(&cfg, &pic);
+  const WebPEncodingError err = pic.error_code;
+  WebPPictureFree(&pic);
+  struct Out {
+    WebPMemoryWriter* mw;
+    WebPData assembled{};
+    WebPMux* mux = nullptr;
+    ~Out() {
+      WebPMemoryWriterClear(mw);
+      WebPDataClear(&assembled);
+      WebPMuxDelete(mux);
+    }
+  } out{&mw};
+  if (!ok) {
+    fail(err == VP8_ENC_ERROR_OUT_OF_MEMORY || err == VP8_ENC_ERROR_BITSTREAM_OUT_OF_MEMORY ? ENH_E_OOM
+                                                                                      : ENH_E_INTERNAL,
+         "WebP encode failed: " + std::to_string(int(err)));
+  }
+
+  const uint8_t* bytes = mw.mem;
+  size_t size = mw.size;
+  const JpegMeta& md = m.meta;
+  if (!md.exif.empty() || !md.icc.empty() || !md.xmp.empty()) {
+    const WebPData bits{mw.mem, mw.size};
+    out.mux = WebPMuxCreate(&bits, 0);
+    if (!out.mux) fail(ENH_E_INTERNAL, "WebPMuxCreate");
+    auto set = [&](const char* fourcc, const void* p, size_t n) {
+      if (n == 0) return;
+      const WebPData d{static_cast<const uint8_t*>(p), n};
+      if (WebPMuxSetChunk(out.mux, fourcc, &d, 1) != WEBP_MUX_OK) fail(ENH_E_INTERNAL, "WebPMuxSetChunk");
+    };
+    set("ICCP", md.icc.data(), md.icc.size());
+    set("EXIF", md.exif.data(), md.exif.size());
+    set("XMP ", md.xmp.data(), md.xmp.size());
+    if (WebPMuxAssemble(out.mux, &out.assembled) != WEBP_MUX_OK) fail(ENH_E_INTERNAL, "WebPMuxAssemble");
+    bytes = out.assembled.bytes;
+    size = out.assembled.size;
+  }
+  FILE* f = std::fopen(m.path.c_str(), "wb");
+  if (!f) fail(ENH_E_IO, "cannot create output");
+  const bool wrote = std::fwrite(bytes, 1, size, f) == size;
+  const bool closed = std::fclose(f) == 0;
+  if (!wrote || !closed) fail(ENH_E_IO, "WebP write failed");
+  m.finished = true;
 }
 
 }  // namespace enh

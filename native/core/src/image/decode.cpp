@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "image/jpeg.hpp"
+#include "image/metaio.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 
@@ -72,11 +73,19 @@ Rgb8 decode_image(const std::string& path, ImageInfo* info, SourceMeta* meta) {
   ImageInfo i = probe_image(path);
   if (info) *info = i;
   if (meta) *meta = {};
-  if (i.format == "jpeg") return jpeg_decode(path, nullptr, meta);
-  if (i.format == "png") return png_decode(path, meta);
-  if (i.format == "webp") return webp_decode(path, meta);
-  if (is_core_format(i.format)) fail(ENH_E_INTERNAL, "unreachable");
-  return platform_decode(path);
+  Rgb8 img;
+  if (i.format == "jpeg") {
+    img = jpeg_decode(path, nullptr, meta);
+  } else if (i.format == "png") {
+    img = png_decode(path, meta);
+  } else if (i.format == "webp") {
+    img = webp_decode(path, meta);
+  } else {
+    if (is_core_format(i.format)) fail(ENH_E_INTERNAL, "unreachable");
+    return platform_decode(path);
+  }
+  if (meta && !icc_header_valid(meta->icc.data(), meta->icc.size())) meta->icc.clear();
+  return img;
 }
 
 void rgba_to_rgb_on_white(std::vector<uint8_t>& px, size_t pixels, bool premultiplied) {

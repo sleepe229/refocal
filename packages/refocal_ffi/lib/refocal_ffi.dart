@@ -195,14 +195,21 @@ class RefocalSession {
     }
   }
 
-  /// Streams the job's BandStore into a JPEG at [dst] on a helper isolate (can take seconds).
+  /// Encodes the job's result into [dst] on a helper isolate (can take seconds); any number of
+  /// times from one result (FR-EXP-007).
   ///
+  /// [format]: jpeg | png | webp; [quality]: JPEG and lossy WebP; [lossless]: WebP only.
+  /// [strength] 0..1 blends the result with a Lanczos upscale of the input (FR-ENH-005); below 1
+  /// the input file must still exist.
   /// Metadata (ADR-0018): the source EXIF is carried without GPS unless [keepGps] and without
   /// it at all unless [exif]; [aiMarker] writes the XMP DigitalSourceType marker.
   Future<Map<String, Object?>> export(
     String jobDir,
     String dst, {
+    String format = 'jpeg',
     int quality = 92,
+    bool lossless = false,
+    double strength = 1,
     bool exif = true,
     bool keepGps = false,
     bool aiMarker = true,
@@ -213,8 +220,10 @@ class RefocalSession {
       final b = EnhBindings(RefocalNative._open(libPath));
       final dir = jobDir.toNativeUtf8();
       final opt = jsonEncode({
-        'format': 'jpeg',
+        'format': format,
         'quality': quality,
+        'lossless': lossless,
+        'strength': strength,
         'metadata': {'exif': exif, 'gps': keepGps, 'ai_marker': aiMarker},
       }).toNativeUtf8();
       final d = dst.toNativeUtf8();
