@@ -91,9 +91,7 @@ jobs:
   native:
     needs: changes
     if: needs.changes.outputs.native == 'true'
-    # TSan on ubuntu-24.04 (kernel 6.17) exits 0 on a known race. 22.04 is kernel 6.8,
-    # where clang 18 still reports it. Address and plain builds stay on 24.04.
-    runs-on: ${{ matrix.sanitize == 'thread' && 'ubuntu-22.04' || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -103,14 +101,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive --depth 1 native/third_party
       - name: OpenMP for clang (otherwise ncnn CPU inference is single-threaded), ccache
-        run: |
-          # jammy has no clang-18 package. The thread job is the only one on 22.04.
-          if [ "$(. /etc/os-release && echo "$VERSION_ID")" = "22.04" ]; then
-            wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
-            echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm-18.list >/dev/null
-            sudo apt-get update -qq
-          fi
-          sudo apt-get install -y --no-install-recommends clang-18 libomp-18-dev ccache >/dev/null
+        run: sudo apt-get install -y --no-install-recommends libomp-18-dev ccache >/dev/null
       - name: ccache key (submodule commits)
         id: subs
         run: echo "sha=$(git submodule status --recursive native/third_party | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
@@ -124,21 +115,36 @@ jobs:
       - name: TSan self-check (a known race must be reported)
         if: matrix.sanitize == 'thread'
         run: |
-          # 6.8 azure images still default to 32 bits of ASLR. TSan's shadow
-          # allows 30; above that it re-execs and may report nothing (S6).
-          sudo sysctl vm.mmap_rnd_bits=28
-          clang++-18 --version
-          printf '#include <pthread.h>\nint x;void* f(void*){x++;return 0;}int main(){pthread_t t;pthread_create(&t,0,f,0);x++;pthread_join(t,0);}\n' > race.cpp
-          clang++-18 -fsanitize=thread -g -pthread race.cpp -o race
-          set +e
-          ./race >race.out 2>race.err
-          code=$?
-          set -e
-          if ! grep -q "data race" race.err race.out; then
-            echo "::error::TSan does not detect races on this runner (kernel $(uname -r), exit ${code})"
-            cat race.out race.err
-            exit 1
-          fi
+          # The two increments race with both threads alive (relaxed atomics give TSan no
+          # happens-before). On the ubuntu-24.04 runners (kernel 6.17, clang 18) TSan reports
+          # it in ~85% of runs (17/20 measured; same with clang 19/20 and mmap_rnd_bits=28),
+          # so the check retries: it is here to catch a TSan that is silently off (S6).
+          cat > race.cpp <<'EOF'
+          #include <atomic>
+          #include <thread>
+          int x;
+          std::atomic<int> step{0};
+          int main() {
+            std::thread t([] {
+              x++;
+              step.store(1, std::memory_order_relaxed);
+              while (step.load(std::memory_order_relaxed) != 2) {}
+            });
+            while (step.load(std::memory_order_relaxed) != 1) {}
+            x++;
+            step.store(2, std::memory_order_relaxed);
+            t.join();
+          }
+          EOF
+          clang++-18 -fsanitize=thread -g race.cpp -o race
+          for n in 1 2 3 4 5; do
+            if ! ./race 2>race.err && grep -q "data race" race.err; then
+              echo "TSan reported the race (attempt $n)"; exit 0
+            fi
+          done
+          echo "::error::TSan does not detect races on this runner (kernel $(uname -r))"
+          cat race.err
+          exit 1
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
