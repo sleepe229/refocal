@@ -1,0 +1,8 @@
+SQLite 3.54.0 amalgamation (sqlite3.c, sqlite3.h), public domain (https://sqlite.org/copyright.html).
+Source: https://sqlite.org/2026/sqlite-amalgamation-3540000.zip
+  (SHA3-256 7b670a62fdfbd672b75fef004cb703c8a3e87d3a5cc7d675b4a08337004a2d93, sqlite.org/download.html)
+
+Compiled by the build hook of package:sqlite3 (`hooks: user_defines: sqlite3: source: source` in the
+workspace pubspec.yaml) instead of downloading its prebuilt libraries: the app is built from source
+only (COMP-FDR-001, ADR-0009). Keep the version equal to the one package:sqlite3 bundles (its
+CHANGELOG) when updating either.

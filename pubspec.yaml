@@ -10,3 +10,11 @@ workspace:
   - packages/refocal_core
   - packages/refocal_ffi
   - packages/refocal_platform
+
+# package:sqlite3 compiles the vendored amalgamation instead of downloading prebuilt libraries:
+# everything in the APK is built from source (COMP-FDR-001, ADR-0009).
+hooks:
+  user_defines:
+    sqlite3:
+      source: source
+      path: native/third_party/sqlite/sqlite3.c

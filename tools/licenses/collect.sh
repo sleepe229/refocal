@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds app/assets/licenses/native.json: licenses of everything in libenh.so and the bundled
-# model, shown on the in-app Licenses screen next to Flutter's own package licenses.
+# Builds app/assets/licenses/native.json: licenses of everything in libenh.so, of SQLite
+# (libsqlite3.so, built by package:sqlite3's hook) and of the bundled model, shown on the in-app
+# Licenses screen next to Flutter's own package licenses.
 # Rerun after updating a native submodule or a bundled model.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -17,6 +18,7 @@ entries = [
     ("libwebp (patent grant)", "native/third_party/libwebp/PATENTS"),
     ("nlohmann/json", "native/third_party/json/LICENSE.MIT"),
     ("Dart API DL", "native/third_party/dart_api_dl/LICENSE"),
+    ("SQLite", "tools/licenses/upstream/SQLite.LICENSE"),
     ("Real-ESRGAN (model weights: sr.general-x4v3)", "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
 ]
 out = []

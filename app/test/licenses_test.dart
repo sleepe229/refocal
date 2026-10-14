@@ -13,7 +13,12 @@ void main() {
     }
     expect(
       packages,
-      containsAll(['ncnn', 'libjpeg-turbo (IJG)', 'Real-ESRGAN (model weights: sr.general-x4v3)']),
+      containsAll([
+        'ncnn',
+        'libjpeg-turbo (IJG)',
+        'SQLite',
+        'Real-ESRGAN (model weights: sr.general-x4v3)',
+      ]),
     );
   });
 }
