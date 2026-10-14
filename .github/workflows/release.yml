@@ -56,10 +56,13 @@ jobs:
             export PATH=/src/flutter/bin:$PATH
             git config --global --add safe.directory "*"
             flutter --suppress-analytics config --no-analytics >/dev/null
-            flutter --suppress-analytics build apk --release --flavor fdroid --target-platform android-arm64'
+            flutter --suppress-analytics build apk --release --flavor fdroid --target-platform android-arm64 \
+              --split-debug-info=build/symbols'
           rm -f app/android/release.jks app/android/key.properties
           mkdir -p dist
           cp app/build/app/outputs/flutter-apk/app-fdroid-release.apk "dist/refocal-${GITHUB_REF_NAME}-arm64-v8a.apk"
+          # Dart symbols for `flutter symbolize` of stack traces from this release.
+          tar -C app/build/symbols -czf "dist/refocal-${GITHUB_REF_NAME}-symbols.tar.gz" .
       - name: Verify signature and size
         run: |
           docker run --rm -v "$PWD/dist:/d" refocal-rebuilder:release bash -c \
@@ -68,7 +71,7 @@ jobs:
           echo "APK size: $size bytes"
           [ "$size" -le 31457280 ] || { echo "::error::APK over 30 MB (0.1 budget)"; exit 1; }
       - name: SHA256SUMS
-        run: cd dist && sha256sum *.apk > SHA256SUMS && cat SHA256SUMS
+        run: cd dist && sha256sum *.apk *.tar.gz > SHA256SUMS && cat SHA256SUMS
       # Not available for user-owned private repositories; runs once the repo is public.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: ${{ !github.event.repository.private }}
@@ -81,4 +84,4 @@ jobs:
           pre=""; case "$GITHUB_REF_NAME" in *-*) pre="--prerelease";; esac
           notes=$(awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## " v {f=1; next} /^## / {f=0} f' CHANGELOG.md)
           gh release create "$GITHUB_REF_NAME" --draft $pre --title "Refocal ${GITHUB_REF_NAME}" \
-            --notes "$notes" dist/*.apk dist/SHA256SUMS
+            --notes "$notes" dist/*.apk dist/*.tar.gz dist/SHA256SUMS

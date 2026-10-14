@@ -67,8 +67,13 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    // NFR-SIZE-001: native libraries (~27 MB) are deflated in the APK and extracted on install.
+    // Uncompressed libs load in place but make every download ~10 MB larger; the roadmap
+    // (drift + sqlite in 0.3, C2PA in 1.3) would not fit 30 MB otherwise. The .so files stay
+    // 16 KB-aligned ELF (-z max-page-size=16384, COMP-AND-007); zip alignment does not apply
+    // to compressed entries.
     packaging {
-        jniLibs { useLegacyPackaging = false }
+        jniLibs { useLegacyPackaging = true }
     }
 }
 

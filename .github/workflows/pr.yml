@@ -211,7 +211,8 @@ jobs:
               export PATH=/src/flutter/bin:\$PATH
               git config --global --add safe.directory '*'
               flutter --suppress-analytics config --no-analytics >/dev/null
-              flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64
+              flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64 \
+                --split-debug-info=build/symbols
               ccache -s | grep -iE 'hits|misses' | head -2"
           done
           ls -l app/build/app/outputs/flutter-apk/

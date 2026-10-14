@@ -21,5 +21,6 @@ if [[ -f /out/in/release.jks ]]; then  # optional: Gradle-signed build (release.
     "$KS_PASS" "$KS_ALIAS" "$KS_PASS" > "$SRC/app/android/key.properties"
 fi
 cd "$SRC/app"
-flutter --suppress-analytics build apk --release --flavor "$FLAVOR" --target-platform android-arm64
+flutter --suppress-analytics build apk --release --flavor "$FLAVOR" --target-platform android-arm64 \
+  --split-debug-info=build/symbols
 install -m 644 "build/app/outputs/flutter-apk/app-$FLAVOR-release.apk" "/out/$OUT_NAME.apk"
