@@ -122,7 +122,8 @@ jobs:
       - name: TSan self-check (a known race must be reported)
         if: matrix.sanitize == 'thread'
         run: |
-          uname -r; cat /proc/sys/vm/mmap_rnd_bits
+          set +e
+          uname -r; sudo sysctl -n vm.mmap_rnd_bits
           printf '#include <pthread.h>\nint x;void* f(void*){x++;return 0;}int main(){pthread_t t;pthread_create(&t,0,f,0);x++;pthread_join(t,0);}\n' > race.cpp
           run() {  # label, command...
             local label=$1; shift
