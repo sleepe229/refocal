@@ -324,8 +324,34 @@ static void test_export(Session& se) {
   }
   CHECK(between);
 
+  // Thumbnail (history preview, FR-HIST-001): the exported pixels, strength applied, <= max_side.
+  const std::string thumb = fs::join(g_root, "thumb.jpg");
+  const json topt = {{"format", "png"}, {"strength", 0.5}, {"thumbnail", {{"path", thumb}, {"max_side", 64}}}};
+  out = nullptr;
+  CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), fs::join(g_root, "t.png").c_str(), &out) == ENH_OK);
+  const json tj = out ? json::parse(out) : json();
+  enh_free(out);
+  CHECK(tj.value("/thumbnail/path"_json_pointer, std::string()) == thumb);
+  CHECK(tj.value("/thumbnail/width"_json_pointer, 0) == 64 && tj.value("/thumbnail/height"_json_pointer, 0) == 43);
+  CHECK(!fs::exists(thumb + ".part"));
+  PreviewAccumulator acc;
+  acc.init(half.w, half.h, 64);
+  acc.add_rows(half.px.data(), 0, half.h);
+  // Same pixels as encoding the area-downscaled export at the default quality 80.
+  const std::string ref = fs::join(g_root, "thumb-ref.jpg");
+  jpeg_encode(ref, acc.finish(), 80);
+  const Rgb8 tn = decode_image(thumb);
+  CHECK(tn.w == 64 && tn.h == 43 && tn.px == decode_image(ref).px);
+  ::unlink(thumb.c_str());
+  // A failed export leaves no thumbnail behind.
+  const std::string nowhere = fs::join(g_root, "no/such/dir/x.png");
+  CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), nowhere.c_str(), nullptr) != ENH_OK);
+  CHECK(!fs::exists(thumb) && !fs::exists(thumb + ".part"));
+
   for (const char* bad : {"{\"format\":\"gif\"}", "{\"format\":\"jpeg\",\"lossless\":true}",
-                          "{\"strength\":1.5}", "{\"strength\":-0.1}", "{\"quality\":0}"}) {
+                          "{\"strength\":1.5}", "{\"strength\":-0.1}", "{\"quality\":0}",
+                          "{\"thumbnail\":{}}", "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"max_side\":8}}",
+                          "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"quality\":101}}"}) {
     CHECK(enh_export(se.s, job.c_str(), bad, dst.c_str(), nullptr) == ENH_E_INVALID);
   }
 }

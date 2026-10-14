@@ -203,6 +203,8 @@ class RefocalSession {
   /// the input file must still exist.
   /// Metadata (ADR-0018): the source EXIF is carried without GPS unless [keepGps] and without
   /// it at all unless [exif]; [aiMarker] writes the XMP DigitalSourceType marker.
+  /// [thumbnail]: also writes a JPEG of the exported pixels there, <= [thumbnailMaxSide] px and
+  /// without metadata (the history preview, FR-HIST-001); it is not left behind on failure.
   Future<Map<String, Object?>> export(
     String jobDir,
     String dst, {
@@ -213,6 +215,8 @@ class RefocalSession {
     bool exif = true,
     bool keepGps = false,
     bool aiMarker = true,
+    String? thumbnail,
+    int thumbnailMaxSide = 512,
   }) async {
     final libPath = _native._libPath;
     final sessionAddr = _ptr.address;
@@ -225,6 +229,7 @@ class RefocalSession {
         'lossless': lossless,
         'strength': strength,
         'metadata': {'exif': exif, 'gps': keepGps, 'ai_marker': aiMarker},
+        if (thumbnail != null) 'thumbnail': {'path': thumbnail, 'max_side': thumbnailMaxSide},
       }).toNativeUtf8();
       final d = dst.toNativeUtf8();
       final out = calloc<Pointer<Char>>();
