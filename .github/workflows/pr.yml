@@ -124,20 +124,30 @@ jobs:
         run: |
           set +e
           uname -r; sudo sysctl -n vm.mmap_rnd_bits
-          printf '#include <pthread.h>\nint x;void* f(void*){x++;return 0;}int main(){pthread_t t;pthread_create(&t,0,f,0);x++;pthread_join(t,0);}\n' > race.cpp
-          run() {  # label, command...
-            local label=$1; shift
-            timeout 60 "$@" >/dev/null 2>race.err; local code=$?
-            echo "$label: exit=$code races=$(grep -c 'data race' race.err) $(grep -m1 -E 'FATAL|ERROR' race.err)"
+          cat > race.cpp <<'EOF'
+          #include <atomic>
+          #include <thread>
+          int x;
+          std::atomic<int> step{0};  // relaxed: no happens-before for TSan
+          int main() {
+            std::thread t([] {
+              x++;
+              step.store(1, std::memory_order_relaxed);
+              while (step.load(std::memory_order_relaxed) != 2) {}
+            });
+            while (step.load(std::memory_order_relaxed) != 1) {}
+            x++;  // both threads alive, unordered with the write above
+            step.store(2, std::memory_order_relaxed);
+            t.join();
           }
-          clang++-18 -fsanitize=thread -g -pthread race.cpp -o race
+          EOF
+          clang++-18 -fsanitize=thread -g race.cpp -o race
           hits=0
           for n in $(seq 20); do
-            TSAN_OPTIONS=verbosity=1 timeout 60 ./race >/dev/null 2>race.err; code=$?
-            if grep -q 'data race' race.err; then hits=$((hits+1)); else
-              echo "--- miss #$n exit=$code"; head -15 race.err; fi
+            timeout 60 ./race >/dev/null 2>race.err
+            grep -q 'data race' race.err && hits=$((hits+1))
           done
-          echo "clang-18 default ASLR: $hits/20 detected"
+          echo "deterministic probe: $hits/20 detected"
           exit 1  # experiment: stop before the build
       - name: Configure
         run: >
