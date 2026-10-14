@@ -16,6 +16,9 @@ New:
 - **Russian** translation; the language can be changed in Settings.
 - A short introduction on first start (also in Settings).
 - Notifications use the app's language.
+- **Smaller download:** the APK is 13.6 MB (was 29.7 MB). Its native libraries are now
+  compressed and unpacked by Android on install, so the installed app takes about as much space
+  as before.
 
 Fixed:
 - WebP photos whose EXIF starts with an "Exif" header were not rotated upright.
