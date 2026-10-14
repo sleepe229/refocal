@@ -1,6 +1,10 @@
-// Core log: logcat on Android, stderr elsewhere. No photo paths or GPS in messages (ADR-0020).
+// Core log: logcat on Android, stderr elsewhere, and a rotating file for bug reports
+// (FR-SET-007, PRIV-LOG-001/002). Paths and URIs are redacted before any sink sees a line.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+
+#include <cstdint>
+#include <string>
 
 namespace enh {
 
@@ -8,6 +12,10 @@ enum class LogLevel { debug, info, warn, error };
 
 void log(LogLevel level, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 void set_log_level(LogLevel min);
+// File sink; rotates to path + ".1". Throws Error(ENH_E_IO) if the file cannot be opened.
+void log_open(const std::string& path, int64_t max_bytes);
+// Replaces absolute paths with "<path>" and scheme URIs (content://, file://, ...) with "<uri>".
+std::string redact(const std::string& line);
 
 }  // namespace enh
 

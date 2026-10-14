@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'bootstrap/app_log.dart';
 import 'bootstrap/processing.dart';
 import 'bootstrap/settings.dart';
 import 'features/about/about_page.dart';
 import 'features/editor/editor_page.dart';
 import 'features/home/home_page.dart';
 import 'features/onboarding/onboarding_page.dart';
+import 'features/report/report_page.dart';
 import 'features/settings/settings_page.dart';
 import 'l10n/app_localizations.dart';
 
@@ -16,6 +18,7 @@ void main() {
   // NFR-MEM-006: bound the decoded image cache (T1 value; tiers come with the benchmark, 0.2).
   PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20;
   registerNativeLicenses();
+  AppLog.installErrorHandlers();
   ProcessingActions.install();
   runApp(const ProviderScope(child: RefocalApp()));
 }
@@ -30,6 +33,7 @@ final _router = GoRouter(
     GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),
+    GoRoute(path: '/report', builder: (_, _) => const ReportPage()),
   ],
 );
 

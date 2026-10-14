@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
+import '../version.dart';
+import 'app_log.dart';
 import 'job_store.dart';
 
 /// Model bundled with the app (04-ml-models: sr.general-x4v3, denoise 0.5). The weights are not
@@ -41,6 +43,17 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final ready = await _installBundledModel(models);
   final native = RefocalNative.open();
   try {
+    AppLog.open(native, '${dirs.support}/logs');
+  } on EnhException catch (e) {
+    debugPrint('log file unavailable: ${e.status.name}'); // the app works without it
+  }
+  final previousExit = await ref.read(platformApiProvider).lastExitReason();
+  AppLog.info(
+    'start: app $appVersion, core ${native.version}, '
+    '${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
+    'previous exit ${previousExit ?? 'unknown'}, model ${ready ? 'ok' : 'missing'}',
+  );
+  try {
     Engine._store(dirs).sweep(); // once per process: no screen holds an input yet
   } on FileSystemException {
     // cleanup is best effort
@@ -50,7 +63,7 @@ final engineProvider = FutureProvider<Engine>((ref) async {
     workDir: '${dirs.support}/jobs',
     // Crash sentinel + local GPU rules live here (kept across cache clears, ADR-0016).
     cacheDir: '${dirs.support}/core',
-    previousExit: await ref.read(platformApiProvider).lastExitReason(),
+    previousExit: previousExit,
   );
   ref.onDispose(session.dispose);
   return Engine(native, session, dirs, ready);

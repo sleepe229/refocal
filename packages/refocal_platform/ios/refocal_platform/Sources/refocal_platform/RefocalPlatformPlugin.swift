@@ -31,6 +31,10 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
     throw PigeonError(code: "unimplemented", message: "saveToFile is not implemented on iOS yet", details: nil)
   }
 
+  func shareFile(path: String, mimeType: String, chooserTitle: String) throws {
+    throw PigeonError(code: "unimplemented", message: "shareFile is not implemented on iOS yet", details: nil)
+  }
+
   // FR-SHARE-003: the Share Extension (App Group inbox) comes with the iOS build.
   func takeSharedImage(inboxDir: String) async throws -> PickedImage? { nil }
 

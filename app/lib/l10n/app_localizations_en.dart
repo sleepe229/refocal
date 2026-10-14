@@ -394,4 +394,26 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onb3Body =>
       'Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.';
+
+  @override
+  String get reportTitle => 'Report a problem';
+
+  @override
+  String get reportEntry => 'Report a problem';
+
+  @override
+  String get reportEntrySub => 'View and share the app\'s log';
+
+  @override
+  String get reportIntro =>
+      'This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.';
+
+  @override
+  String get reportEmpty => 'The log is empty.';
+
+  @override
+  String get reportShare => 'Share the log';
+
+  @override
+  String get reportShareTitle => 'Share the Refocal log';
 }

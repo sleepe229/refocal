@@ -770,6 +770,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.'**
   String get onb3Body;
+
+  /// No description provided for @reportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem'**
+  String get reportTitle;
+
+  /// No description provided for @reportEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem'**
+  String get reportEntry;
+
+  /// No description provided for @reportEntrySub.
+  ///
+  /// In en, this message translates to:
+  /// **'View and share the app\'s log'**
+  String get reportEntrySub;
+
+  /// No description provided for @reportIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.'**
+  String get reportIntro;
+
+  /// No description provided for @reportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The log is empty.'**
+  String get reportEmpty;
+
+  /// No description provided for @reportShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the log'**
+  String get reportShare;
+
+  /// No description provided for @reportShareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the Refocal log'**
+  String get reportShareTitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

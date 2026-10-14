@@ -296,6 +296,37 @@ class EnhBindings {
     isLeaf: true,
   );
 
+  int enh_log_open(ffi.Pointer<ffi.Char> path, int max_bytes) {
+    return _enh_log_open(path, max_bytes);
+  }
+
+  late final _enh_log_openPtr =
+      _lookup<ffi.NativeFunction<enh_status Function(ffi.Pointer<ffi.Char>, ffi.Int64)>>(
+        'enh_log_open',
+      );
+  late final _enh_log_open = _enh_log_openPtr
+      .asFunction<int Function(ffi.Pointer<ffi.Char>, int)>();
+
+  void enh_log_set_level(int min_level) {
+    return _enh_log_set_level(min_level);
+  }
+
+  late final _enh_log_set_levelPtr = _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int32)>>(
+    'enh_log_set_level',
+  );
+  late final _enh_log_set_level = _enh_log_set_levelPtr.asFunction<void Function(int)>();
+
+  void enh_log_write(int level, ffi.Pointer<ffi.Char> message) {
+    return _enh_log_write(level, message);
+  }
+
+  late final _enh_log_writePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int32, ffi.Pointer<ffi.Char>)>>(
+        'enh_log_write',
+      );
+  late final _enh_log_write = _enh_log_writePtr
+      .asFunction<void Function(int, ffi.Pointer<ffi.Char>)>();
+
   int enh_session_create(
     ffi.Pointer<enh_session_config> cfg,
     ffi.Pointer<ffi.Pointer<enh_session>> out,
@@ -403,7 +434,7 @@ class EnhBindings {
   );
 }
 
-const int ENH_ABI_VERSION = 1;
+const int ENH_ABI_VERSION = 2;
 
 const int ENH_E_BACKEND = 4;
 
@@ -430,6 +461,14 @@ const int ENH_E_OOM = 3;
 const int ENH_E_PAUSED = 2;
 
 const int ENH_E_SIGNATURE = 11;
+
+const int ENH_LOG_DEBUG = 0;
+
+const int ENH_LOG_ERROR = 3;
+
+const int ENH_LOG_INFO = 1;
+
+const int ENH_LOG_WARN = 2;
 
 const int ENH_OK = 0;
 

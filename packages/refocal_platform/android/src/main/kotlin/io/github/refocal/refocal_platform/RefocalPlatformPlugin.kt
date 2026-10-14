@@ -144,6 +144,17 @@ class RefocalPlatformPlugin :
     return true
   }
 
+  override fun shareFile(path: String, mimeType: String, chooserTitle: String) {
+    val activity = binding?.activity ?: throw FlutterError("no_activity", "No foreground activity")
+    val uri = ShareProvider.uriFor(context, File(path), mimeType)
+    val send =
+        Intent(Intent.ACTION_SEND)
+            .setType(mimeType)
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    activity.startActivity(Intent.createChooser(send, chooserTitle))
+  }
+
   override suspend fun takeSharedImage(inboxDir: String): PickedImage? {
     val uri = shared ?: return null
     shared = null

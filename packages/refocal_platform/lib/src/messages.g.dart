@@ -437,6 +437,26 @@ class RefocalPlatformApi {
     return pigeonVar_replyValue as String?;
   }
 
+  /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
+  /// provider, read-only; the file must be in the cache "share" directory).
+  Future<void> shareFile(String path, String mimeType, String chooserTitle) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.shareFile$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      path,
+      mimeType,
+      chooserTitle,
+    ]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
   /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
   /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
   Future<PickedImage?> takeSharedImage(String inboxDir) async {

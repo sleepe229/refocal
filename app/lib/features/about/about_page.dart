@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../bootstrap/engine.dart';
 import '../../l10n/app_localizations.dart';
@@ -66,6 +67,14 @@ class AboutPage extends ConsumerWidget {
               applicationLegalese: '© 2026 The Refocal Authors · Apache-2.0',
             ),
             child: Text(l10n.aboutLicenses),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.bug_report_outlined),
+            title: Text(l10n.reportEntry),
+            subtitle: Text(l10n.reportEntrySub),
+            onTap: () => context.push('/report'),
           ),
         ],
       ),

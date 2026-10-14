@@ -394,4 +394,26 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get onb3Body =>
       'Двигайте ползунок по результату, чтобы увидеть оригинал, и уменьшите силу, если эффект слишком сильный. Оригинал никогда не меняется.';
+
+  @override
+  String get reportTitle => 'Сообщить о проблеме';
+
+  @override
+  String get reportEntry => 'Сообщить о проблеме';
+
+  @override
+  String get reportEntrySub => 'Посмотреть и отправить журнал приложения';
+
+  @override
+  String get reportIntro =>
+      'Журнал помогает найти ошибки. В нём события и ошибки приложения — никогда ваши фото, имена файлов или геопозиция. Ничего не отправляется, пока вы сами не поделитесь им: приложите к issue или письму.';
+
+  @override
+  String get reportEmpty => 'Журнал пуст.';
+
+  @override
+  String get reportShare => 'Поделиться журналом';
+
+  @override
+  String get reportShareTitle => 'Журнал Refocal';
 }

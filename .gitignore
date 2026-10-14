@@ -46,3 +46,4 @@ spikes/**/build-*/
 native/build-*/
 .cxx/
 native/test-work*/
+.claude/worktrees/

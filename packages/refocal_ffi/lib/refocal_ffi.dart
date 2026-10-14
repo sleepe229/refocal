@@ -36,6 +36,29 @@ class RefocalNative {
 
   String get version => _b.enh_version().cast<Utf8>().toDartString();
 
+  /// Starts the rotating log file shared by the core and the app (FR-SET-007, PRIV-LOG-002):
+  /// [path] and `$path.1`, each at most [maxBytes].
+  void openLog(String path, {int maxBytes = 2 << 20}) {
+    final p = path.toNativeUtf8();
+    try {
+      _check(_b.enh_log_open(p.cast(), maxBytes), 'log_open');
+    } finally {
+      malloc.free(p);
+    }
+  }
+
+  /// Writes one line; the core redacts paths and URIs before any sink (PRIV-LOG-001).
+  void log(LogLevel level, String message) {
+    final p = message.toNativeUtf8();
+    try {
+      _b.enh_log_write(level.code, p.cast());
+    } finally {
+      malloc.free(p);
+    }
+  }
+
+  void setLogLevel(LogLevel min) => _b.enh_log_set_level(min.code);
+
   /// CPU/GPU description used for device tiers (ADR-0017).
   Map<String, Object?> deviceProbe() {
     final s = openSession(modelsDir: '', workDir: '');
@@ -106,6 +129,16 @@ class RefocalNative {
     if (Platform.isIOS || Platform.isMacOS) return DynamicLibrary.process();
     throw UnsupportedError('Refocal native core: unsupported platform');
   }
+}
+
+enum LogLevel {
+  debug(ENH_LOG_DEBUG),
+  info(ENH_LOG_INFO),
+  warn(ENH_LOG_WARN),
+  error(ENH_LOG_ERROR);
+
+  const LogLevel(this.code);
+  final int code;
 }
 
 enum EnhBackend {

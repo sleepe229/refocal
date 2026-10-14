@@ -72,6 +72,10 @@ abstract class RefocalPlatformApi {
   @async
   String? saveToFile(String path, String displayName, String mimeType);
 
+  /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
+  /// provider, read-only; the file must be in the cache "share" directory).
+  void shareFile(String path, String mimeType, String chooserTitle);
+
   /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
   /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
   @async

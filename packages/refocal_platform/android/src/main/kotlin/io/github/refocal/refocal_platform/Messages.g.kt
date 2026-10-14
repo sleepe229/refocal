@@ -416,6 +416,11 @@ interface RefocalPlatformApi {
    */
   suspend fun saveToFile(path: String, displayName: String, mimeType: String): String?
   /**
+   * Opens the system share sheet for [path] (Android: a content URI from the plugin's own
+   * provider, read-only; the file must be in the cache "share" directory).
+   */
+  fun shareFile(path: String, mimeType: String, chooserTitle: String)
+  /**
    * The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
    * been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
    */
@@ -534,6 +539,26 @@ interface RefocalPlatformApi {
               }
               reply.reply(wrapped)
             }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.shareFile$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val pathArg = args[0] as String
+            val mimeTypeArg = args[1] as String
+            val chooserTitleArg = args[2] as String
+            val wrapped: List<Any?> = try {
+              api.shareFile(pathArg, mimeTypeArg, chooserTitleArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
           }
         } else {
           channel.setMessageHandler(null)

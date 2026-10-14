@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
+import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/settings.dart';
@@ -112,6 +113,7 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   Future<void> start(String input, ScaleChoice choice) async {
     final id = 'job-${DateTime.now().millisecondsSinceEpoch}';
+    AppLog.info('job $id: scale ${choice.scale}${choice.fastPath ? ' fast' : ''}');
     await _run(
       input,
       (e) => e.session.start({
@@ -125,7 +127,10 @@ class EnhanceController extends Notifier<EnhanceState> {
   }
 
   /// Continues a paused or interrupted job (FR-BATCH-007, TEST-INT-003).
-  Future<void> resume(String jobDir, String input) => _run(input, (e) => e.session.resume(jobDir));
+  Future<void> resume(String jobDir, String input) {
+    AppLog.info('job resume');
+    return _run(input, (e) => e.session.resume(jobDir));
+  }
 
   /// Shows a job that finished earlier but was not saved.
   Future<void> open(String jobDir, String input) async {
@@ -187,6 +192,7 @@ class EnhanceController extends Notifier<EnhanceState> {
               _guard(() => platform.updateProcessing('$pct%', pct));
             }
           case FallbackEvent():
+            AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
             note = l10n.noteSwitchedTo(e.to);
           case WarningEvent(code: 'alpha_flattened'):
             note = l10n.noteAlphaFlattened;
@@ -198,9 +204,16 @@ class EnhanceController extends Notifier<EnhanceState> {
         }
       });
       final result = await job.done;
+      AppLog.info(
+        'job done: ${result.width}x${result.height}, backend ${result.backend}, '
+        'fallbacks ${result.fallbacks}, timings ${result.raw['timings_ms']}',
+      );
       state = Finished(result);
       await _guard(() => platform.stopProcessing(l10n.notifReady));
     } on JobFailure catch (f) {
+      AppLog.info(
+        'job ended: ${f.status.name}${f.event.message == null ? '' : ': ${f.event.message}'}',
+      );
       final dir = f.event.jobDir;
       if (f.status == EnhStatus.paused && dir != null) {
         state = Paused(dir, _progressOf(state), byTimeout: _timedOut);
@@ -214,6 +227,7 @@ class EnhanceController extends Notifier<EnhanceState> {
       };
       await _guard(() => platform.stopProcessing(text));
     } on EnhException catch (e) {
+      AppLog.warn('job not started: $e');
       state = Failed(e.status, e.context);
       await _guard(() => platform.stopProcessing(null));
     } finally {
@@ -294,9 +308,14 @@ class EnhanceController extends Notifier<EnhanceState> {
         aiMarker: settings.aiMarker,
       );
       final uri = await deliver(ref.read(platformApiProvider), tmp, name);
+      AppLog.info(
+        'export ${format.name} q${settings.quality} strength ${s.strength}: '
+        '${uri == null ? 'cancelled' : 'saved'}',
+      );
       state = s.copyWith(saved: s.saved || uri != null, saving: false);
       return uri;
-    } catch (_) {
+    } catch (e, stack) {
+      AppLog.error('export ${format.name} failed', e, stack);
       state = s.copyWith(saving: false);
       rethrow;
     } finally {

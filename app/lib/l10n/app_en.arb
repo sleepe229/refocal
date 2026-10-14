@@ -243,5 +243,12 @@
   "onb2Title": "AI can change details",
   "onb2Body": "The model adds detail that looks right but was not in the photo: text, faces and textures may differ from reality. Saved photos are marked as AI-enhanced.",
   "onb3Title": "Compare before you save",
-  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed."
+  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.",
+  "reportTitle": "Report a problem",
+  "reportEntry": "Report a problem",
+  "reportEntrySub": "View and share the app's log",
+  "reportIntro": "This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.",
+  "reportEmpty": "The log is empty.",
+  "reportShare": "Share the log",
+  "reportShareTitle": "Share the Refocal log"
 }

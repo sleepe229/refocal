@@ -90,4 +90,14 @@ void main() {
   test('invalid request throws EnhException', () {
     expect(() => session.start({'job_id': '../bad', 'input': input}), throwsA(isA<EnhException>()));
   }, skip: skip);
+
+  test('log file: Dart lines go through the core and are redacted', () {
+    final path = '${root.path}/app.log';
+    native.openLog(path, maxBytes: 1 << 16);
+    native.log(LogLevel.info, 'opened /data/user/0/app/files/inbox/in-1.jpg');
+    native.log(LogLevel.debug, 'below the default level');
+    final text = File(path).readAsStringSync();
+    expect(text, contains(' I opened <path>'));
+    expect(text, isNot(contains('below the default level')));
+  }, skip: skip);
 }

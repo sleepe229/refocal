@@ -114,11 +114,23 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+echo "== bug-report log (FR-SET-007, PRIV-LOG-001)"
+adb_ shell input keyevent KEYCODE_BACK
+tap_text "About" 30
+tap_text "Report a problem" 30
+sleep 2
+adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null
+log_ui=$(adb_ shell cat /sdcard/ui.xml)
+grep -q "job done" <<<"$log_ui" || { echo "FAIL: the log has no finished job"; exit 1; }
+if grep -qE "/data/|/storage/|content://" <<<"$log_ui"; then echo "FAIL: a path or URI in the log"; exit 1; fi
+echo "  log shows the job, no paths"
+adb_ shell input keyevent KEYCODE_BACK
+adb_ shell input keyevent KEYCODE_BACK
+
 echo "== share intake (FR-SHARE-001)"
 id=$(adb_ shell content query --uri content://media/external/images/media --projection _id \
   --where "_display_name=\'e2e_input.$EXT\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1)
 [[ -n "$id" ]] || { echo "FAIL: input not in MediaStore"; exit 1; }
-adb_ shell input keyevent KEYCODE_BACK
 mime=image/${EXT/jpg/jpeg}
 adb_ shell am start -a android.intent.action.SEND -t "$mime" --grant-read-uri-permission \
   --eu android.intent.extra.STREAM "content://media/external/images/media/$id" \

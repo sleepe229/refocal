@@ -406,6 +406,9 @@ protocol RefocalPlatformApi {
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
   /// there. Returns the document URI, or null when cancelled.
   func saveToFile(path: String, displayName: String, mimeType: String) async throws -> String?
+  /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
+  /// provider, read-only; the file must be in the cache "share" directory).
+  func shareFile(path: String, mimeType: String, chooserTitle: String) throws
   /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
   /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
   func takeSharedImage(inboxDir: String) async throws -> PickedImage?
@@ -515,6 +518,25 @@ class RefocalPlatformApiSetup {
       }
     } else {
       saveToFileChannel.setMessageHandler(nil)
+    }
+    /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
+    /// provider, read-only; the file must be in the cache "share" directory).
+    let shareFileChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.shareFile\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      shareFileChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let pathArg = args[0] as! String
+        let mimeTypeArg = args[1] as! String
+        let chooserTitleArg = args[2] as! String
+        do {
+          try api.shareFile(path: pathArg, mimeType: mimeTypeArg, chooserTitle: chooserTitleArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      shareFileChannel.setMessageHandler(nil)
     }
     /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
     /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.

@@ -11,5 +11,11 @@
             android:name=".ProcessingService"
             android:exported="false"
             android:foregroundServiceType="mediaProcessing|dataSync" />
+        <!-- Share sheet access to cache/share/ (ShareProvider). -->
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="${applicationId}.refocal.share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>
