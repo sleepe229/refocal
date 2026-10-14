@@ -85,17 +85,12 @@ endif()
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ncnn/CMakeLists.txt")
   message(FATAL_ERROR "ncnn submodule missing: git submodule update --init --recursive")
 endif()
-add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL)
-if(ANDROID AND NCNN_SIMPLEOMP)
-  # simpleomp links PUBLIC pthread. Bionic keeps pthreads in libc; the NDK has no libpthread.
-  foreach(prop LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
-    get_target_property(_ncnn_libs ncnn ${prop})
-    if(_ncnn_libs)
-      list(FILTER _ncnn_libs EXCLUDE REGEX "^(pthread|-lpthread)$")
-      set_property(TARGET ncnn PROPERTY ${prop} "${_ncnn_libs}")
-    endif()
-  endforeach()
+if(ANDROID AND NCNN_SIMPLEOMP AND NOT TARGET pthread)
+  # simpleomp makes ncnn link "pthread"; Bionic has pthreads in libc and the NDK ships no
+  # libpthread. A target of that name takes precedence over -lpthread and adds nothing.
+  add_library(pthread INTERFACE)
 endif()
+add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL)
 
 # ---- libjpeg-turbo (git submodule, IJG/BSD-3/zlib) ----
 # Built as an external project: it does not support add_subdirectory(). The toolchain is
