@@ -115,10 +115,38 @@ jobs:
       - name: TSan self-check (a known race must be reported)
         if: matrix.sanitize == 'thread'
         run: |
-          # S6: on some kernels (high-entropy ASLR) TSan re-execs and silently reports nothing.
-          printf '#include <thread>\nint x;int main(){std::thread t([]{x++;});x++;t.join();}\n' > race.cpp
+          # Kernel 6.17 sets mmap_rnd_bits=32. TSan's shadow allows 30, so it
+          # re-execs with ASLR off and can then miss every race (S6). 28 bits
+          # is a supported layout, so the first process stays instrumented.
+          # sysctl applies to the tests in this job, not only this probe.
+          sudo sysctl vm.mmap_rnd_bits=28
+          cat > race.cpp << 'EOF'
+          #include <atomic>
+          #include <thread>
+          int x;
+          int main() {
+            std::atomic<int> gate{0};
+            std::thread t([&] {
+              gate.fetch_add(1);
+              while (gate.load() < 2) {}
+              x++;
+            });
+            while (gate.load() < 1) {}
+            gate.fetch_add(1);
+            x++;
+            t.join();
+          }
+          EOF
           clang++-18 -fsanitize=thread -g race.cpp -o race
-          if ./race; then echo "::error::TSan does not detect races on this runner"; exit 1; fi
+          set +e
+          ./race >race.out 2>race.err
+          code=$?
+          set -e
+          if ! grep -q "data race" race.err; then
+            echo "::error::TSan does not detect races on this runner (kernel $(uname -r), exit ${code})"
+            cat race.err
+            exit 1
+          fi
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"

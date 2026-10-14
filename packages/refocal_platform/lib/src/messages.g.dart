@@ -12,9 +12,9 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
 
 Object? _extractReplyValueOrThrow(
-    List<Object?>? replyList,
-    String channelName, {
-    required bool isNullValid,
+  List<Object?>? replyList,
+  String channelName, {
+  required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -36,7 +36,6 @@ Object? _extractReplyValueOrThrow(
   return replyList.firstOrNull;
 }
 
-
 List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty = false}) {
   if (empty) {
     return <Object?>[];
@@ -46,6 +45,7 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   }
   return <Object?>[error.code, error.message, error.details];
 }
+
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) {
     return true;
@@ -58,8 +58,7 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -108,12 +107,8 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 class AppDirs {
-  AppDirs({
-    required this.support,
-    required this.cache,
-  });
+  AppDirs({required this.support, required this.cache});
 
   /// Persistent, not backed up: models/, jobs/, inbox/ live here.
   String support;
@@ -121,21 +116,16 @@ class AppDirs {
   String cache;
 
   List<Object?> _toList() {
-    return <Object?>[
-      support,
-      cache,
-    ];
+    return <Object?>[support, cache];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AppDirs decode(Object result) {
     result as List<Object?>;
-    return AppDirs(
-      support: result[0]! as String,
-      cache: result[1]! as String,
-    );
+    return AppDirs(support: result[0]! as String, cache: result[1]! as String);
   }
 
   @override
@@ -161,12 +151,7 @@ class AppDirs {
 }
 
 class PickedImage {
-  PickedImage({
-    required this.path,
-    required this.sizeBytes,
-    this.displayName,
-    this.mimeType,
-  });
+  PickedImage({required this.path, required this.sizeBytes, this.displayName, this.mimeType});
 
   /// Copy inside the app's inbox directory; the original is never modified.
   String path;
@@ -178,16 +163,12 @@ class PickedImage {
   String? mimeType;
 
   List<Object?> _toList() {
-    return <Object?>[
-      path,
-      sizeBytes,
-      displayName,
-      mimeType,
-    ];
+    return <Object?>[path, sizeBytes, displayName, mimeType];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static PickedImage decode(Object result) {
     result as List<Object?>;
@@ -208,7 +189,10 @@ class PickedImage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(path, other.path) && _deepEquals(sizeBytes, other.sizeBytes) && _deepEquals(displayName, other.displayName) && _deepEquals(mimeType, other.mimeType);
+    return _deepEquals(path, other.path) &&
+        _deepEquals(sizeBytes, other.sizeBytes) &&
+        _deepEquals(displayName, other.displayName) &&
+        _deepEquals(mimeType, other.mimeType);
   }
 
   @override
@@ -247,18 +231,12 @@ class ProcessingTexts {
   String channelDescription;
 
   List<Object?> _toList() {
-    return <Object?>[
-      title,
-      pause,
-      cancel,
-      timedOut,
-      channelName,
-      channelDescription,
-    ];
+    return <Object?>[title, pause, cancel, timedOut, channelName, channelDescription];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ProcessingTexts decode(Object result) {
     result as List<Object?>;
@@ -281,7 +259,12 @@ class ProcessingTexts {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(title, other.title) && _deepEquals(pause, other.pause) && _deepEquals(cancel, other.cancel) && _deepEquals(timedOut, other.timedOut) && _deepEquals(channelName, other.channelName) && _deepEquals(channelDescription, other.channelDescription);
+    return _deepEquals(title, other.title) &&
+        _deepEquals(pause, other.pause) &&
+        _deepEquals(cancel, other.cancel) &&
+        _deepEquals(timedOut, other.timedOut) &&
+        _deepEquals(channelName, other.channelName) &&
+        _deepEquals(channelDescription, other.channelDescription);
   }
 
   @override
@@ -294,7 +277,6 @@ class ProcessingTexts {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -302,13 +284,13 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is AppDirs) {
+    } else if (value is AppDirs) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    }    else if (value is PickedImage) {
+    } else if (value is PickedImage) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is ProcessingTexts) {
+    } else if (value is ProcessingTexts) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
     } else {
@@ -335,21 +317,20 @@ class RefocalPlatformApi {
   /// Constructor for [RefocalPlatformApi]. The [binaryMessenger] named argument is
   /// available for dependency injection. If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  RefocalPlatformApi({
-      BinaryMessenger? binaryMessenger, 
-      String messageChannelSuffix = '', 
-      })
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  RefocalPlatformApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+    : pigeonVar_binaryMessenger = binaryMessenger,
+      pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+          ? '.$messageChannelSuffix'
+          : '';
 
   final BinaryMessenger? pigeonVar_binaryMessenger;
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   final String pigeonVar_messageChannelSuffix;
 
-
   Future<AppDirs> getDirs() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.getDirs$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.getDirs$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -359,18 +340,18 @@ class RefocalPlatformApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as AppDirs;
   }
 
   /// How the previous process ended, for the crash sentinel (ADR-0016): "native_crash",
   /// "os_kill" or null (unknown; Android < 11, iOS).
   Future<String?> lastExitReason() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.lastExitReason$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.lastExitReason$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -380,17 +361,17 @@ class RefocalPlatformApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as String?;
   }
 
   /// System photo picker; copies the selection into [inboxDir]. Null when cancelled.
   Future<PickedImage?> pickImage(String inboxDir) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImage$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImage$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -400,59 +381,67 @@ class RefocalPlatformApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as PickedImage?;
   }
 
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   Future<String> saveToGallery(String path, String displayName, String mimeType) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToGallery$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToGallery$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[path, displayName, mimeType]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      path,
+      displayName,
+      mimeType,
+    ]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as String;
   }
 
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
   /// there. Returns the document URI, or null when cancelled.
   Future<String?> saveToFile(String path, String displayName, String mimeType) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToFile$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToFile$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[path, displayName, mimeType]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      path,
+      displayName,
+      mimeType,
+    ]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as String?;
   }
 
   /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
   /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
   Future<PickedImage?> takeSharedImage(String inboxDir) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -462,18 +451,18 @@ class RefocalPlatformApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as PickedImage?;
   }
 
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
   /// granted or not needed. Processing works either way; only the notification is hidden.
   Future<bool> requestNotificationPermission() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.requestNotificationPermission$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.requestNotificationPermission$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -483,11 +472,10 @@ class RefocalPlatformApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as bool;
   }
 
@@ -495,7 +483,8 @@ class RefocalPlatformApi {
   /// Android foreground service with a progress notification and Pause/Cancel actions.
   /// Must be called while the app is in the foreground (a user action).
   Future<void> startProcessing(ProcessingTexts texts) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.startProcessing$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.startProcessing$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -504,17 +493,13 @@ class RefocalPlatformApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[texts]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 
   /// [percent] 0..100, or -1 for indeterminate.
   Future<void> updateProcessing(String text, int percent) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.updateProcessing$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.updateProcessing$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -523,18 +508,14 @@ class RefocalPlatformApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[text, percent]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").
   Future<void> stopProcessing(String? finishedText) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -543,12 +524,7 @@ class RefocalPlatformApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[finishedText]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 }
 
@@ -563,16 +539,18 @@ abstract class RefocalPlatformEvents {
   /// An image was shared to the running app; fetch it with takeSharedImage().
   void onSharedImage();
 
-  static void setUp(RefocalPlatformEvents? api, {
-    BinaryMessenger? binaryMessenger, 
+  static void setUp(
+    RefocalPlatformEvents? api, {
+    BinaryMessenger? binaryMessenger,
     String messageChannelSuffix = '',
-  }) 
-{
+  }) {
     messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onProcessingAction$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -584,16 +562,20 @@ abstract class RefocalPlatformEvents {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }
     }
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -603,8 +585,10 @@ abstract class RefocalPlatformEvents {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }
