@@ -69,6 +69,12 @@ if(ENH_SANITIZE STREQUAL "thread" OR ENH_SANITIZE STREQUAL "address")
   # OpenMP runtimes are not TSan-instrumented, and libomp's thread pool is never freed at exit
   # (LeakSanitizer false positives). Sanitizer builds run ncnn single-threaded.
   set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
+  set(NCNN_SIMPLEOMP OFF CACHE BOOL "" FORCE)
+elseif(ANDROID)
+  # Statically linked libomp added ~0.8 MB to stripped libenh.so. simpleomp implements
+  # the LLVM OpenMP ABI ncnn's kernels emit (#pragma omp parallel for num_threads)
+  # and keeps CPU inference multithreaded, without shipping libomp in the APK.
+  set(NCNN_SIMPLEOMP ON CACHE BOOL "" FORCE)
 elseif(NOT ANDROID AND NOT IOS)
   find_package(OpenMP)
   if(NOT OpenMP_CXX_FOUND)
@@ -80,6 +86,16 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ncnn/CMakeLists.txt")
   message(FATAL_ERROR "ncnn submodule missing: git submodule update --init --recursive")
 endif()
 add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL)
+if(ANDROID AND NCNN_SIMPLEOMP)
+  # simpleomp links PUBLIC pthread. Bionic keeps pthreads in libc; the NDK has no libpthread.
+  foreach(prop LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+    get_target_property(_ncnn_libs ncnn ${prop})
+    if(_ncnn_libs)
+      list(FILTER _ncnn_libs EXCLUDE REGEX "^(pthread|-lpthread)$")
+      set_property(TARGET ncnn PROPERTY ${prop} "${_ncnn_libs}")
+    endif()
+  endforeach()
+endif()
 
 # ---- libjpeg-turbo (git submodule, IJG/BSD-3/zlib) ----
 # Built as an external project: it does not support add_subdirectory(). The toolchain is
@@ -190,8 +206,8 @@ add_library(enh SHARED core/src/enh_export_anchor.cpp)
 target_link_libraries(enh PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,enh_core>")
 target_include_directories(enh PUBLIC include)
 if(ANDROID)
-  # 16 KB page size (Android 15+ devices) and no shared libomp.so in the APK.
-  target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384" -static-openmp
+  # 16 KB page size (Android 15+). CPU threads come from ncnn simpleomp, not libomp.
+  target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384"
                      -Wl,--gc-sections -Wl,--icf=all)
 endif()
 

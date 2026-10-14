@@ -32,7 +32,6 @@ Known limitations:
   only be saved at 100%.
 - One photo at a time: sharing several photos at once and the queue come later.
 - No face restoration, history or presets yet. Large photos at 4× can take minutes.
-- The APK grew to 30.7 MB (WebP encoder, translations).
 
 Model: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled.
 

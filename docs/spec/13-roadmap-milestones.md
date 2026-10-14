@@ -76,7 +76,7 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 | l10n en/ru (FR-SET-006), онбординг (FR-ONB-001) | ✅ gen-l10n; язык в настройках; онбординг пропускаемый, повтор из настроек |
 | ICC источника проверяется при чтении (ADR-0018) | ✅ битый заголовок — профиль не переносится |
 | Ревью 0.0.1–0.0.2 | ✅ ориентация WebP с префиксом `Exif`, setjmp в JPEG-декодере, утечка fd в AImageDecoder, лимиты HEIC на Android 10, локализованные уведомления. Открыто: гонки `settings.save`, sweep и `.part` в inbox, FORCE в старых опциях CMake, поправка ADR-0009 (JSON вместо drift), версия в трёх местах |
-| APK ≤ 30 МБ | ⚠️ 30.7 МБ (29.3 МиБ; гейт release.yml — 30 МиБ): +1 МБ — энкодер WebP + mux, flutter_localizations |
+| APK ≤ 30 МБ | ✅ 29.9 МБ (28.5 МиБ; гейт release.yml — 30 МиБ). `libenh.so` 9.0 МБ: на Android вместо libomp стоит simpleomp ncnn (−0.8 МБ), CPU по-прежнему многопоточный |
 | e2e на эмуляторе (basic, background, pause + share) | ✅ AOSP API 35 |
 
 ## 0.2 — Alpha
