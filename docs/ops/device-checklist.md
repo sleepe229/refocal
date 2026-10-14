@@ -16,6 +16,11 @@ release: `adb install -r refocal-*.apk`. Use any Android 10+ phone.
 | 9 | Start a 4× run, press Home, wait | Notification shows progress with Pause/Cancel; finishes, "Photo ready" notification opens the app on the result |
 | 10 | Start, press Pause in the app; close the app from Recents; reopen | Home lists "Paused enhancement"; tap → Continue finishes from where it stopped |
 | 11 | Saved result: check metadata (`exiftool` on a PC, or a gallery's details) | Date and camera kept, no GPS, XMP DigitalSourceType = trainedAlgorithmicMedia; with Settings → Keep location, GPS is there |
+| 12 | First start after install | Introduction (3 pages), Skip works; Settings → Show the introduction opens it again |
+| 13 | Result: move Strength to 0% and 50%, Save to gallery | Preview fades towards the original; saved photo matches the preview |
+| 14 | Save as file… → PNG, then WebP (lossless) into Downloads | Both files open in the gallery/Files; no new enhancement runs |
+| 15 | From the gallery, Share a photo → Refocal (app closed, then app open on Home) | The editor opens with that photo both times |
+| 16 | Settings → Language → Русский; start a run and press Home | Screens and the notification (Pause/Cancel) are in Russian |
 
 Then attach `adb logcat -d | grep -E " enh |ncnn|FATAL"` and the output of the About screen to
 the release issue. The log shows which backend ran (`gpu gate vulkan_fp16: ok/bad`, or CPU).

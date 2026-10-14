@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.0.3-alpha.1
+
+Third developer preview. Still **not tested on a phone**: only on a desktop and a headless
+Android 15 emulator. Please report problems with the device model and Android version.
+
+New:
+- **Save as PNG or WebP** as well as JPEG, and **Save as file…** to any folder or app (for example
+  Downloads or a cloud drive). Save the same result several times, in different formats, without
+  enhancing again. The default format and the JPEG/WebP quality are in Settings.
+- **Strength:** a slider under the result blends it with the original. The preview updates right
+  away; 100% is the full effect.
+- **1×:** same size, only noise and blur are cleaned up.
+- **Share to Refocal:** share a photo from the gallery or another app to open it in Refocal.
+- **Russian** translation; the language can be changed in Settings.
+- A short introduction on first start (also in Settings).
+- Notifications use the app's language.
+
+Fixed:
+- WebP photos whose EXIF starts with an "Exif" header were not rotated upright.
+- Android 10: very large HEIC photos are refused before decoding instead of running out of
+  memory; HEIC colors are converted to sRGB.
+- If Android closed the app's Flutter side while a photo was processed, the notification kept
+  Pause and Cancel buttons that did nothing. It is now removed.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- WebP is limited to 50 MP (lossless: 24 MP); larger results can be saved as JPEG or PNG.
+  HEIC output is not available yet. Transparency is not kept.
+- Below 100% strength the original photo is needed: results whose original was deleted can
+  only be saved at 100%.
+- One photo at a time: sharing several photos at once and the queue come later.
+- No face restoration, history or presets yet. Large photos at 4× can take minutes.
+- The APK grew to 30.7 MB (WebP encoder, translations).
+
+Model: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled.
+
 ## 0.0.2-alpha.1
 
 Second developer preview. Still **not tested on a phone** — only on a desktop and a headless

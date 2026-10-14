@@ -2,7 +2,7 @@
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
 cmake_minimum_required(VERSION 3.24)
-project(refocal_native VERSION 0.0.2 LANGUAGES C CXX)
+project(refocal_native VERSION 0.0.3 LANGUAGES C CXX)
 find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
