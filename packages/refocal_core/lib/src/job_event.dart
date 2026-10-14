@@ -100,23 +100,50 @@ class JobResult {
     required this.previewFile,
     required this.backend,
     required this.fallbacks,
+    required this.scale,
+    required this.fast2,
+    required this.model,
+    required this.inputWidth,
+    required this.inputHeight,
+    required this.duration,
     required this.raw,
   });
 
-  factory JobResult.fromJson(Map<String, Object?> j) => JobResult(
-    jobId: j['job_id'] as String,
-    jobDir: j['job_dir'] as String,
-    width: (j['width'] as num).toInt(),
-    height: (j['height'] as num).toInt(),
-    previewFile: ((j['preview'] as Map?)?['file'] as String?) ?? 'preview.jpg',
-    backend: j['backend'] as String? ?? '',
-    fallbacks: [for (final f in (j['fallbacks'] as List? ?? const [])) '$f'],
-    raw: j,
-  );
+  factory JobResult.fromJson(Map<String, Object?> j) {
+    final input = j['input']! as Map;
+    final totalMs = ((j['timings_ms'] as Map?)?['total'] as num?)?.toInt();
+    return JobResult(
+      jobId: j['job_id'] as String,
+      jobDir: j['job_dir'] as String,
+      width: (j['width'] as num).toInt(),
+      height: (j['height'] as num).toInt(),
+      previewFile: ((j['preview'] as Map?)?['file'] as String?) ?? 'preview.jpg',
+      backend: j['backend'] as String? ?? '',
+      fallbacks: [for (final f in (j['fallbacks'] as List? ?? const [])) '$f'],
+      scale: (j['scale'] as num).toInt(),
+      fast2: j['fast2'] as bool,
+      model: j['model'] as String,
+      inputWidth: (input['width'] as num).toInt(),
+      inputHeight: (input['height'] as num).toInt(),
+      duration: totalMs == null ? null : Duration(milliseconds: totalMs),
+      raw: j,
+    );
+  }
 
   final String jobId, jobDir, previewFile, backend;
   final int width, height;
   final List<String> fallbacks;
+
+  /// What was asked for (ADR-0014) and the SR model that ran.
+  final int scale;
+  final bool fast2;
+  final String model;
+
+  /// The input after EXIF orientation.
+  final int inputWidth, inputHeight;
+
+  /// Processing time of the last run (from the resume for a resumed job).
+  final Duration? duration;
   final Map<String, Object?> raw;
 
   String get previewPath => '$jobDir/$previewFile';

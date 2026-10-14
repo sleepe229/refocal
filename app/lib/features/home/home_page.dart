@@ -110,6 +110,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         title: Text(l10n.appTitle),
         actions: [
           IconButton(
+            tooltip: l10n.historyTitle,
+            onPressed: () => context.push('/history'),
+            icon: const Icon(Icons.history),
+          ),
+          IconButton(
             tooltip: l10n.settingsTooltip,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),

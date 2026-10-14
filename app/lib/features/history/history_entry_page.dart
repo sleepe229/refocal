@@ -1,0 +1,129 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:refocal_core/refocal_core.dart';
+
+import '../../bootstrap/engine.dart';
+import '../../bootstrap/history.dart';
+import '../../l10n/app_localizations.dart';
+import '../../ui_kit/labels.dart';
+import '../editor/editor_page.dart';
+import 'history_page.dart';
+
+/// One history entry: preview, recipe, sizes; process again (FR-HIST-003), delete (FR-HIST-004).
+class HistoryEntryPage extends ConsumerWidget {
+  const HistoryEntryPage({super.key, required this.id});
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final store = ref.watch(historyStoreProvider).value;
+    final entries = ref.watch(historyProvider).value;
+    final e = entries?.where((e) => e.id == id).firstOrNull;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(e == null ? l10n.historyTitle : formatDateTime(context, e.createdAt)),
+      ),
+      body: store == null || entries == null
+          ? const Center(child: CircularProgressIndicator())
+          : e == null
+          ? Center(child: Text(l10n.historyEntryGone))
+          : _details(context, ref, l10n, store, e),
+    );
+  }
+
+  Widget _details(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HistoryStore store,
+    HistoryEntry e,
+  ) {
+    final r = e.recipe;
+    final out = r.output!;
+    final input = store.absolute(e.inputPath);
+    final inputExists = File(input).existsSync();
+    final canRun = inputExists && r.srModel == bundledSrModel;
+    final mono = Theme.of(context).textTheme.bodySmall;
+    Widget row(String label, String value) =>
+        ListTile(dense: true, title: Text(label), trailing: Text(value));
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(store.absolute(e.previewPath)),
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) =>
+                  const SizedBox(height: 200, child: Center(child: Icon(Icons.image, size: 64))),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        row(l10n.historyScale, scaleLabel(l10n, r.scale, fast2: r.fast2)),
+        row(l10n.strength, l10n.strengthValue((r.strength * 100).round())),
+        row(
+          l10n.settingsFormat,
+          out.quality == null
+              ? formatLabel(l10n, out.format)
+              : '${formatLabel(l10n, out.format)} ${out.quality}',
+        ),
+        row(l10n.historyOriginalSize, l10n.sizePx(e.sourceWidth, e.sourceHeight)),
+        row(l10n.historyResultSize, l10n.sizePx(e.width, e.height)),
+        row(l10n.historyModel, e.modelIds.join(', ')),
+        row(l10n.historyBackend, e.backend),
+        if (e.duration case final d?) row(l10n.historyDuration, l10n.historySeconds(d.inSeconds)),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton.icon(
+                onPressed: canRun
+                    ? () => context.push(
+                        '/editor',
+                        extra: EditorArgs(input, recipe: r.copyWith(output: () => null)),
+                      )
+                    : null,
+                icon: const Icon(Icons.tune),
+                label: Text(l10n.historyProcessAgain),
+              ),
+              if (!canRun) ...[
+                const SizedBox(height: 8),
+                Text(
+                  inputExists ? l10n.presetModelMissing : l10n.historyOriginalGone,
+                  textAlign: TextAlign.center,
+                  style: mono,
+                ),
+              ],
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => _delete(context, ref, l10n),
+                icon: const Icon(Icons.delete_outline),
+                label: Text(l10n.historyDeleteEntry),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, AppLocalizations l10n) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    try {
+      await (await ref.read(historyStoreProvider.future)).remove(id);
+    } on Exception catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.historyDeleteFailed('$e'))));
+    }
+    router.pop();
+  }
+}

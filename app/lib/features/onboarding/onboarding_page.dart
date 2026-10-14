@@ -25,9 +25,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Future<void> _done() async {
-    final s = await ref.read(settingsProvider.future);
-    if (!s.onboardingDone) {
-      await ref.read(settingsProvider.notifier).save(s.copyWith(onboardingDone: true));
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(settingsProvider.notifier).change((s) => s.copyWith(onboardingDone: true));
+    } on Exception catch (e) {
+      // Not stored: the introduction shows again at the next start.
+      messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaveFailed('$e'))));
     }
     if (!mounted) return;
     context.canPop() ? context.pop() : context.go('/');

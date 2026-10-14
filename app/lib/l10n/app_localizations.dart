@@ -770,6 +770,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.'**
   String get onb3Body;
+
+  /// No description provided for @historyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get historyTitle;
+
+  /// No description provided for @historyEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved photos appear here with their settings and a small preview.'**
+  String get historyEmpty;
+
+  /// No description provided for @historyOff.
+  ///
+  /// In en, this message translates to:
+  /// **'History is off. Turn it on in Settings.'**
+  String get historyOff;
+
+  /// No description provided for @historyDeleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all'**
+  String get historyDeleteAll;
+
+  /// No description provided for @historyDeleteAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the whole history?'**
+  String get historyDeleteAllTitle;
+
+  /// No description provided for @historyDeleteAllBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Previews and settings are deleted. Saved photos stay in the gallery.'**
+  String get historyDeleteAllBody;
+
+  /// No description provided for @historyDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Some files could not be deleted: {error}'**
+  String historyDeleteFailed(String error);
+
+  /// No description provided for @historyEntryGone.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry was deleted.'**
+  String get historyEntryGone;
+
+  /// No description provided for @historyScale.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale'**
+  String get historyScale;
+
+  /// No description provided for @historyOriginalSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get historyOriginalSize;
+
+  /// No description provided for @historyResultSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get historyResultSize;
+
+  /// No description provided for @historyModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get historyModel;
+
+  /// No description provided for @historyBackend.
+  ///
+  /// In en, this message translates to:
+  /// **'Processed on'**
+  String get historyBackend;
+
+  /// No description provided for @historyDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get historyDuration;
+
+  /// No description provided for @historySeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String historySeconds(int seconds);
+
+  /// No description provided for @historyProcessAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Process again with other settings'**
+  String get historyProcessAgain;
+
+  /// No description provided for @historyOriginalGone.
+  ///
+  /// In en, this message translates to:
+  /// **'The original is no longer on this device: history keeps only the settings and a small preview. Open the photo again to process it.'**
+  String get historyOriginalGone;
+
+  /// No description provided for @historyDeleteEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete from history'**
+  String get historyDeleteEntry;
+
+  /// No description provided for @historyNotRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved, but not added to the history: {error}'**
+  String historyNotRecorded(String error);
+
+  /// No description provided for @historyOffTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off the history?'**
+  String get historyOffTitle;
+
+  /// No description provided for @historyOffBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The current history is deleted and new photos are not recorded.'**
+  String get historyOffBody;
+
+  /// No description provided for @historyOffConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off'**
+  String get historyOffConfirm;
+
+  /// No description provided for @settingsKeepHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep a history'**
+  String get settingsKeepHistory;
+
+  /// No description provided for @settingsKeepHistorySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings and a small preview of each saved photo, on this device only.'**
+  String get settingsKeepHistorySub;
+
+  /// No description provided for @settingsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the setting: {error}'**
+  String settingsSaveFailed(String error);
+
+  /// No description provided for @presetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get presetsTitle;
+
+  /// No description provided for @presetsBuiltin.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in'**
+  String get presetsBuiltin;
+
+  /// No description provided for @presetsYours.
+  ///
+  /// In en, this message translates to:
+  /// **'Yours'**
+  String get presetsYours;
+
+  /// No description provided for @presetsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Save one from the editor after enhancing a photo.'**
+  String get presetsEmpty;
+
+  /// No description provided for @presetFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get presetFast;
+
+  /// No description provided for @presetQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get presetQuality;
+
+  /// No description provided for @presetRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get presetRename;
+
+  /// No description provided for @presetSaveAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Save as preset'**
+  String get presetSaveAs;
+
+  /// No description provided for @presetSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset saved'**
+  String get presetSaved;
+
+  /// No description provided for @presetSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get presetSave;
+
+  /// No description provided for @presetSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change the presets: {error}'**
+  String presetSaveFailed(String error);
+
+  /// No description provided for @presetModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This needs a model that is not installed.'**
+  String get presetModelMissing;
+
+  /// No description provided for @presetName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get presetName;
+
+  /// No description provided for @presetNameTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'At most {max} characters'**
+  String presetNameTooLong(int max);
+
+  /// No description provided for @presetStrengthAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'Strength {strength} after enhancing'**
+  String presetStrengthAfter(String strength);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

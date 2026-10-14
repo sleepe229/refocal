@@ -394,4 +394,141 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onb3Body =>
       'Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.';
+
+  @override
+  String get historyTitle => 'History';
+
+  @override
+  String get historyEmpty => 'Saved photos appear here with their settings and a small preview.';
+
+  @override
+  String get historyOff => 'History is off. Turn it on in Settings.';
+
+  @override
+  String get historyDeleteAll => 'Delete all';
+
+  @override
+  String get historyDeleteAllTitle => 'Delete the whole history?';
+
+  @override
+  String get historyDeleteAllBody =>
+      'Previews and settings are deleted. Saved photos stay in the gallery.';
+
+  @override
+  String historyDeleteFailed(String error) {
+    return 'Some files could not be deleted: $error';
+  }
+
+  @override
+  String get historyEntryGone => 'This entry was deleted.';
+
+  @override
+  String get historyScale => 'Scale';
+
+  @override
+  String get historyOriginalSize => 'Original';
+
+  @override
+  String get historyResultSize => 'Result';
+
+  @override
+  String get historyModel => 'Model';
+
+  @override
+  String get historyBackend => 'Processed on';
+
+  @override
+  String get historyDuration => 'Time';
+
+  @override
+  String historySeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get historyProcessAgain => 'Process again with other settings';
+
+  @override
+  String get historyOriginalGone =>
+      'The original is no longer on this device: history keeps only the settings and a small preview. Open the photo again to process it.';
+
+  @override
+  String get historyDeleteEntry => 'Delete from history';
+
+  @override
+  String historyNotRecorded(String error) {
+    return 'Saved, but not added to the history: $error';
+  }
+
+  @override
+  String get historyOffTitle => 'Turn off the history?';
+
+  @override
+  String get historyOffBody => 'The current history is deleted and new photos are not recorded.';
+
+  @override
+  String get historyOffConfirm => 'Turn off';
+
+  @override
+  String get settingsKeepHistory => 'Keep a history';
+
+  @override
+  String get settingsKeepHistorySub =>
+      'Settings and a small preview of each saved photo, on this device only.';
+
+  @override
+  String settingsSaveFailed(String error) {
+    return 'Could not save the setting: $error';
+  }
+
+  @override
+  String get presetsTitle => 'Presets';
+
+  @override
+  String get presetsBuiltin => 'Built-in';
+
+  @override
+  String get presetsYours => 'Yours';
+
+  @override
+  String get presetsEmpty => 'Save one from the editor after enhancing a photo.';
+
+  @override
+  String get presetFast => 'Fast';
+
+  @override
+  String get presetQuality => 'Quality';
+
+  @override
+  String get presetRename => 'Rename';
+
+  @override
+  String get presetSaveAs => 'Save as preset';
+
+  @override
+  String get presetSaved => 'Preset saved';
+
+  @override
+  String get presetSave => 'Save';
+
+  @override
+  String presetSaveFailed(String error) {
+    return 'Could not change the presets: $error';
+  }
+
+  @override
+  String get presetModelMissing => 'This needs a model that is not installed.';
+
+  @override
+  String get presetName => 'Name';
+
+  @override
+  String presetNameTooLong(int max) {
+    return 'At most $max characters';
+  }
+
+  @override
+  String presetStrengthAfter(String strength) {
+    return 'Strength $strength after enhancing';
+  }
 }

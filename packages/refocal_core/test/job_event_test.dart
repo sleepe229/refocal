@@ -21,9 +21,17 @@ void main() {
       'preview': {'file': 'preview.jpg'},
       'backend': 'cpu:4',
       'fallbacks': ['vulkan_fp16->vulkan_fp32'],
+      'input': {'width': 200, 'height': 150, 'orientation': 6, 'format': 'jpeg'},
+      'scale': 2,
+      'fast2': true,
+      'model': 'sr.general-x4v3',
+      'timings_ms': {'sr': 900, 'total': 1200},
     }) as DoneEvent;
     expect(d.result.previewPath, '/w/j/preview.jpg');
     expect(d.result.fallbacks.single, 'vulkan_fp16->vulkan_fp32');
+    expect((d.result.scale, d.result.fast2, d.result.model), (2, true, 'sr.general-x4v3'));
+    expect((d.result.inputWidth, d.result.inputHeight), (200, 150));
+    expect(d.result.duration, const Duration(milliseconds: 1200));
   });
 
   test('unknown event types and status codes do not throw', () {

@@ -243,5 +243,94 @@
   "onb2Title": "AI can change details",
   "onb2Body": "The model adds detail that looks right but was not in the photo: text, faces and textures may differ from reality. Saved photos are marked as AI-enhanced.",
   "onb3Title": "Compare before you save",
-  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed."
+  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.",
+  "historyTitle": "History",
+  "historyEmpty": "Saved photos appear here with their settings and a small preview.",
+  "historyOff": "History is off. Turn it on in Settings.",
+  "historyDeleteAll": "Delete all",
+  "historyDeleteAllTitle": "Delete the whole history?",
+  "historyDeleteAllBody": "Previews and settings are deleted. Saved photos stay in the gallery.",
+  "historyDeleteFailed": "Some files could not be deleted: {error}",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEntryGone": "This entry was deleted.",
+  "historyScale": "Scale",
+  "historyOriginalSize": "Original",
+  "historyResultSize": "Result",
+  "historyModel": "Model",
+  "historyBackend": "Processed on",
+  "historyDuration": "Time",
+  "historySeconds": "{seconds} s",
+  "@historySeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "historyProcessAgain": "Process again with other settings",
+  "historyOriginalGone": "The original is no longer on this device: history keeps only the settings and a small preview. Open the photo again to process it.",
+  "historyDeleteEntry": "Delete from history",
+  "historyNotRecorded": "Saved, but not added to the history: {error}",
+  "@historyNotRecorded": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyOffTitle": "Turn off the history?",
+  "historyOffBody": "The current history is deleted and new photos are not recorded.",
+  "historyOffConfirm": "Turn off",
+  "settingsKeepHistory": "Keep a history",
+  "settingsKeepHistorySub": "Settings and a small preview of each saved photo, on this device only.",
+  "settingsSaveFailed": "Could not save the setting: {error}",
+  "@settingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "presetsTitle": "Presets",
+  "presetsBuiltin": "Built-in",
+  "presetsYours": "Yours",
+  "presetsEmpty": "Save one from the editor after enhancing a photo.",
+  "presetFast": "Fast",
+  "presetQuality": "Quality",
+  "presetRename": "Rename",
+  "presetSaveAs": "Save as preset",
+  "presetSaved": "Preset saved",
+  "presetSave": "Save",
+  "presetSaveFailed": "Could not change the presets: {error}",
+  "@presetSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "presetModelMissing": "This needs a model that is not installed.",
+  "presetName": "Name",
+  "presetNameTooLong": "At most {max} characters",
+  "@presetNameTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "presetStrengthAfter": "Strength {strength} after enhancing",
+  "@presetStrengthAfter": {
+    "placeholders": {
+      "strength": {
+        "type": "String"
+      }
+    }
+  }
 }
