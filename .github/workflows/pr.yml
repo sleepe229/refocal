@@ -77,6 +77,12 @@ jobs:
         run: flutter analyze app packages
       - name: enh.h in sync with the spec appendix
         run: diff -u docs/spec/appendix/enh.h native/include/enh.h
+      - name: lib/version.dart in sync with pubspec.yaml
+        run: |
+          pub=$(sed -n 's/^version: \([^+]*\).*/\1/p' app/pubspec.yaml)
+          dart=$(sed -n "s/^const appVersion = '\(.*\)';/\1/p" app/lib/version.dart)
+          echo "pubspec=$pub version.dart=$dart"
+          [ -n "$pub" ] && [ "$pub" = "$dart" ]
       - name: FFI bindings up to date
         run: |
           sudo apt-get install -y --no-install-recommends libclang-18-dev >/dev/null

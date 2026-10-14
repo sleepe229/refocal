@@ -2,7 +2,16 @@
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
 cmake_minimum_required(VERSION 3.24)
-project(refocal_native VERSION 0.0.3 LANGUAGES C CXX)
+# The app's pubspec.yaml is the single source of the version: x.y.z for project(), the full
+# version without build metadata (e.g. 0.0.3-alpha.1) for enh_version() and xmp:CreatorTool.
+cmake_path(SET ENH_PUBSPEC NORMALIZE ${CMAKE_CURRENT_SOURCE_DIR}/../app/pubspec.yaml)
+file(STRINGS ${ENH_PUBSPEC} ENH_PUBSPEC_VERSION REGEX "^version:")
+if(NOT ENH_PUBSPEC_VERSION MATCHES "^version: *(([0-9]+\\.[0-9]+\\.[0-9]+)[^+ ]*)")
+  message(FATAL_ERROR "no 'version: x.y.z[-pre][+build]' line in ${ENH_PUBSPEC}")
+endif()
+set(ENH_VERSION ${CMAKE_MATCH_1})
+project(refocal_native VERSION ${CMAKE_MATCH_2} LANGUAGES C CXX)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ENH_PUBSPEC})
 find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -37,44 +46,54 @@ add_compile_options(
   "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=."
   "-ffile-prefix-map=${CMAKE_BINARY_DIR}=build")
 
+# Options of the vendored projects below are set as normal variables, so changing an ENH_*
+# option reconfigures them. ncnn's cmake_minimum_required(...3.10) leaves CMP0077 unset, and
+# option() would ignore normal variables without it. A -D on the command line still wins.
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+function(enh_set_default var value)
+  if(NOT DEFINED CACHE{${var}})
+    set(${var} ${value} PARENT_SCOPE)
+  endif()
+endfunction()
+
 # ---- ncnn (git submodule, BSD-3-Clause) ----
-set(NCNN_VULKAN ${ENH_VULKAN} CACHE BOOL "" FORCE)
-set(NCNN_SHARED_LIB OFF CACHE BOOL "" FORCE)
-set(NCNN_INSTALL_SDK OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
-set(NCNN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(NCNN_PYTHON OFF CACHE BOOL "" FORCE)
-set(NCNN_PIXEL_DRAWING OFF CACHE BOOL "" FORCE)
+enh_set_default(NCNN_VULKAN ${ENH_VULKAN})
+enh_set_default(NCNN_SHARED_LIB OFF)
+enh_set_default(NCNN_INSTALL_SDK OFF)
+enh_set_default(NCNN_BUILD_TOOLS OFF)
+enh_set_default(NCNN_BUILD_EXAMPLES OFF)
+enh_set_default(NCNN_BUILD_BENCHMARK OFF)
+enh_set_default(NCNN_BUILD_TESTS OFF)
+enh_set_default(NCNN_PYTHON OFF)
+enh_set_default(NCNN_PIXEL_DRAWING OFF)
 if(NOT ENH_NCNN_RUNTIME_CPU)
-  set(NCNN_RUNTIME_CPU OFF CACHE BOOL "" FORCE)
-  set(NCNN_AVX512 OFF CACHE BOOL "" FORCE)
-  set(NCNN_AVX512VNNI OFF CACHE BOOL "" FORCE)
-  set(NCNN_AVXVNNI OFF CACHE BOOL "" FORCE)
-  set(NCNN_AVX2 OFF CACHE BOOL "" FORCE)
-  set(NCNN_AVX OFF CACHE BOOL "" FORCE)
-  set(NCNN_FMA OFF CACHE BOOL "" FORCE)
-  set(NCNN_F16C OFF CACHE BOOL "" FORCE)
-  set(NCNN_XOP OFF CACHE BOOL "" FORCE)
+  enh_set_default(NCNN_RUNTIME_CPU OFF)
+  enh_set_default(NCNN_AVX512 OFF)
+  enh_set_default(NCNN_AVX512VNNI OFF)
+  enh_set_default(NCNN_AVXVNNI OFF)
+  enh_set_default(NCNN_AVX2 OFF)
+  enh_set_default(NCNN_AVX OFF)
+  enh_set_default(NCNN_FMA OFF)
+  enh_set_default(NCNN_F16C OFF)
+  enh_set_default(NCNN_XOP OFF)
 endif()
 # Size (APK budget 30 MB, 0.1): models run fp16/fp32 (S1/S3), no int8/bf16 kernels.
-set(NCNN_INT8 OFF CACHE BOOL "" FORCE)
-set(NCNN_BF16 OFF CACHE BOOL "" FORCE)
+enh_set_default(NCNN_INT8 OFF)
+enh_set_default(NCNN_BF16 OFF)
 # ncnn defaults to -fno-exceptions/-fno-rtti on Android/iOS and exports them PUBLIC; the core
 # uses exceptions internally (converted to enh_status at the ABI boundary).
-set(NCNN_DISABLE_EXCEPTION OFF CACHE BOOL "" FORCE)
-set(NCNN_DISABLE_RTTI OFF CACHE BOOL "" FORCE)
+enh_set_default(NCNN_DISABLE_EXCEPTION OFF)
+enh_set_default(NCNN_DISABLE_RTTI OFF)
 if(ENH_SANITIZE STREQUAL "thread" OR ENH_SANITIZE STREQUAL "address")
   # OpenMP runtimes are not TSan-instrumented, and libomp's thread pool is never freed at exit
   # (LeakSanitizer false positives). Sanitizer builds run ncnn single-threaded.
-  set(NCNN_OPENMP OFF CACHE BOOL "" FORCE)
-  set(NCNN_SIMPLEOMP OFF CACHE BOOL "" FORCE)
+  enh_set_default(NCNN_OPENMP OFF)
+  enh_set_default(NCNN_SIMPLEOMP OFF)
 elseif(ANDROID)
   # Statically linked libomp added ~0.8 MB to stripped libenh.so. simpleomp implements
   # the LLVM OpenMP ABI ncnn's kernels emit (#pragma omp parallel for num_threads)
   # and keeps CPU inference multithreaded, without shipping libomp in the APK.
-  set(NCNN_SIMPLEOMP ON CACHE BOOL "" FORCE)
+  enh_set_default(NCNN_SIMPLEOMP ON)
 elseif(NOT ANDROID AND NOT IOS)
   find_package(OpenMP)
   if(NOT OpenMP_CXX_FOUND)
@@ -140,16 +159,16 @@ add_dependencies(jpeg_static libjpeg_turbo_ext)
 # ---- libpng, libwebp (git submodules; libpng license, BSD-3) ----
 # zlib is the platform's (NDK, iOS SDK, host): not bundled.
 find_package(ZLIB REQUIRED)
-set(PNG_SHARED OFF CACHE BOOL "" FORCE)
-set(PNG_STATIC ON CACHE BOOL "" FORCE)
-set(PNG_TESTS OFF CACHE BOOL "" FORCE)
-set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
-set(PNG_FRAMEWORK OFF CACHE BOOL "" FORCE)
-set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+enh_set_default(PNG_SHARED OFF)
+enh_set_default(PNG_STATIC ON)
+enh_set_default(PNG_TESTS OFF)
+enh_set_default(PNG_TOOLS OFF)
+enh_set_default(PNG_FRAMEWORK OFF)
+enh_set_default(SKIP_INSTALL_ALL ON)
 add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL)
 # Library only: encoder, demux (input metadata), mux (output metadata, FR-EXP-001).
 foreach(o ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO WEBPMUX EXTRAS)
-  set(WEBP_BUILD_${o} OFF CACHE BOOL "" FORCE)
+  enh_set_default(WEBP_BUILD_${o} OFF)
 endforeach()
 add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
 
@@ -189,7 +208,7 @@ target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux libw
   Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
 target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
-target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${PROJECT_VERSION}")
+target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${ENH_VERSION}")
 if(ANDROID)
   target_link_libraries(enh_core PUBLIC log)
 endif()
