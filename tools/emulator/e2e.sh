@@ -178,7 +178,12 @@ adb_ shell input keyevent KEYCODE_BACK  # leave the editor of the shared photo
 
 echo "== queue (FR-BATCH-001..008): multi-pick -> batch sheet -> autosave"
 wait_text "Process several photos" 30
-adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_input2.$EXT"
+# Two fresh copies: the picker lists the newest first, and the gallery already holds the 4x
+# result of the flow above (20 MP, ~17 min at Fast 2x on the emulator's CPU).
+sleep 1
+adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_q1.$EXT"
+sleep 1
+adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_q2.$EXT"
 adb_ shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null
 before=$(adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name | grep -c Refocal_ || true)
@@ -203,6 +208,8 @@ echo "  queue of 2 done in ~$((SECONDS - t0)) s"
 after=$(adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name | grep -c Refocal_ || true)
 [[ $((after - before)) -eq 2 ]] || { echo "FAIL: $((after - before)) results saved, want 2"; exit 1; }
-echo "  both results in the gallery"
+echo "  both results in the gallery:"
+adb_ shell content query --uri content://media/external/images/media \
+  --projection _display_name:width:height | grep Refocal_ | tail -2
 adb_ logcat -d | grep -E " enh |FATAL|AndroidRuntime" | tail -5 || true
 echo PASS
