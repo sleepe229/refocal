@@ -325,11 +325,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutTitle => 'О приложении';
 
   @override
-  String aboutCore(String version) {
-    return 'Нативное ядро $version';
-  }
-
-  @override
   String get aboutAlpha => 'Ранняя альфа. Возможны недочёты: только Android, одно фото за раз.';
 
   @override

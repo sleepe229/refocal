@@ -203,14 +203,6 @@
   },
   "settingsShowIntro": "Show the introduction",
   "aboutTitle": "About",
-  "aboutCore": "Native core {version}",
-  "@aboutCore": {
-    "placeholders": {
-      "version": {
-        "type": "String"
-      }
-    }
-  },
   "aboutAlpha": "Early alpha. Expect rough edges: Android only, one photo at a time.",
   "aboutPrivacy": "All processing happens on this device. Refocal has no accounts, no ads and no telemetry; the network is used only to download optional models when you ask.",
   "aboutAiWarning": "AI enhancement adds plausible detail that was not in the original photo. Do not use results as evidence of what a scene or person looked like.",

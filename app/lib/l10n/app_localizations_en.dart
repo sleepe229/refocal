@@ -325,11 +325,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutTitle => 'About';
 
   @override
-  String aboutCore(String version) {
-    return 'Native core $version';
-  }
-
-  @override
   String get aboutAlpha => 'Early alpha. Expect rough edges: Android only, one photo at a time.';
 
   @override

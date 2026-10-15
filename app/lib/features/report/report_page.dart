@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
 import '../../l10n/app_localizations.dart';
-import '../../version.dart';
 
 /// "Report a problem" (FR-SET-007, FR-REP-004): the log is shown in full before anything leaves
 /// the phone, and is sent only by the user, through the share sheet (PRIV-LOG-003).
@@ -34,7 +33,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
     final engine = await ref.read(engineProvider.future);
     final dir = await Directory('${engine.dirs.cache}/share').create(recursive: true);
     final file = File('${dir.path}/refocal-log.txt');
-    await file.writeAsString('Refocal $appVersion\n${lines.join('\n')}\n', flush: true);
+    await file.writeAsString('Refocal ${engine.version}\n${lines.join('\n')}\n', flush: true);
     await ref.read(platformApiProvider).shareFile(file.path, 'text/plain', l10n.reportShareTitle);
   }
 

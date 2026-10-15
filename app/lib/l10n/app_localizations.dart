@@ -651,12 +651,6 @@ abstract class AppLocalizations {
   /// **'About'**
   String get aboutTitle;
 
-  /// No description provided for @aboutCore.
-  ///
-  /// In en, this message translates to:
-  /// **'Native core {version}'**
-  String aboutCore(String version);
-
   /// No description provided for @aboutAlpha.
   ///
   /// In en, this message translates to:

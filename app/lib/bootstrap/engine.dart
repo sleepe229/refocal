@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
-import '../version.dart';
 import 'app_log.dart';
 import 'job_store.dart';
 
@@ -31,6 +30,10 @@ class Engine {
   final AppDirs dirs;
   final bool modelReady;
 
+  /// The app version: `version:` of app/pubspec.yaml without `+build`, compiled into the core
+  /// by native/CMakeLists.txt (the only copy).
+  String get version => native.version;
+
   String get inboxDir => '${dirs.support}/inbox';
   String get jobsDir => '${dirs.support}/jobs';
   String get exportDir => '${dirs.cache}/export';
@@ -53,7 +56,7 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   }
   final previousExit = await ref.read(platformApiProvider).lastExitReason();
   AppLog.info(
-    'start: app $appVersion, core ${native.version}, '
+    'start: Refocal ${native.version}, '
     '${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
     'previous exit ${previousExit ?? 'unknown'}, model ${ready ? 'ok' : 'missing'}',
   );

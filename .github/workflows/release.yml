@@ -26,13 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive
-      - name: Version check (tag == pubspec == lib/version.dart)
+      - name: Version check (tag == pubspec, the only copy of the version)
         run: |
           tag=${GITHUB_REF_NAME#v}
           pub=$(sed -n 's/^version: \([^+]*\).*/\1/p' app/pubspec.yaml)
-          dart=$(sed -n "s/^const appVersion = '\(.*\)';/\1/p" app/lib/version.dart)
-          echo "tag=$tag pubspec=$pub version.dart=$dart"
-          [ "$tag" = "$pub" ] && [ "$tag" = "$dart" ]
+          echo "tag=$tag pubspec=$pub"
+          [ "$tag" = "$pub" ]
       - name: Bundled model (verified against tools/models/models.lock)
         env:
           GH_TOKEN: ${{ github.token }}
