@@ -62,20 +62,40 @@ class Recipe {
     this.fast2 = false,
     required this.srModel,
     this.strength = 1,
+    this.faceModel,
+    this.faceStrength = defaultFaceStrength,
     this.output,
   }) {
-    if (_invalid(scale, fast2, srModel, strength) case final why?) throw ArgumentError(why);
+    if (_invalid(scale, fast2, srModel, strength, faceModel, faceStrength) case final why?) {
+      throw ArgumentError(why);
+    }
   }
 
-  static String? _invalid(int scale, bool fast2, String srModel, double strength) {
+  static String? _invalid(
+    int scale,
+    bool fast2,
+    String srModel,
+    double strength,
+    String? faceModel,
+    double faceStrength,
+  ) {
     if (!scales.contains(scale)) return 'scale must be 1, 2 or 4, got $scale';
     if (fast2 && scale != 2) return 'fast2 needs scale 2';
     if (srModel.isEmpty) return 'no SR model';
     if (!(strength >= 0 && strength <= 1)) return 'strength must be 0..1, got $strength';
+    if (faceModel != null && faceModel.isEmpty) return 'empty face model';
+    if (!(faceStrength >= 0 && faceStrength <= 1)) {
+      return 'faceStrength must be 0..1, got $faceStrength';
+    }
     return null;
   }
 
-  static const schemaVersion = 1;
+  /// 2: face restoration (faceModel, faceStrength). Schema 1 recipes are read as without faces;
+  /// an older app refuses schema 2 rather than dropping the faces.
+  static const schemaVersion = 2;
+
+  /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
+  static const defaultFaceStrength = 0.5;
 
   /// Output scales of the bundled SR model (ADR-0014); 8x is 0.5.
   static const scales = {1, 2, 4};
@@ -91,14 +111,27 @@ class Recipe {
   /// FR-ENH-005: blend with the input, 0..1.
   final double strength;
 
+  /// The face pack restoring faces (FR-FACE-002); null: no face restoration.
+  final String? faceModel;
+
+  /// How much of the restored face is blended in, 0..1 (FR-FACE-004).
+  final double faceStrength;
+
   /// What was saved; null in presets, where the format is chosen when saving (06 §3.4).
   final OutputSpec? output;
 
-  Recipe copyWith({double? strength, OutputSpec? Function()? output}) => Recipe(
+  Recipe copyWith({
+    double? strength,
+    String? Function()? faceModel,
+    double? faceStrength,
+    OutputSpec? Function()? output,
+  }) => Recipe(
     scale: scale,
     fast2: fast2,
     srModel: srModel,
     strength: strength ?? this.strength,
+    faceModel: faceModel != null ? faceModel() : this.faceModel,
+    faceStrength: faceStrength ?? this.faceStrength,
     output: output != null ? output() : this.output,
   );
 
@@ -108,20 +141,34 @@ class Recipe {
     'fast2': fast2,
     'sr_model': srModel,
     'strength': strength,
+    if (faceModel case final f?) ...{'face_model': f, 'face_strength': faceStrength},
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
   };
 
   /// Throws [FormatException] for anything this version did not write: a newer schema, a
   /// missing or out-of-range field, an unknown format.
   factory Recipe.fromJson(Map<String, Object?> j) {
-    if (j case {
-      'schema': schemaVersion,
-      'scale': final int scale,
-      'fast2': final bool fast2,
-      'sr_model': final String srModel,
-      'strength': final num strength,
-    }) {
-      if (_invalid(scale, fast2, srModel, strength.toDouble()) case final why?) {
+    if (j
+        case {
+          'schema': final int schema,
+          'scale': final int scale,
+          'fast2': final bool fast2,
+          'sr_model': final String srModel,
+          'strength': final num strength,
+        }
+        when schema == 1 || schema == schemaVersion) {
+      final faceModel = switch (j['face_model']) {
+        null => null,
+        final String f when schema >= 2 => f,
+        final other => throw FormatException('bad face_model', other),
+      };
+      final faceStrength = switch (j['face_strength']) {
+        null => defaultFaceStrength,
+        final num v when schema >= 2 => v.toDouble(),
+        final other => throw FormatException('bad face_strength', other),
+      };
+      if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
+          case final why?) {
         throw FormatException(why, j);
       }
       return Recipe(
@@ -129,6 +176,8 @@ class Recipe {
         fast2: fast2,
         srModel: srModel,
         strength: strength.toDouble(),
+        faceModel: faceModel,
+        faceStrength: faceStrength,
         output: switch (j['output']) {
           null => null,
           {'format': final String name} && final Map<String, Object?> o => _output(
@@ -139,7 +188,7 @@ class Recipe {
         },
       );
     }
-    throw FormatException('not a recipe of schema $schemaVersion', j);
+    throw FormatException('not a recipe of schema 1..$schemaVersion', j);
   }
 
   static OutputSpec _output(String name, Object? quality) {
@@ -157,8 +206,10 @@ class Recipe {
       other.fast2 == fast2 &&
       other.srModel == srModel &&
       other.strength == strength &&
+      other.faceModel == faceModel &&
+      other.faceStrength == faceStrength &&
       other.output == output;
 
   @override
-  int get hashCode => Object.hash(scale, fast2, srModel, strength, output);
+  int get hashCode => Object.hash(scale, fast2, srModel, strength, faceModel, faceStrength, output);
 }

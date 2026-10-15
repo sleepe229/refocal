@@ -852,4 +852,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get denoiseStrong => 'Strong';
+
+  @override
+  String get presetPortrait => 'Portrait';
+
+  @override
+  String get presetOldPhoto => 'Old photo';
+
+  @override
+  String recipeFaces(int percent) {
+    return 'faces $percent%';
+  }
+
+  @override
+  String get faces => 'Restore faces';
+
+  @override
+  String get facesHint =>
+      'Uses the face model on each face, then blends it with the enhanced photo.';
+
+  @override
+  String get facesStrength => 'Face strength';
+
+  @override
+  String get facesNeedPack =>
+      'Face restoration needs the face model (about 177 MB, non-commercial license).';
+
+  @override
+  String get facesGetPack => 'Models';
+
+  @override
+  String get facesNoticeTitle => 'About face restoration';
+
+  @override
+  String get facesNoticeBody =>
+      'The face model redraws faces from what it has learned. Faces can look sharper but also different from the real person, especially in old or small photos. Refocal blends the result with the original (50% by default) and marks saved photos as AI-edited.';
+
+  @override
+  String get facesNoticeOk => 'I understand';
+
+  @override
+  String stageFaces(int percent) {
+    return 'Restoring faces… $percent%';
+  }
+
+  @override
+  String noteFacesFound(int count) {
+    return 'Faces found: $count';
+  }
 }
