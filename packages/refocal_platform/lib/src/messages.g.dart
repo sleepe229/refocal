@@ -160,6 +160,60 @@ class AppDirs {
   }
 }
 
+/// Static device signals for the tier (05 §6.1, ADR-0017).
+class DeviceInfo {
+  DeviceInfo({required this.totalRamBytes, required this.osBuild, this.soc});
+
+  /// Android ActivityManager.MemoryInfo.totalMem; iOS ProcessInfo.physicalMemory.
+  int totalRamBytes;
+
+  /// Changes with every OS update (Android Build.FINGERPRINT; iOS the OS version and build).
+  String osBuild;
+
+  /// Android Build.SOC_MODEL (API 31+) or Build.HARDWARE; iOS utsname.machine.
+  String? soc;
+
+  List<Object?> _toList() {
+    return <Object?>[totalRamBytes, osBuild, soc];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static DeviceInfo decode(Object result) {
+    result as List<Object?>;
+    return DeviceInfo(
+      totalRamBytes: result[0]! as int,
+      osBuild: result[1]! as String,
+      soc: result[2] as String?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! DeviceInfo || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(totalRamBytes, other.totalRamBytes) &&
+        _deepEquals(osBuild, other.osBuild) &&
+        _deepEquals(soc, other.soc);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'DeviceInfo(totalRamBytes: $totalRamBytes, osBuild: $osBuild, soc: $soc)';
+  }
+}
+
 /// Images copied into the inbox, and how many of the selection could not be.
 class PickedImages {
   PickedImages({required this.images, required this.failed, this.failure});
@@ -349,14 +403,17 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is AppDirs) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    } else if (value is PickedImages) {
+    } else if (value is DeviceInfo) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    } else if (value is PickedImage) {
+    } else if (value is PickedImages) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    } else if (value is ProcessingTexts) {
+    } else if (value is PickedImage) {
       buffer.putUint8(132);
+      writeValue(buffer, value.encode());
+    } else if (value is ProcessingTexts) {
+      buffer.putUint8(133);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -369,10 +426,12 @@ class _PigeonCodec extends StandardMessageCodec {
       case 129:
         return AppDirs.decode(readValue(buffer)!);
       case 130:
-        return PickedImages.decode(readValue(buffer)!);
+        return DeviceInfo.decode(readValue(buffer)!);
       case 131:
-        return PickedImage.decode(readValue(buffer)!);
+        return PickedImages.decode(readValue(buffer)!);
       case 132:
+        return PickedImage.decode(readValue(buffer)!);
+      case 133:
         return ProcessingTexts.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -622,6 +681,25 @@ class RefocalPlatformApi {
       isNullValid: false,
     );
     return pigeonVar_replyValue! as int;
+  }
+
+  Future<DeviceInfo> deviceInfo() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.deviceInfo$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as DeviceInfo;
   }
 
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the

@@ -184,3 +184,15 @@ class ManifestState extends Table {
   @override
   List<String> get customConstraints => ['CHECK (id = 1)'];
 }
+
+/// Benchmark results (ADR-0017, 05 §6.2) by `app_ver|model_ver|driver_ver|gpu_device_id|
+/// os_build|gate_version`; json is the core's enh_benchmark result.
+@DataClassName('BenchmarkRow')
+class BenchmarkCache extends Table {
+  TextColumn get key => text()();
+  TextColumn get json => text()();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}

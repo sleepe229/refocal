@@ -906,4 +906,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get regionFaces => 'Only faces';
+
+  @override
+  String get tierTitle => 'Device class';
+
+  @override
+  String get tierAuto => 'Auto';
+
+  @override
+  String tierMeasured(String tier, String backend, int ms) {
+    return '$tier by the speed test: $backend, $ms ms per tile';
+  }
+
+  @override
+  String get tierGpu => 'graphics processor';
+
+  @override
+  String get tierCpu => 'processor';
+
+  @override
+  String get tierUnknown => 'Not measured: T0, the safe one';
+
+  @override
+  String get tierMeasuring => 'Measuring…';
 }

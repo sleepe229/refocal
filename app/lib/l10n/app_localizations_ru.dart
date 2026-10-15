@@ -905,4 +905,27 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get regionFaces => 'Только лица';
+
+  @override
+  String get tierTitle => 'Класс устройства';
+
+  @override
+  String get tierAuto => 'Авто';
+
+  @override
+  String tierMeasured(String tier, String backend, int ms) {
+    return '$tier по тесту скорости: $backend, $ms мс на тайл';
+  }
+
+  @override
+  String get tierGpu => 'графический процессор';
+
+  @override
+  String get tierCpu => 'процессор';
+
+  @override
+  String get tierUnknown => 'Не измерен: T0, самый осторожный';
+
+  @override
+  String get tierMeasuring => 'Измеряем…';
 }

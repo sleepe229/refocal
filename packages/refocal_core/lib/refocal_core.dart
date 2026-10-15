@@ -15,3 +15,4 @@ export 'src/models/manifest.dart';
 export 'src/models/model_repository.dart';
 export 'src/queue_orchestrator.dart';
 export 'src/recipe.dart';
+export 'src/tiers.dart';

@@ -12,6 +12,7 @@ import '../../bootstrap/engine.dart';
 import '../../bootstrap/job_store.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/queue.dart';
+import '../../bootstrap/tier.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
@@ -34,7 +35,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _shares = ref.read(sharedImageEventsProvider).listen((_) => _openShared());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _openShared());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openShared();
+      // ADR-0017: benchmark (or its cached result) in the background once the app is up.
+      ref.read(tierProvider.future).ignore();
+    });
   }
 
   @override

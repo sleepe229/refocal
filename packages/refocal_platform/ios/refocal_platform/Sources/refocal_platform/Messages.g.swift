@@ -238,6 +238,56 @@ struct AppDirs: Hashable, CustomStringConvertible {
   }
 }
 
+/// Static device signals for the tier (05 §6.1, ADR-0017).
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct DeviceInfo: Hashable, CustomStringConvertible {
+  /// Android ActivityManager.MemoryInfo.totalMem; iOS ProcessInfo.physicalMemory.
+  var totalRamBytes: Int64
+  /// Changes with every OS update (Android Build.FINGERPRINT; iOS the OS version and build).
+  var osBuild: String
+  /// Android Build.SOC_MODEL (API 31+) or Build.HARDWARE; iOS utsname.machine.
+  var soc: String? = nil
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> DeviceInfo? {
+    let totalRamBytes = pigeonVar_list[0] as! Int64
+    let osBuild = pigeonVar_list[1] as! String
+    let soc: String? = nilOrValue(pigeonVar_list[2])
+
+    return DeviceInfo(
+      totalRamBytes: totalRamBytes,
+      osBuild: osBuild,
+      soc: soc
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      totalRamBytes,
+      osBuild,
+      soc,
+    ]
+  }
+  static func == (lhs: DeviceInfo, rhs: DeviceInfo) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return MessagesPigeonInternal.deepEquals(lhs.totalRamBytes, rhs.totalRamBytes) && MessagesPigeonInternal.deepEquals(lhs.osBuild, rhs.osBuild) && MessagesPigeonInternal.deepEquals(lhs.soc, rhs.soc)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("DeviceInfo")
+    MessagesPigeonInternal.deepHash(value: totalRamBytes, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: osBuild, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: soc, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "DeviceInfo(totalRamBytes: \(String(describing: totalRamBytes)), osBuild: \(String(describing: osBuild)), soc: \(String(describing: soc)))"
+  }
+}
+
 /// Images copied into the inbox, and how many of the selection could not be.
 ///
 /// Generated class from Pigeon that represents data sent in messages.
@@ -407,10 +457,12 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
     case 129:
       return AppDirs.fromList(self.readValue() as! [Any?])
     case 130:
-      return PickedImages.fromList(self.readValue() as! [Any?])
+      return DeviceInfo.fromList(self.readValue() as! [Any?])
     case 131:
-      return PickedImage.fromList(self.readValue() as! [Any?])
+      return PickedImages.fromList(self.readValue() as! [Any?])
     case 132:
+      return PickedImage.fromList(self.readValue() as! [Any?])
+    case 133:
       return ProcessingTexts.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -423,14 +475,17 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
     if let value = value as? AppDirs {
       super.writeByte(129)
       super.writeValue(value.toList())
-    } else if let value = value as? PickedImages {
+    } else if let value = value as? DeviceInfo {
       super.writeByte(130)
       super.writeValue(value.toList())
-    } else if let value = value as? PickedImage {
+    } else if let value = value as? PickedImages {
       super.writeByte(131)
       super.writeValue(value.toList())
-    } else if let value = value as? ProcessingTexts {
+    } else if let value = value as? PickedImage {
       super.writeByte(132)
+      super.writeValue(value.toList())
+    } else if let value = value as? ProcessingTexts {
+      super.writeByte(133)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -486,6 +541,7 @@ protocol RefocalPlatformApi {
   /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
   /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
   func thermalLevel() throws -> Int64
+  func deviceInfo() throws -> DeviceInfo
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").
   func stopProcessing(finishedText: String?) throws
@@ -691,6 +747,19 @@ class RefocalPlatformApiSetup {
       }
     } else {
       thermalLevelChannel.setMessageHandler(nil)
+    }
+    let deviceInfoChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.deviceInfo\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      deviceInfoChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.deviceInfo()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      deviceInfoChannel.setMessageHandler(nil)
     }
     /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
     /// app is not in the foreground (e.g. "Photo ready").

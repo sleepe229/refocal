@@ -1640,6 +1640,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only faces'**
   String get regionFaces;
+
+  /// No description provided for @tierTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device class'**
+  String get tierTitle;
+
+  /// No description provided for @tierAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get tierAuto;
+
+  /// No description provided for @tierMeasured.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier} by the speed test: {backend}, {ms} ms per tile'**
+  String tierMeasured(String tier, String backend, int ms);
+
+  /// No description provided for @tierGpu.
+  ///
+  /// In en, this message translates to:
+  /// **'graphics processor'**
+  String get tierGpu;
+
+  /// No description provided for @tierCpu.
+  ///
+  /// In en, this message translates to:
+  /// **'processor'**
+  String get tierCpu;
+
+  /// No description provided for @tierUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Not measured: T0, the safe one'**
+  String get tierUnknown;
+
+  /// No description provided for @tierMeasuring.
+  ///
+  /// In en, this message translates to:
+  /// **'Measuring…'**
+  String get tierMeasuring;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
