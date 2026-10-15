@@ -17,6 +17,7 @@ void main() {
         'ncnn',
         'libjpeg-turbo (IJG)',
         'SQLite',
+        'Monocypher',
         'Real-ESRGAN (model weights: sr.general-x4v3)',
       ]),
     );

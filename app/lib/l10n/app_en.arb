@@ -548,5 +548,53 @@
         "type": "int"
       }
     }
-  }
+  },
+  "modelsTitle": "Models",
+  "settingsModels": "Models",
+  "modelsBuiltIn": "Built in: Real-ESRGAN general (denoise 0.5)",
+  "modelsBuiltInHint": "Always available, works offline.",
+  "modelsCheck": "Check for models",
+  "modelsNotChecked": "Tap \"Check for models\" to see what can be downloaded.",
+  "modelsPrivacy": "Refocal connects to the internet only when you check for models or download one. Files are verified with a signature and a checksum before use.",
+  "modelsNonCommercial": "non-commercial",
+  "modelsInstalled": "installed",
+  "modelsUpdate": "installed {installedVersion}, available {availableVersion}",
+  "@modelsUpdate": {
+    "placeholders": {
+      "installedVersion": {
+        "type": "String"
+      },
+      "availableVersion": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsUpdateAction": "Update",
+  "modelsDownload": "Download",
+  "modelsDelete": "Delete",
+  "modelsDownloading": "Downloading… {percent}%",
+  "@modelsDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "modelsErrorNetwork": "Could not reach the model server. Check the connection and try again.",
+  "modelsErrorIntegrity": "The download did not pass verification and was not used.",
+  "modelsErrorRollback": "The server offered an older model list; it was not used.",
+  "modelsLicenseTitle": "License: {name}",
+  "@modelsLicenseTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLicenseIntro": "This model is not free for every use. Read its license; download it only if you accept it.",
+  "modelsLicenseAccept": "Accept and download",
+  "denoise": "Denoise",
+  "denoiseNone": "Off",
+  "denoiseStandard": "Standard",
+  "denoiseStrong": "Strong"
 }

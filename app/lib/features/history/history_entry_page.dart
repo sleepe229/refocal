@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 
-import '../../bootstrap/engine.dart';
 import '../../bootstrap/files.dart';
+import '../../bootstrap/models.dart';
 import '../../bootstrap/history.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
@@ -48,7 +48,7 @@ class HistoryEntryPage extends ConsumerWidget {
     final out = r.output!;
     final input = store.absolute(e.inputPath);
     final inputExists = ref.watch(fileExistsProvider(input)).value ?? false;
-    final canRun = inputExists && r.srModel == bundledSrModel;
+    final canRun = inputExists && ref.watch(availableModelsProvider).contains(r.srModel);
     final mono = Theme.of(context).textTheme.bodySmall;
     Widget row(String label, String value) =>
         ListTile(dense: true, title: Text(label), trailing: Text(value));

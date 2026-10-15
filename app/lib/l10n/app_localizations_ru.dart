@@ -771,4 +771,85 @@ class AppLocalizationsRu extends AppLocalizations {
   String resultAlt(int width, int height) {
     return 'Результат, $width×$height, улучшено ИИ';
   }
+
+  @override
+  String get modelsTitle => 'Модели';
+
+  @override
+  String get settingsModels => 'Модели';
+
+  @override
+  String get modelsBuiltIn => 'Встроенная: Real-ESRGAN general (денойз 0.5)';
+
+  @override
+  String get modelsBuiltInHint => 'Доступна всегда, работает без сети.';
+
+  @override
+  String get modelsCheck => 'Проверить модели';
+
+  @override
+  String get modelsNotChecked => 'Нажмите «Проверить модели», чтобы увидеть, что можно скачать.';
+
+  @override
+  String get modelsPrivacy =>
+      'Refocal выходит в интернет, только когда вы проверяете или скачиваете модели. Файлы проверяются подписью и контрольной суммой перед использованием.';
+
+  @override
+  String get modelsNonCommercial => 'некоммерческая';
+
+  @override
+  String get modelsInstalled => 'установлена';
+
+  @override
+  String modelsUpdate(String installedVersion, String availableVersion) {
+    return 'установлена $installedVersion, доступна $availableVersion';
+  }
+
+  @override
+  String get modelsUpdateAction => 'Обновить';
+
+  @override
+  String get modelsDownload => 'Скачать';
+
+  @override
+  String get modelsDelete => 'Удалить';
+
+  @override
+  String modelsDownloading(int percent) {
+    return 'Загрузка… $percent%';
+  }
+
+  @override
+  String get modelsErrorNetwork => 'Сервер моделей недоступен. Проверьте соединение и повторите.';
+
+  @override
+  String get modelsErrorIntegrity => 'Загрузка не прошла проверку и не используется.';
+
+  @override
+  String get modelsErrorRollback =>
+      'Сервер прислал более старый список моделей; он не используется.';
+
+  @override
+  String modelsLicenseTitle(String name) {
+    return 'Лицензия: $name';
+  }
+
+  @override
+  String get modelsLicenseIntro =>
+      'Эта модель свободна не для любого использования. Прочитайте лицензию и скачивайте, только если согласны.';
+
+  @override
+  String get modelsLicenseAccept => 'Принять и скачать';
+
+  @override
+  String get denoise => 'Шумоподавление';
+
+  @override
+  String get denoiseNone => 'Выкл.';
+
+  @override
+  String get denoiseStandard => 'Обычное';
+
+  @override
+  String get denoiseStrong => 'Сильное';
 }

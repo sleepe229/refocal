@@ -1406,6 +1406,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Result, {width}×{height}, enhanced by AI'**
   String resultAlt(int width, int height);
+
+  /// No description provided for @modelsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get modelsTitle;
+
+  /// No description provided for @settingsModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get settingsModels;
+
+  /// No description provided for @modelsBuiltIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Built in: Real-ESRGAN general (denoise 0.5)'**
+  String get modelsBuiltIn;
+
+  /// No description provided for @modelsBuiltInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Always available, works offline.'**
+  String get modelsBuiltInHint;
+
+  /// No description provided for @modelsCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for models'**
+  String get modelsCheck;
+
+  /// No description provided for @modelsNotChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \"Check for models\" to see what can be downloaded.'**
+  String get modelsNotChecked;
+
+  /// No description provided for @modelsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Refocal connects to the internet only when you check for models or download one. Files are verified with a signature and a checksum before use.'**
+  String get modelsPrivacy;
+
+  /// No description provided for @modelsNonCommercial.
+  ///
+  /// In en, this message translates to:
+  /// **'non-commercial'**
+  String get modelsNonCommercial;
+
+  /// No description provided for @modelsInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'installed'**
+  String get modelsInstalled;
+
+  /// No description provided for @modelsUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'installed {installedVersion}, available {availableVersion}'**
+  String modelsUpdate(String installedVersion, String availableVersion);
+
+  /// No description provided for @modelsUpdateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get modelsUpdateAction;
+
+  /// No description provided for @modelsDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get modelsDownload;
+
+  /// No description provided for @modelsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get modelsDelete;
+
+  /// No description provided for @modelsDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading… {percent}%'**
+  String modelsDownloading(int percent);
+
+  /// No description provided for @modelsErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the model server. Check the connection and try again.'**
+  String get modelsErrorNetwork;
+
+  /// No description provided for @modelsErrorIntegrity.
+  ///
+  /// In en, this message translates to:
+  /// **'The download did not pass verification and was not used.'**
+  String get modelsErrorIntegrity;
+
+  /// No description provided for @modelsErrorRollback.
+  ///
+  /// In en, this message translates to:
+  /// **'The server offered an older model list; it was not used.'**
+  String get modelsErrorRollback;
+
+  /// No description provided for @modelsLicenseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'License: {name}'**
+  String modelsLicenseTitle(String name);
+
+  /// No description provided for @modelsLicenseIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This model is not free for every use. Read its license; download it only if you accept it.'**
+  String get modelsLicenseIntro;
+
+  /// No description provided for @modelsLicenseAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept and download'**
+  String get modelsLicenseAccept;
+
+  /// No description provided for @denoise.
+  ///
+  /// In en, this message translates to:
+  /// **'Denoise'**
+  String get denoise;
+
+  /// No description provided for @denoiseNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get denoiseNone;
+
+  /// No description provided for @denoiseStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get denoiseStandard;
+
+  /// No description provided for @denoiseStrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong'**
+  String get denoiseStrong;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

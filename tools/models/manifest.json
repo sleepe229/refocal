@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "serial": 1,
+  "generated_at": "2026-10-15T12:00:00Z",
+  "min_app_version": "0.0.6",
+  "packs": [
+    {
+      "id": "sr.general-x4v3-dn0",
+      "version": "1.0.0",
+      "category": "sr",
+      "title": {
+        "en": "Denoise: none",
+        "ru": "Денойз: без шумоподавления"
+      },
+      "description": {
+        "en": "Compact upscaler with denoise level 0 (the built-in one is 0.5).",
+        "ru": "Компактная модель с уровнем шумоподавления 0 (встроенная — 0.5)."
+      },
+      "tier_min": "T0",
+      "license": {
+        "spdx": "BSD-3-Clause",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn0-v1/LICENSE.txt",
+        "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 4,
+        "pad": 16
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 6321,
+          "sha256": "a950267ad1e89cb6d5e5e890fe4cf55a5e3526c532a656b9704ce1438455e5fe",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn0-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 2435272,
+          "sha256": "e1a48f579154b22e556a0e0d328c6525cac4e9887f964ec72eb9c8a821ea1231",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn0-v1/model.ncnn.bin"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "xinntao/Real-ESRGAN v0.3.0: realesr-general-x4v3.pth (sha256 8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292) + realesr-general-wdn-x4v3.pth, DNI 0",
+        "upstream_sha256": "1641f8c4464b9f097c9fdda5589273713f67cf59f3d909e0bd688f0cee269dca",
+        "conversion_commit": "96359e8 (spikes/_shared/convert_sr.py)"
+      }
+    },
+    {
+      "id": "sr.general-x4v3-dn100",
+      "version": "1.0.0",
+      "category": "sr",
+      "title": {
+        "en": "Denoise: strong",
+        "ru": "Денойз: сильное шумоподавление"
+      },
+      "description": {
+        "en": "Compact upscaler with denoise level 1 (the built-in one is 0.5).",
+        "ru": "Компактная модель с уровнем шумоподавления 1 (встроенная — 0.5)."
+      },
+      "tier_min": "T0",
+      "license": {
+        "spdx": "BSD-3-Clause",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn100-v1/LICENSE.txt",
+        "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 4,
+        "pad": 16
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 6321,
+          "sha256": "a950267ad1e89cb6d5e5e890fe4cf55a5e3526c532a656b9704ce1438455e5fe",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn100-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 2435272,
+          "sha256": "8fdd6052f8931091164a570ee7b5c5b2d1dcd991112d464eb9ae1a5b52ece553",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn100-v1/model.ncnn.bin"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "xinntao/Real-ESRGAN v0.3.0: realesr-general-x4v3.pth (sha256 8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292) + realesr-general-wdn-x4v3.pth, DNI 1",
+        "upstream_sha256": "1641f8c4464b9f097c9fdda5589273713f67cf59f3d909e0bd688f0cee269dca",
+        "conversion_commit": "96359e8 (spikes/_shared/convert_sr.py)"
+      }
+    }
+  ]
+}

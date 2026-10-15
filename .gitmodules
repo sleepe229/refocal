@@ -17,3 +17,6 @@
 [submodule "native/third_party/libwebp"]
 	path = native/third_party/libwebp
 	url = https://github.com/webmproject/libwebp.git
+[submodule "native/third_party/monocypher"]
+	path = native/third_party/monocypher
+	url = https://github.com/LoupVaillant/Monocypher.git

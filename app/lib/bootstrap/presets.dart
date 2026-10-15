@@ -16,6 +16,19 @@ enum BuiltinPreset {
   };
 }
 
+/// Denoise levels (ADR-0015): baked into separate models, 0.5 built in, 0 and 1.0 in the
+/// Compact+ packs.
+enum DenoiseLevel {
+  none('sr.general-x4v3-dn0'),
+  standard(bundledSrModel),
+  strong('sr.general-x4v3-dn100');
+
+  const DenoiseLevel(this.model);
+  final String model;
+
+  static DenoiseLevel? of(String model) => values.where((d) => d.model == model).firstOrNull;
+}
+
 final presetRepositoryProvider = FutureProvider<PresetRepository>(
   (ref) async => PresetRepository(await ref.watch(prefsDatabaseProvider.future)),
 );
