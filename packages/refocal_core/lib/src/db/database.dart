@@ -10,9 +10,9 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-// AppSupport/db.sqlite (ADR-0009, 07 §3): assets, recipes, history, the queue. The tables of
-// 07 §3 arrive with their features, each through a migration (PRIV-DATA-001): model_packs and
-// consents with the model manager, benchmark_cache with the tiers.
+// AppSupport/db.sqlite (ADR-0009, 07 §3): assets, recipes, history, the queue, model packs,
+// license consents, the manifest state. The tables of 07 §3 arrive with their features, each
+// through a migration (PRIV-DATA-001): benchmark_cache with the tiers.
 //
 // Changing a table: bump [RefocalDatabase.schemaVersion], run `dart run drift_dev
 // make-migrations` in packages/refocal_core, write the step and fill the generated test data.
@@ -22,7 +22,7 @@ part 'database.g.dart';
 /// next.
 typedef MovePrefs = Future<void> Function(LegacyPrefs prefs);
 
-@DriftDatabase(tables: [Assets, Recipes, History, QueueJobs])
+@DriftDatabase(tables: [Assets, Recipes, History, QueueJobs, ModelPacks, Consents, ManifestState])
 class RefocalDatabase extends _$RefocalDatabase {
   /// [movePrefs] is needed only to migrate a schema-1 file that holds settings or presets.
   RefocalDatabase(super.e, {this._movePrefs});
@@ -68,10 +68,16 @@ class RefocalDatabase extends _$RefocalDatabase {
       await m.createTable(schema.queueJobs);
       await m.createIndex(schema.queueJobsPosition);
     },
+    // The model manager (ADR-0011): installed packs, license consents, the manifest state.
+    from2To3: (m, schema) async {
+      await m.createTable(schema.modelPacks);
+      await m.createTable(schema.consents);
+      await m.createTable(schema.manifestState);
+    },
   );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

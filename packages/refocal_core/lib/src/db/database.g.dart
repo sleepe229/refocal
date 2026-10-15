@@ -1853,6 +1853,1048 @@ class QueueJobsCompanion extends UpdateCompanion<QueueJobRow> {
   }
 }
 
+class $ModelPacksTable extends ModelPacks with TableInfo<$ModelPacksTable, ModelPackRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ModelPacksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta('version');
+  @override
+  late final GeneratedColumn<String> version = GeneratedColumn<String>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta('category');
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeMeta = const VerificationMeta('size');
+  @override
+  late final GeneratedColumn<int> size = GeneratedColumn<int>(
+    'size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sha256Meta = const VerificationMeta('sha256');
+  @override
+  late final GeneratedColumn<String> sha256 = GeneratedColumn<String>(
+    'sha256',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _licenseSpdxMeta = const VerificationMeta('licenseSpdx');
+  @override
+  late final GeneratedColumn<String> licenseSpdx = GeneratedColumn<String>(
+    'license_spdx',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _installedAtMeta = const VerificationMeta('installedAt');
+  @override
+  late final GeneratedColumn<int> installedAt = GeneratedColumn<int>(
+    'installed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    version,
+    category,
+    path,
+    size,
+    sha256,
+    licenseSpdx,
+    installedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'model_packs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ModelPackRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(_versionMeta, version.isAcceptableOrUnknown(data['version']!, _versionMeta));
+    } else if (isInserting) {
+      context.missing(_versionMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryMeta);
+    }
+    if (data.containsKey('path')) {
+      context.handle(_pathMeta, path.isAcceptableOrUnknown(data['path']!, _pathMeta));
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    if (data.containsKey('size')) {
+      context.handle(_sizeMeta, size.isAcceptableOrUnknown(data['size']!, _sizeMeta));
+    } else if (isInserting) {
+      context.missing(_sizeMeta);
+    }
+    if (data.containsKey('sha256')) {
+      context.handle(_sha256Meta, sha256.isAcceptableOrUnknown(data['sha256']!, _sha256Meta));
+    } else if (isInserting) {
+      context.missing(_sha256Meta);
+    }
+    if (data.containsKey('license_spdx')) {
+      context.handle(
+        _licenseSpdxMeta,
+        licenseSpdx.isAcceptableOrUnknown(data['license_spdx']!, _licenseSpdxMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_licenseSpdxMeta);
+    }
+    if (data.containsKey('installed_at')) {
+      context.handle(
+        _installedAtMeta,
+        installedAt.isAcceptableOrUnknown(data['installed_at']!, _installedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_installedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ModelPackRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ModelPackRow(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      version: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}version'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      path: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}path'])!,
+      size: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}size'])!,
+      sha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256'],
+      )!,
+      licenseSpdx: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}license_spdx'],
+      )!,
+      installedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}installed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ModelPacksTable createAlias(String alias) {
+    return $ModelPacksTable(attachedDatabase, alias);
+  }
+}
+
+class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
+  final String id;
+  final String version;
+  final String category;
+
+  /// Directory relative to AppSupport.
+  final String path;
+
+  /// Bytes of the installed files.
+  final int size;
+
+  /// SHA-256 of the manifest entry's files, joined in manifest order (what was verified).
+  final String sha256;
+  final String licenseSpdx;
+  final int installedAt;
+  const ModelPackRow({
+    required this.id,
+    required this.version,
+    required this.category,
+    required this.path,
+    required this.size,
+    required this.sha256,
+    required this.licenseSpdx,
+    required this.installedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['version'] = Variable<String>(version);
+    map['category'] = Variable<String>(category);
+    map['path'] = Variable<String>(path);
+    map['size'] = Variable<int>(size);
+    map['sha256'] = Variable<String>(sha256);
+    map['license_spdx'] = Variable<String>(licenseSpdx);
+    map['installed_at'] = Variable<int>(installedAt);
+    return map;
+  }
+
+  ModelPacksCompanion toCompanion(bool nullToAbsent) {
+    return ModelPacksCompanion(
+      id: Value(id),
+      version: Value(version),
+      category: Value(category),
+      path: Value(path),
+      size: Value(size),
+      sha256: Value(sha256),
+      licenseSpdx: Value(licenseSpdx),
+      installedAt: Value(installedAt),
+    );
+  }
+
+  factory ModelPackRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ModelPackRow(
+      id: serializer.fromJson<String>(json['id']),
+      version: serializer.fromJson<String>(json['version']),
+      category: serializer.fromJson<String>(json['category']),
+      path: serializer.fromJson<String>(json['path']),
+      size: serializer.fromJson<int>(json['size']),
+      sha256: serializer.fromJson<String>(json['sha256']),
+      licenseSpdx: serializer.fromJson<String>(json['licenseSpdx']),
+      installedAt: serializer.fromJson<int>(json['installedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'version': serializer.toJson<String>(version),
+      'category': serializer.toJson<String>(category),
+      'path': serializer.toJson<String>(path),
+      'size': serializer.toJson<int>(size),
+      'sha256': serializer.toJson<String>(sha256),
+      'licenseSpdx': serializer.toJson<String>(licenseSpdx),
+      'installedAt': serializer.toJson<int>(installedAt),
+    };
+  }
+
+  ModelPackRow copyWith({
+    String? id,
+    String? version,
+    String? category,
+    String? path,
+    int? size,
+    String? sha256,
+    String? licenseSpdx,
+    int? installedAt,
+  }) => ModelPackRow(
+    id: id ?? this.id,
+    version: version ?? this.version,
+    category: category ?? this.category,
+    path: path ?? this.path,
+    size: size ?? this.size,
+    sha256: sha256 ?? this.sha256,
+    licenseSpdx: licenseSpdx ?? this.licenseSpdx,
+    installedAt: installedAt ?? this.installedAt,
+  );
+  ModelPackRow copyWithCompanion(ModelPacksCompanion data) {
+    return ModelPackRow(
+      id: data.id.present ? data.id.value : this.id,
+      version: data.version.present ? data.version.value : this.version,
+      category: data.category.present ? data.category.value : this.category,
+      path: data.path.present ? data.path.value : this.path,
+      size: data.size.present ? data.size.value : this.size,
+      sha256: data.sha256.present ? data.sha256.value : this.sha256,
+      licenseSpdx: data.licenseSpdx.present ? data.licenseSpdx.value : this.licenseSpdx,
+      installedAt: data.installedAt.present ? data.installedAt.value : this.installedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ModelPackRow(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('category: $category, ')
+          ..write('path: $path, ')
+          ..write('size: $size, ')
+          ..write('sha256: $sha256, ')
+          ..write('licenseSpdx: $licenseSpdx, ')
+          ..write('installedAt: $installedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, version, category, path, size, sha256, licenseSpdx, installedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ModelPackRow &&
+          other.id == this.id &&
+          other.version == this.version &&
+          other.category == this.category &&
+          other.path == this.path &&
+          other.size == this.size &&
+          other.sha256 == this.sha256 &&
+          other.licenseSpdx == this.licenseSpdx &&
+          other.installedAt == this.installedAt);
+}
+
+class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
+  final Value<String> id;
+  final Value<String> version;
+  final Value<String> category;
+  final Value<String> path;
+  final Value<int> size;
+  final Value<String> sha256;
+  final Value<String> licenseSpdx;
+  final Value<int> installedAt;
+  final Value<int> rowid;
+  const ModelPacksCompanion({
+    this.id = const Value.absent(),
+    this.version = const Value.absent(),
+    this.category = const Value.absent(),
+    this.path = const Value.absent(),
+    this.size = const Value.absent(),
+    this.sha256 = const Value.absent(),
+    this.licenseSpdx = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ModelPacksCompanion.insert({
+    required String id,
+    required String version,
+    required String category,
+    required String path,
+    required int size,
+    required String sha256,
+    required String licenseSpdx,
+    required int installedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       version = Value(version),
+       category = Value(category),
+       path = Value(path),
+       size = Value(size),
+       sha256 = Value(sha256),
+       licenseSpdx = Value(licenseSpdx),
+       installedAt = Value(installedAt);
+  static Insertable<ModelPackRow> custom({
+    Expression<String>? id,
+    Expression<String>? version,
+    Expression<String>? category,
+    Expression<String>? path,
+    Expression<int>? size,
+    Expression<String>? sha256,
+    Expression<String>? licenseSpdx,
+    Expression<int>? installedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (version != null) 'version': version,
+      if (category != null) 'category': category,
+      if (path != null) 'path': path,
+      if (size != null) 'size': size,
+      if (sha256 != null) 'sha256': sha256,
+      if (licenseSpdx != null) 'license_spdx': licenseSpdx,
+      if (installedAt != null) 'installed_at': installedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ModelPacksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? version,
+    Value<String>? category,
+    Value<String>? path,
+    Value<int>? size,
+    Value<String>? sha256,
+    Value<String>? licenseSpdx,
+    Value<int>? installedAt,
+    Value<int>? rowid,
+  }) {
+    return ModelPacksCompanion(
+      id: id ?? this.id,
+      version: version ?? this.version,
+      category: category ?? this.category,
+      path: path ?? this.path,
+      size: size ?? this.size,
+      sha256: sha256 ?? this.sha256,
+      licenseSpdx: licenseSpdx ?? this.licenseSpdx,
+      installedAt: installedAt ?? this.installedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<String>(version.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (size.present) {
+      map['size'] = Variable<int>(size.value);
+    }
+    if (sha256.present) {
+      map['sha256'] = Variable<String>(sha256.value);
+    }
+    if (licenseSpdx.present) {
+      map['license_spdx'] = Variable<String>(licenseSpdx.value);
+    }
+    if (installedAt.present) {
+      map['installed_at'] = Variable<int>(installedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ModelPacksCompanion(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('category: $category, ')
+          ..write('path: $path, ')
+          ..write('size: $size, ')
+          ..write('sha256: $sha256, ')
+          ..write('licenseSpdx: $licenseSpdx, ')
+          ..write('installedAt: $installedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ConsentsTable extends Consents with TableInfo<$ConsentsTable, ConsentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ConsentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _packIdMeta = const VerificationMeta('packId');
+  @override
+  late final GeneratedColumn<String> packId = GeneratedColumn<String>(
+    'pack_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _packVersionMeta = const VerificationMeta('packVersion');
+  @override
+  late final GeneratedColumn<String> packVersion = GeneratedColumn<String>(
+    'pack_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _licenseSha256Meta = const VerificationMeta('licenseSha256');
+  @override
+  late final GeneratedColumn<String> licenseSha256 = GeneratedColumn<String>(
+    'license_sha256',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _acceptedAtMeta = const VerificationMeta('acceptedAt');
+  @override
+  late final GeneratedColumn<int> acceptedAt = GeneratedColumn<int>(
+    'accepted_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [packId, packVersion, licenseSha256, acceptedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'consents';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ConsentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('pack_id')) {
+      context.handle(_packIdMeta, packId.isAcceptableOrUnknown(data['pack_id']!, _packIdMeta));
+    } else if (isInserting) {
+      context.missing(_packIdMeta);
+    }
+    if (data.containsKey('pack_version')) {
+      context.handle(
+        _packVersionMeta,
+        packVersion.isAcceptableOrUnknown(data['pack_version']!, _packVersionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_packVersionMeta);
+    }
+    if (data.containsKey('license_sha256')) {
+      context.handle(
+        _licenseSha256Meta,
+        licenseSha256.isAcceptableOrUnknown(data['license_sha256']!, _licenseSha256Meta),
+      );
+    } else if (isInserting) {
+      context.missing(_licenseSha256Meta);
+    }
+    if (data.containsKey('accepted_at')) {
+      context.handle(
+        _acceptedAtMeta,
+        acceptedAt.isAcceptableOrUnknown(data['accepted_at']!, _acceptedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_acceptedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {packId, licenseSha256};
+  @override
+  ConsentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ConsentRow(
+      packId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pack_id'],
+      )!,
+      packVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pack_version'],
+      )!,
+      licenseSha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}license_sha256'],
+      )!,
+      acceptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}accepted_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ConsentsTable createAlias(String alias) {
+    return $ConsentsTable(attachedDatabase, alias);
+  }
+}
+
+class ConsentRow extends DataClass implements Insertable<ConsentRow> {
+  final String packId;
+  final String packVersion;
+  final String licenseSha256;
+  final int acceptedAt;
+  const ConsentRow({
+    required this.packId,
+    required this.packVersion,
+    required this.licenseSha256,
+    required this.acceptedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['pack_id'] = Variable<String>(packId);
+    map['pack_version'] = Variable<String>(packVersion);
+    map['license_sha256'] = Variable<String>(licenseSha256);
+    map['accepted_at'] = Variable<int>(acceptedAt);
+    return map;
+  }
+
+  ConsentsCompanion toCompanion(bool nullToAbsent) {
+    return ConsentsCompanion(
+      packId: Value(packId),
+      packVersion: Value(packVersion),
+      licenseSha256: Value(licenseSha256),
+      acceptedAt: Value(acceptedAt),
+    );
+  }
+
+  factory ConsentRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ConsentRow(
+      packId: serializer.fromJson<String>(json['packId']),
+      packVersion: serializer.fromJson<String>(json['packVersion']),
+      licenseSha256: serializer.fromJson<String>(json['licenseSha256']),
+      acceptedAt: serializer.fromJson<int>(json['acceptedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'packId': serializer.toJson<String>(packId),
+      'packVersion': serializer.toJson<String>(packVersion),
+      'licenseSha256': serializer.toJson<String>(licenseSha256),
+      'acceptedAt': serializer.toJson<int>(acceptedAt),
+    };
+  }
+
+  ConsentRow copyWith({
+    String? packId,
+    String? packVersion,
+    String? licenseSha256,
+    int? acceptedAt,
+  }) => ConsentRow(
+    packId: packId ?? this.packId,
+    packVersion: packVersion ?? this.packVersion,
+    licenseSha256: licenseSha256 ?? this.licenseSha256,
+    acceptedAt: acceptedAt ?? this.acceptedAt,
+  );
+  ConsentRow copyWithCompanion(ConsentsCompanion data) {
+    return ConsentRow(
+      packId: data.packId.present ? data.packId.value : this.packId,
+      packVersion: data.packVersion.present ? data.packVersion.value : this.packVersion,
+      licenseSha256: data.licenseSha256.present ? data.licenseSha256.value : this.licenseSha256,
+      acceptedAt: data.acceptedAt.present ? data.acceptedAt.value : this.acceptedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConsentRow(')
+          ..write('packId: $packId, ')
+          ..write('packVersion: $packVersion, ')
+          ..write('licenseSha256: $licenseSha256, ')
+          ..write('acceptedAt: $acceptedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(packId, packVersion, licenseSha256, acceptedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ConsentRow &&
+          other.packId == this.packId &&
+          other.packVersion == this.packVersion &&
+          other.licenseSha256 == this.licenseSha256 &&
+          other.acceptedAt == this.acceptedAt);
+}
+
+class ConsentsCompanion extends UpdateCompanion<ConsentRow> {
+  final Value<String> packId;
+  final Value<String> packVersion;
+  final Value<String> licenseSha256;
+  final Value<int> acceptedAt;
+  final Value<int> rowid;
+  const ConsentsCompanion({
+    this.packId = const Value.absent(),
+    this.packVersion = const Value.absent(),
+    this.licenseSha256 = const Value.absent(),
+    this.acceptedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ConsentsCompanion.insert({
+    required String packId,
+    required String packVersion,
+    required String licenseSha256,
+    required int acceptedAt,
+    this.rowid = const Value.absent(),
+  }) : packId = Value(packId),
+       packVersion = Value(packVersion),
+       licenseSha256 = Value(licenseSha256),
+       acceptedAt = Value(acceptedAt);
+  static Insertable<ConsentRow> custom({
+    Expression<String>? packId,
+    Expression<String>? packVersion,
+    Expression<String>? licenseSha256,
+    Expression<int>? acceptedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (packId != null) 'pack_id': packId,
+      if (packVersion != null) 'pack_version': packVersion,
+      if (licenseSha256 != null) 'license_sha256': licenseSha256,
+      if (acceptedAt != null) 'accepted_at': acceptedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ConsentsCompanion copyWith({
+    Value<String>? packId,
+    Value<String>? packVersion,
+    Value<String>? licenseSha256,
+    Value<int>? acceptedAt,
+    Value<int>? rowid,
+  }) {
+    return ConsentsCompanion(
+      packId: packId ?? this.packId,
+      packVersion: packVersion ?? this.packVersion,
+      licenseSha256: licenseSha256 ?? this.licenseSha256,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (packId.present) {
+      map['pack_id'] = Variable<String>(packId.value);
+    }
+    if (packVersion.present) {
+      map['pack_version'] = Variable<String>(packVersion.value);
+    }
+    if (licenseSha256.present) {
+      map['license_sha256'] = Variable<String>(licenseSha256.value);
+    }
+    if (acceptedAt.present) {
+      map['accepted_at'] = Variable<int>(acceptedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConsentsCompanion(')
+          ..write('packId: $packId, ')
+          ..write('packVersion: $packVersion, ')
+          ..write('licenseSha256: $licenseSha256, ')
+          ..write('acceptedAt: $acceptedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ManifestStateTable extends ManifestState
+    with TableInfo<$ManifestStateTable, ManifestStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ManifestStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serialMeta = const VerificationMeta('serial');
+  @override
+  late final GeneratedColumn<int> serial = GeneratedColumn<int>(
+    'serial',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta('fetchedAt');
+  @override
+  late final GeneratedColumn<int> fetchedAt = GeneratedColumn<int>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  @override
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, serial, fetchedAt, json];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'manifest_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ManifestStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('serial')) {
+      context.handle(_serialMeta, serial.isAcceptableOrUnknown(data['serial']!, _serialMeta));
+    } else if (isInserting) {
+      context.missing(_serialMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(_jsonMeta, json.isAcceptableOrUnknown(data['json']!, _jsonMeta));
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ManifestStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ManifestStateRow(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      serial: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}serial'],
+      )!,
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+      json: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}json'])!,
+    );
+  }
+
+  @override
+  $ManifestStateTable createAlias(String alias) {
+    return $ManifestStateTable(attachedDatabase, alias);
+  }
+}
+
+class ManifestStateRow extends DataClass implements Insertable<ManifestStateRow> {
+  final int id;
+  final int serial;
+  final int fetchedAt;
+  final String json;
+  const ManifestStateRow({
+    required this.id,
+    required this.serial,
+    required this.fetchedAt,
+    required this.json,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['serial'] = Variable<int>(serial);
+    map['fetched_at'] = Variable<int>(fetchedAt);
+    map['json'] = Variable<String>(json);
+    return map;
+  }
+
+  ManifestStateCompanion toCompanion(bool nullToAbsent) {
+    return ManifestStateCompanion(
+      id: Value(id),
+      serial: Value(serial),
+      fetchedAt: Value(fetchedAt),
+      json: Value(json),
+    );
+  }
+
+  factory ManifestStateRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ManifestStateRow(
+      id: serializer.fromJson<int>(json['id']),
+      serial: serializer.fromJson<int>(json['serial']),
+      fetchedAt: serializer.fromJson<int>(json['fetchedAt']),
+      json: serializer.fromJson<String>(json['json']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'serial': serializer.toJson<int>(serial),
+      'fetchedAt': serializer.toJson<int>(fetchedAt),
+      'json': serializer.toJson<String>(json),
+    };
+  }
+
+  ManifestStateRow copyWith({int? id, int? serial, int? fetchedAt, String? json}) =>
+      ManifestStateRow(
+        id: id ?? this.id,
+        serial: serial ?? this.serial,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+        json: json ?? this.json,
+      );
+  ManifestStateRow copyWithCompanion(ManifestStateCompanion data) {
+    return ManifestStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      serial: data.serial.present ? data.serial.value : this.serial,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+      json: data.json.present ? data.json.value : this.json,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ManifestStateRow(')
+          ..write('id: $id, ')
+          ..write('serial: $serial, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('json: $json')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, serial, fetchedAt, json);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ManifestStateRow &&
+          other.id == this.id &&
+          other.serial == this.serial &&
+          other.fetchedAt == this.fetchedAt &&
+          other.json == this.json);
+}
+
+class ManifestStateCompanion extends UpdateCompanion<ManifestStateRow> {
+  final Value<int> id;
+  final Value<int> serial;
+  final Value<int> fetchedAt;
+  final Value<String> json;
+  const ManifestStateCompanion({
+    this.id = const Value.absent(),
+    this.serial = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.json = const Value.absent(),
+  });
+  ManifestStateCompanion.insert({
+    this.id = const Value.absent(),
+    required int serial,
+    required int fetchedAt,
+    required String json,
+  }) : serial = Value(serial),
+       fetchedAt = Value(fetchedAt),
+       json = Value(json);
+  static Insertable<ManifestStateRow> custom({
+    Expression<int>? id,
+    Expression<int>? serial,
+    Expression<int>? fetchedAt,
+    Expression<String>? json,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (serial != null) 'serial': serial,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (json != null) 'json': json,
+    });
+  }
+
+  ManifestStateCompanion copyWith({
+    Value<int>? id,
+    Value<int>? serial,
+    Value<int>? fetchedAt,
+    Value<String>? json,
+  }) {
+    return ManifestStateCompanion(
+      id: id ?? this.id,
+      serial: serial ?? this.serial,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      json: json ?? this.json,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (serial.present) {
+      map['serial'] = Variable<int>(serial.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<int>(fetchedAt.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ManifestStateCompanion(')
+          ..write('id: $id, ')
+          ..write('serial: $serial, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('json: $json')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RefocalDatabase extends GeneratedDatabase {
   _$RefocalDatabase(QueryExecutor e) : super(e);
   $RefocalDatabaseManager get managers => $RefocalDatabaseManager(this);
@@ -1860,6 +2902,9 @@ abstract class _$RefocalDatabase extends GeneratedDatabase {
   late final $RecipesTable recipes = $RecipesTable(this);
   late final $HistoryTable history = $HistoryTable(this);
   late final $QueueJobsTable queueJobs = $QueueJobsTable(this);
+  late final $ModelPacksTable modelPacks = $ModelPacksTable(this);
+  late final $ConsentsTable consents = $ConsentsTable(this);
+  late final $ManifestStateTable manifestState = $ManifestStateTable(this);
   late final Index historyCreatedAt = Index(
     'history_created_at',
     'CREATE INDEX history_created_at ON history (created_at)',
@@ -1877,6 +2922,9 @@ abstract class _$RefocalDatabase extends GeneratedDatabase {
     recipes,
     history,
     queueJobs,
+    modelPacks,
+    consents,
+    manifestState,
     historyCreatedAt,
     queueJobsPosition,
   ];
@@ -3357,6 +4405,536 @@ typedef $$QueueJobsTableProcessedTableManager =
       QueueJobRow,
       PrefetchHooks Function({bool assetId, bool recipeId})
     >;
+typedef $$ModelPacksTableCreateCompanionBuilder = ModelPacksCompanion Function({
+  required String id,
+  required String version,
+  required String category,
+  required String path,
+  required int size,
+  required String sha256,
+  required String licenseSpdx,
+  required int installedAt,
+  Value<int> rowid,
+});
+typedef $$ModelPacksTableUpdateCompanionBuilder = ModelPacksCompanion Function({
+  Value<String> id,
+  Value<String> version,
+  Value<String> category,
+  Value<String> path,
+  Value<int> size,
+  Value<String> sha256,
+  Value<String> licenseSpdx,
+  Value<int> installedAt,
+  Value<int> rowid,
+});
+
+class $$ModelPacksTableFilterComposer extends Composer<_$RefocalDatabase, $ModelPacksTable> {
+  $$ModelPacksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get licenseSpdx =>
+      $composableBuilder(column: $table.licenseSpdx, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get installedAt =>
+      $composableBuilder(column: $table.installedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$ModelPacksTableOrderingComposer extends Composer<_$RefocalDatabase, $ModelPacksTable> {
+  $$ModelPacksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get licenseSpdx =>
+      $composableBuilder(column: $table.licenseSpdx, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get installedAt =>
+      $composableBuilder(column: $table.installedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ModelPacksTableAnnotationComposer extends Composer<_$RefocalDatabase, $ModelPacksTable> {
+  $$ModelPacksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+
+  GeneratedColumn<int> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => column);
+
+  GeneratedColumn<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => column);
+
+  GeneratedColumn<String> get licenseSpdx =>
+      $composableBuilder(column: $table.licenseSpdx, builder: (column) => column);
+
+  GeneratedColumn<int> get installedAt =>
+      $composableBuilder(column: $table.installedAt, builder: (column) => column);
+}
+
+class $$ModelPacksTableTableManager
+    extends
+        RootTableManager<
+          _$RefocalDatabase,
+          $ModelPacksTable,
+          ModelPackRow,
+          $$ModelPacksTableFilterComposer,
+          $$ModelPacksTableOrderingComposer,
+          $$ModelPacksTableAnnotationComposer,
+          $$ModelPacksTableCreateCompanionBuilder,
+          $$ModelPacksTableUpdateCompanionBuilder,
+          (ModelPackRow, BaseReferences<_$RefocalDatabase, $ModelPacksTable, ModelPackRow>),
+          ModelPackRow,
+          PrefetchHooks Function()
+        > {
+  $$ModelPacksTableTableManager(_$RefocalDatabase db, $ModelPacksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$ModelPacksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$ModelPacksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ModelPacksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> version = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<String> path = const Value.absent(),
+                Value<int> size = const Value.absent(),
+                Value<String> sha256 = const Value.absent(),
+                Value<String> licenseSpdx = const Value.absent(),
+                Value<int> installedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ModelPacksCompanion(
+                id: id,
+                version: version,
+                category: category,
+                path: path,
+                size: size,
+                sha256: sha256,
+                licenseSpdx: licenseSpdx,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String version,
+                required String category,
+                required String path,
+                required int size,
+                required String sha256,
+                required String licenseSpdx,
+                required int installedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ModelPacksCompanion.insert(
+                id: id,
+                version: version,
+                category: category,
+                path: path,
+                size: size,
+                sha256: sha256,
+                licenseSpdx: licenseSpdx,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ModelPacksTable, ModelPackRow>(table),
+                  BaseReferences<_$RefocalDatabase, $ModelPacksTable, ModelPackRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ModelPacksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RefocalDatabase,
+      $ModelPacksTable,
+      ModelPackRow,
+      $$ModelPacksTableFilterComposer,
+      $$ModelPacksTableOrderingComposer,
+      $$ModelPacksTableAnnotationComposer,
+      $$ModelPacksTableCreateCompanionBuilder,
+      $$ModelPacksTableUpdateCompanionBuilder,
+      (ModelPackRow, BaseReferences<_$RefocalDatabase, $ModelPacksTable, ModelPackRow>),
+      ModelPackRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ConsentsTableCreateCompanionBuilder = ConsentsCompanion Function({
+  required String packId,
+  required String packVersion,
+  required String licenseSha256,
+  required int acceptedAt,
+  Value<int> rowid,
+});
+typedef $$ConsentsTableUpdateCompanionBuilder = ConsentsCompanion Function({
+  Value<String> packId,
+  Value<String> packVersion,
+  Value<String> licenseSha256,
+  Value<int> acceptedAt,
+  Value<int> rowid,
+});
+
+class $$ConsentsTableFilterComposer extends Composer<_$RefocalDatabase, $ConsentsTable> {
+  $$ConsentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get packId =>
+      $composableBuilder(column: $table.packId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get packVersion =>
+      $composableBuilder(column: $table.packVersion, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get licenseSha256 =>
+      $composableBuilder(column: $table.licenseSha256, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get acceptedAt =>
+      $composableBuilder(column: $table.acceptedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$ConsentsTableOrderingComposer extends Composer<_$RefocalDatabase, $ConsentsTable> {
+  $$ConsentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get packId =>
+      $composableBuilder(column: $table.packId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get packVersion =>
+      $composableBuilder(column: $table.packVersion, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get licenseSha256 => $composableBuilder(
+    column: $table.licenseSha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get acceptedAt =>
+      $composableBuilder(column: $table.acceptedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ConsentsTableAnnotationComposer extends Composer<_$RefocalDatabase, $ConsentsTable> {
+  $$ConsentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get packId =>
+      $composableBuilder(column: $table.packId, builder: (column) => column);
+
+  GeneratedColumn<String> get packVersion =>
+      $composableBuilder(column: $table.packVersion, builder: (column) => column);
+
+  GeneratedColumn<String> get licenseSha256 =>
+      $composableBuilder(column: $table.licenseSha256, builder: (column) => column);
+
+  GeneratedColumn<int> get acceptedAt =>
+      $composableBuilder(column: $table.acceptedAt, builder: (column) => column);
+}
+
+class $$ConsentsTableTableManager
+    extends
+        RootTableManager<
+          _$RefocalDatabase,
+          $ConsentsTable,
+          ConsentRow,
+          $$ConsentsTableFilterComposer,
+          $$ConsentsTableOrderingComposer,
+          $$ConsentsTableAnnotationComposer,
+          $$ConsentsTableCreateCompanionBuilder,
+          $$ConsentsTableUpdateCompanionBuilder,
+          (ConsentRow, BaseReferences<_$RefocalDatabase, $ConsentsTable, ConsentRow>),
+          ConsentRow,
+          PrefetchHooks Function()
+        > {
+  $$ConsentsTableTableManager(_$RefocalDatabase db, $ConsentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$ConsentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$ConsentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ConsentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> packId = const Value.absent(),
+                Value<String> packVersion = const Value.absent(),
+                Value<String> licenseSha256 = const Value.absent(),
+                Value<int> acceptedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConsentsCompanion(
+                packId: packId,
+                packVersion: packVersion,
+                licenseSha256: licenseSha256,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String packId,
+                required String packVersion,
+                required String licenseSha256,
+                required int acceptedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ConsentsCompanion.insert(
+                packId: packId,
+                packVersion: packVersion,
+                licenseSha256: licenseSha256,
+                acceptedAt: acceptedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ConsentsTable, ConsentRow>(table),
+                  BaseReferences<_$RefocalDatabase, $ConsentsTable, ConsentRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ConsentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RefocalDatabase,
+      $ConsentsTable,
+      ConsentRow,
+      $$ConsentsTableFilterComposer,
+      $$ConsentsTableOrderingComposer,
+      $$ConsentsTableAnnotationComposer,
+      $$ConsentsTableCreateCompanionBuilder,
+      $$ConsentsTableUpdateCompanionBuilder,
+      (ConsentRow, BaseReferences<_$RefocalDatabase, $ConsentsTable, ConsentRow>),
+      ConsentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ManifestStateTableCreateCompanionBuilder = ManifestStateCompanion Function({
+  Value<int> id,
+  required int serial,
+  required int fetchedAt,
+  required String json,
+});
+typedef $$ManifestStateTableUpdateCompanionBuilder = ManifestStateCompanion Function({
+  Value<int> id,
+  Value<int> serial,
+  Value<int> fetchedAt,
+  Value<String> json,
+});
+
+class $$ManifestStateTableFilterComposer extends Composer<_$RefocalDatabase, $ManifestStateTable> {
+  $$ManifestStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get serial =>
+      $composableBuilder(column: $table.serial, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => ColumnFilters(column));
+}
+
+class $$ManifestStateTableOrderingComposer
+    extends Composer<_$RefocalDatabase, $ManifestStateTable> {
+  $$ManifestStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get serial =>
+      $composableBuilder(column: $table.serial, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ManifestStateTableAnnotationComposer
+    extends Composer<_$RefocalDatabase, $ManifestStateTable> {
+  $$ManifestStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get serial =>
+      $composableBuilder(column: $table.serial, builder: (column) => column);
+
+  GeneratedColumn<int> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => column);
+}
+
+class $$ManifestStateTableTableManager
+    extends
+        RootTableManager<
+          _$RefocalDatabase,
+          $ManifestStateTable,
+          ManifestStateRow,
+          $$ManifestStateTableFilterComposer,
+          $$ManifestStateTableOrderingComposer,
+          $$ManifestStateTableAnnotationComposer,
+          $$ManifestStateTableCreateCompanionBuilder,
+          $$ManifestStateTableUpdateCompanionBuilder,
+          (
+            ManifestStateRow,
+            BaseReferences<_$RefocalDatabase, $ManifestStateTable, ManifestStateRow>,
+          ),
+          ManifestStateRow,
+          PrefetchHooks Function()
+        > {
+  $$ManifestStateTableTableManager(_$RefocalDatabase db, $ManifestStateTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$ManifestStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ManifestStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ManifestStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> serial = const Value.absent(),
+            Value<int> fetchedAt = const Value.absent(),
+            Value<String> json = const Value.absent(),
+          }) => ManifestStateCompanion(id: id, serial: serial, fetchedAt: fetchedAt, json: json),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int serial,
+                required int fetchedAt,
+                required String json,
+              }) => ManifestStateCompanion.insert(
+                id: id,
+                serial: serial,
+                fetchedAt: fetchedAt,
+                json: json,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ManifestStateTable, ManifestStateRow>(table),
+                  BaseReferences<_$RefocalDatabase, $ManifestStateTable, ManifestStateRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ManifestStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RefocalDatabase,
+      $ManifestStateTable,
+      ManifestStateRow,
+      $$ManifestStateTableFilterComposer,
+      $$ManifestStateTableOrderingComposer,
+      $$ManifestStateTableAnnotationComposer,
+      $$ManifestStateTableCreateCompanionBuilder,
+      $$ManifestStateTableUpdateCompanionBuilder,
+      (ManifestStateRow, BaseReferences<_$RefocalDatabase, $ManifestStateTable, ManifestStateRow>),
+      ManifestStateRow,
+      PrefetchHooks Function()
+    >;
 
 class $RefocalDatabaseManager {
   final _$RefocalDatabase _db;
@@ -3365,4 +4943,9 @@ class $RefocalDatabaseManager {
   $$RecipesTableTableManager get recipes => $$RecipesTableTableManager(_db, _db.recipes);
   $$HistoryTableTableManager get history => $$HistoryTableTableManager(_db, _db.history);
   $$QueueJobsTableTableManager get queueJobs => $$QueueJobsTableTableManager(_db, _db.queueJobs);
+  $$ModelPacksTableTableManager get modelPacks =>
+      $$ModelPacksTableTableManager(_db, _db.modelPacks);
+  $$ConsentsTableTableManager get consents => $$ConsentsTableTableManager(_db, _db.consents);
+  $$ManifestStateTableTableManager get manifestState =>
+      $$ManifestStateTableTableManager(_db, _db.manifestState);
 }
