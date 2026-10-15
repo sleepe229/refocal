@@ -60,11 +60,6 @@ final engineProvider = FutureProvider<Engine>((ref) async {
     '${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
     'previous exit ${previousExit ?? 'unknown'}, model ${ready ? 'ok' : 'missing'}',
   );
-  try {
-    await jobStoreOf(dirs).sweep(); // once per process: no screen holds an input yet
-  } on FileSystemException catch (e) {
-    AppLog.warn('startup sweep: ${e.message}'); // retried at the next start
-  }
   final session = native.openSession(
     modelsDir: models,
     workDir: '${dirs.support}/jobs',
@@ -96,9 +91,3 @@ Future<bool> _installBundledModel(String modelsDir) async {
     return false; // asset missing: built without tools/models/fetch.sh
   }
 }
-
-/// Unfinished and unsaved jobs for the home screen; invalidate after a change.
-final jobListProvider = FutureProvider<List<JobEntry>>((ref) async {
-  final engine = await ref.watch(engineProvider.future);
-  return engine.jobs.list();
-});

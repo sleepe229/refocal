@@ -107,6 +107,12 @@ class SettingsPage extends ConsumerWidget {
                 }
               },
             ),
+            SwitchListTile(
+              title: Text(l10n.settingsBatchAutosave),
+              subtitle: Text(l10n.settingsBatchAutosaveHint),
+              value: s.batchAutosave,
+              onChanged: (v) => change((c) => c.copyWith(batchAutosave: v)),
+            ),
             ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
             ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
             const Divider(),

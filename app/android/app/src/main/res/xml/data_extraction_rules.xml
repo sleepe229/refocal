@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cloud backup and device transfer on Android 12+ (PRIV-DATA-005, COMP-AND-010): only the
+     settings and presets database; see backup_rules.xml for older versions. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="prefs.sqlite" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="prefs.sqlite" />
+    </device-transfer>
+</data-extraction-rules>

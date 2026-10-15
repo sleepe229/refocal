@@ -111,20 +111,27 @@ class JobStore {
   }
 
   /// Startup cleanup: jobs older than [maxAge], directories without a readable request, and
-  /// inbox copies no job refers to (nothing is open yet when this runs). A copy the platform is
+  /// inbox copies no job refers to (nothing is open yet when this runs). [keepJobs] (directory
+  /// names) and [keepInputs] are what the queue still refers to: a queued photo has no job
+  /// directory yet, and the queue expires its own jobs. A copy the platform is
   /// still writing (`*.part`, ADR-0010) is kept until it is [partialAge] old. Each deletion is
   /// best effort: one that fails (e.g. a file the system holds) does not stop the others and is
   /// retried at the next start.
-  Future<void> sweep({DateTime? now}) async {
+  Future<void> sweep({
+    DateTime? now,
+    Set<String> keepJobs = const {},
+    Set<String> keepInputs = const {},
+  }) async {
     final t = now ?? DateTime.now();
     for (final d in await _children<Directory>(jobsDir)) {
+      if (keepJobs.contains(d.uri.pathSegments.lastWhere((s) => s.isNotEmpty))) continue;
       await _bestEffort(() async {
         final e = await _read(d);
         final age = t.difference(e?.modified ?? (await d.stat()).modified);
         if (age > maxAge || (e == null && age > partialAge)) await d.delete(recursive: true);
       });
     }
-    final referenced = {for (final j in await list()) j.input};
+    final referenced = {...keepInputs, for (final j in await list()) j.input};
     for (final f in await _children<File>(inboxDir)) {
       if (referenced.contains(f.path)) continue;
       await _bestEffort(() async {

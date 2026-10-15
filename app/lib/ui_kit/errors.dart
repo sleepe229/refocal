@@ -44,3 +44,12 @@ void showError(
   AppLog.error(what, e, stack);
   messenger.showSnackBar(SnackBar(content: Text(message(errorReason(l10n, e)))));
 }
+
+/// The reason of a failed queue job: its `errorCode` (an [EnhStatus] name, "cancelled" or
+/// "internal", see QueueOrchestrator).
+String failureReason(AppLocalizations l10n, String? code) =>
+    switch (EnhStatus.values.asNameMap()[code]) {
+      final s? => statusText(l10n, s),
+      null when code == JobFailed.cancelled => l10n.failCancelled,
+      null => l10n.errorUnexpected,
+    };

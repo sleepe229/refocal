@@ -2,16 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
-import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
-import '../../bootstrap/files.dart';
-import '../../bootstrap/history.dart';
+import '../../bootstrap/foreground.dart';
 import '../../bootstrap/processing.dart';
+import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
 
 /// Output scale choices (ADR-0014). Fast 2x runs x4 on a half-size input: 4x cheaper; 1x runs
@@ -82,16 +80,6 @@ class Failed extends EnhanceState {
   const Failed(this.status, this.message);
   final EnhStatus status;
   final String? message;
-}
-
-/// The result was saved ([uri]) but its history entry could not be written.
-class HistoryNotRecorded implements Exception {
-  const HistoryNotRecorded(this.uri, this.cause);
-  final String uri;
-  final Object cause;
-
-  @override
-  String toString() => '$cause';
 }
 
 class EnhanceController extends Notifier<EnhanceState> {
@@ -170,22 +158,10 @@ class EnhanceController extends Notifier<EnhanceState> {
     _engine = engine;
     _input = input;
     _timedOut = false;
-    final platform = ref.read(platformApiProvider);
-    state = const Running(JobStage.queued, 0, null);
-    await _guard(platform.requestNotificationPermission);
+    final fg = ref.read(foregroundWorkProvider);
     final l10n = ref.read(l10nProvider);
-    await _guard(
-      () => platform.startProcessing(
-        ProcessingTexts(
-          title: l10n.notifEnhancing,
-          pause: l10n.pause,
-          cancel: l10n.cancel,
-          timedOut: l10n.notifTimedOut,
-          channelName: l10n.notifChannelName,
-          channelDescription: l10n.notifChannelDescription,
-        ),
-      ),
-    );
+    state = const Running(JobStage.queued, 0, null);
+    await fg.acquire(this);
     var lastPercent = -2;
     try {
       final job = _job = create(engine);
@@ -210,7 +186,7 @@ class EnhanceController extends Notifier<EnhanceState> {
             final pct = (progress * 100).floor();
             if (pct != lastPercent) {
               lastPercent = pct;
-              _guard(() => platform.updateProcessing('$pct%', pct));
+              fg.update(this, '$pct%', pct);
             }
           case FallbackEvent():
             AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
@@ -230,7 +206,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         'fallbacks ${result.fallbacks}, timings ${result.raw['timings_ms']}',
       );
       state = Finished(result, strength: _strength);
-      await _guard(() => platform.stopProcessing(l10n.notifReady));
+      await fg.release(this, l10n.notifReady);
     } on JobFailure catch (f) {
       AppLog.info(
         'job ended: ${f.status.name}${f.event.message == null ? '' : ': ${f.event.message}'}',
@@ -246,11 +222,11 @@ class EnhanceController extends Notifier<EnhanceState> {
         EnhStatus.cancelled || EnhStatus.paused => null,
         _ => l10n.notifFailed,
       };
-      await _guard(() => platform.stopProcessing(text));
+      await fg.release(this, text);
     } on EnhException catch (e) {
       AppLog.warn('job not started: $e');
       state = Failed(e.status, e.context);
-      await _guard(() => platform.stopProcessing(null));
+      await fg.release(this, null);
     } finally {
       await _sub?.cancel();
       await _actions?.cancel();
@@ -264,17 +240,6 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   static Map<String, Object?> _decode(String raw) =>
       (jsonDecode(raw) as Map).cast<String, Object?>();
-
-  /// Platform calls are conveniences (notification, FGS): processing never depends on them.
-  /// A refusal (e.g. ForegroundServiceStartNotAllowedException, no activity for the permission
-  /// dialog) is logged; anything else is a bug and propagates.
-  static Future<void> _guard(FutureOr<Object?> Function() f) async {
-    try {
-      await f();
-    } on PlatformException catch (e) {
-      AppLog.warn('platform: ${e.code}');
-    }
-  }
 
   void answer(Map<String, Object?> option) {
     _job?.answer(option);
@@ -304,96 +269,34 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// Exports in the default format into the app album (FR-EXP-004). Returns the gallery URI.
   Future<String?> saveToGallery() async {
     final settings = await ref.read(settingsProvider.future);
-    return _export(
-      settings.format,
-      (platform, path, name) => platform.saveToGallery(path, name, settings.format.mimeType),
-    );
+    return _save(settings.format, Destination.gallery);
   }
 
   /// Exports in [format] to a document the user picks (FR-EXP-006). Null when cancelled.
-  Future<String?> saveToFile(ExportFormat format) =>
-      _export(format, (platform, path, name) => platform.saveToFile(path, name, format.mimeType));
+  Future<String?> saveToFile(ExportFormat format) => _save(format, Destination.file);
 
-  /// Any number of exports from one result, without processing again (FR-EXP-007). Each one
-  /// that reaches its destination becomes a history entry unless history is off (FR-HIST-001,
-  /// FR-HIST-005); a failure to record it throws [HistoryNotRecorded] after the save.
-  Future<String?> _export(
-    ExportFormat format,
-    Future<String?> Function(RefocalPlatformApi, String path, String name) deliver,
-  ) async {
+  /// Each export that reaches its destination becomes a history entry unless history is off
+  /// (FR-HIST-001, FR-HIST-005); a failure to record it throws [HistoryNotRecorded].
+  Future<String?> _save(ExportFormat format, Destination to) async {
     final s = state;
-    if (s is! Finished || s.saving) return null;
-    final engine = await ref.read(engineProvider.future);
-    final settings = await ref.read(settingsProvider.future);
-    final history = settings.historyEnabled ? await ref.read(historyStoreProvider.future) : null;
-    final entryId = newId();
-    final preview = await history?.previewPathFor(entryId);
-    await Directory(engine.exportDir).create(recursive: true);
-    final name = 'Refocal_${s.result.jobId}.${format.extension}';
-    final tmp = '${engine.exportDir}/$name';
+    final input = _input;
+    if (s is! Finished || s.saving || input == null) return null;
+    final saver = await readResultSaver(ref);
     state = s.copyWith(saving: true);
     String? uri;
     try {
-      await engine.session.export(
-        s.result.jobDir,
-        tmp,
-        format: format.format,
-        quality: settings.quality,
-        lossless: format.lossless,
+      uri = await saver.save(
+        s.result,
+        input: input,
+        output: OutputSpec(format, quality: saver.settings.quality),
         strength: s.strength,
-        keepGps: settings.keepGps,
-        aiMarker: settings.aiMarker,
-        thumbnail: preview,
-        thumbnailMaxSide: HistoryStore.previewMaxSide,
+        to: to,
       );
-      uri = await deliver(ref.read(platformApiProvider), tmp, name);
-      AppLog.info(
-        'export ${format.name} q${settings.quality} strength ${s.strength}: '
-        '${uri == null ? 'cancelled' : 'saved'}',
-      );
-    } catch (e, stack) {
-      AppLog.error('export ${format.name} failed', e, stack);
-      state = s.copyWith(saving: false);
-      if (preview != null) await deleteIfPresent(preview);
+    } on HistoryNotRecorded catch (e) {
+      uri = e.uri;
       rethrow;
     } finally {
-      await deleteIfPresent(tmp); // the export copy is delivered or abandoned
-    }
-    state = s.copyWith(saved: s.saved || uri != null, saving: false);
-    if (history == null || preview == null) return uri;
-    if (uri == null) {
-      await deleteIfPresent(preview); // cancelled: nothing was saved
-      return null;
-    }
-    final r = s.result;
-    try {
-      await history.repo.add(
-        HistoryEntry(
-          id: entryId,
-          createdAt: DateTime.now(),
-          recipe: Recipe(
-            scale: r.scale,
-            fast2: r.fast2,
-            srModel: r.model,
-            strength: s.strength,
-            output: OutputSpec(format, quality: settings.quality),
-          ),
-          inputPath: history.relative(_input!),
-          sourceWidth: r.inputWidth,
-          sourceHeight: r.inputHeight,
-          width: r.width,
-          height: r.height,
-          previewPath: history.relative(preview),
-          resultUri: uri,
-          modelIds: [r.model],
-          backend: r.backend,
-          duration: r.duration,
-          jobId: r.jobId,
-        ),
-      );
-    } on Exception catch (e) {
-      await deleteIfPresent(preview);
-      throw HistoryNotRecorded(uri, e);
+      state = s.copyWith(saved: s.saved || uri != null, saving: false);
     }
     return uri;
   }

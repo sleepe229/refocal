@@ -68,12 +68,12 @@ void main() {
 
   group('settings.json import', () {
     late Directory dir;
-    late RefocalDatabase db;
+    late PrefsDatabase db;
     late SettingsStore store;
 
     setUp(() {
       dir = Directory.systemTemp.createTempSync('refocal-settings');
-      db = RefocalDatabase.memory();
+      db = PrefsDatabase.memory();
       store = SettingsStore(db);
     });
     tearDown(() async {
@@ -129,13 +129,15 @@ void main() {
 
   group('SettingsController', () {
     late Directory dir;
-    late RefocalDatabase db;
+    late PrefsDatabase db;
 
     ProviderContainer container() {
       final c = ProviderContainer(
         overrides: [
-          appDirsProvider.overrideWith((_) => AppDirs(support: dir.path, cache: dir.path)),
-          databaseProvider.overrideWith((_) => db),
+          appDirsProvider.overrideWith(
+            (_) => AppDirs(support: dir.path, backedUp: dir.path, cache: dir.path),
+          ),
+          prefsDatabaseProvider.overrideWith((_) => db),
         ],
       );
       addTearDown(c.dispose);
@@ -144,7 +146,7 @@ void main() {
 
     setUp(() {
       dir = Directory.systemTemp.createTempSync('refocal-settings');
-      db = RefocalDatabase.memory();
+      db = PrefsDatabase.memory();
     });
     tearDown(() async {
       await db.close();

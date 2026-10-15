@@ -9,6 +9,7 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/files.dart';
 import '../../bootstrap/presets.dart';
+import '../../bootstrap/result_saver.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';

@@ -114,4 +114,18 @@ void main() {
     expect(File(a).existsSync(), isFalse);
     expect(File(b).existsSync(), isFalse);
   });
+
+  test('sweep spares what the queue refers to', () async {
+    final queued = input('queued.jpg'), orphan = input('orphan.jpg');
+    final d = job('job-q', input('paused.jpg'), bandIdx: 0);
+    await store.sweep(
+      now: DateTime.now().add(const Duration(days: 8)),
+      keepJobs: {'job-q'},
+      keepInputs: {queued},
+    );
+    expect(File(queued).existsSync(), isTrue, reason: 'not started: no job directory yet');
+    expect(Directory(d).existsSync(), isTrue, reason: 'the queue expires its own jobs');
+    expect(File('${store.inboxDir}/paused.jpg').existsSync(), isTrue);
+    expect(File(orphan).existsSync(), isFalse);
+  });
 }
