@@ -254,6 +254,58 @@ data class AppDirs (
 }
 
 /**
+ * Static device signals for the tier (05 §6.1, ADR-0017).
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class DeviceInfo (
+  /** Android ActivityManager.MemoryInfo.totalMem; iOS ProcessInfo.physicalMemory. */
+  val totalRamBytes: Long,
+  /** Changes with every OS update (Android Build.FINGERPRINT; iOS the OS version and build). */
+  val osBuild: String,
+  /** Android Build.SOC_MODEL (API 31+) or Build.HARDWARE; iOS utsname.machine. */
+  val soc: String? = null
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): DeviceInfo {
+      val totalRamBytes = pigeonVar_list[0] as Long
+      val osBuild = pigeonVar_list[1] as String
+      val soc = pigeonVar_list[2] as String?
+      return DeviceInfo(totalRamBytes, osBuild, soc)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      totalRamBytes,
+      osBuild,
+      soc,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as DeviceInfo
+    return MessagesPigeonUtils.deepEquals(this.totalRamBytes, other.totalRamBytes) && MessagesPigeonUtils.deepEquals(this.osBuild, other.osBuild) && MessagesPigeonUtils.deepEquals(this.soc, other.soc)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.totalRamBytes)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.osBuild)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.soc)
+    return result
+  }
+  override fun toString(): String {
+    return "DeviceInfo(totalRamBytes=$totalRamBytes, osBuild=$osBuild, soc=$soc)"
+  }
+}
+
+/**
  * Images copied into the inbox, and how many of the selection could not be.
  *
  * Generated class from Pigeon that represents data sent in messages.
@@ -425,15 +477,20 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       130.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PickedImages.fromList(it)
+          DeviceInfo.fromList(it)
         }
       }
       131.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PickedImage.fromList(it)
+          PickedImages.fromList(it)
         }
       }
       132.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PickedImage.fromList(it)
+        }
+      }
+      133.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           ProcessingTexts.fromList(it)
         }
@@ -447,16 +504,20 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(129)
         writeValue(stream, value.toList())
       }
-      is PickedImages -> {
+      is DeviceInfo -> {
         stream.write(130)
         writeValue(stream, value.toList())
       }
-      is PickedImage -> {
+      is PickedImages -> {
         stream.write(131)
         writeValue(stream, value.toList())
       }
-      is ProcessingTexts -> {
+      is PickedImage -> {
         stream.write(132)
+        writeValue(stream, value.toList())
+      }
+      is ProcessingTexts -> {
+        stream.write(133)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -514,6 +575,7 @@ interface RefocalPlatformApi {
    * 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
    */
   fun thermalLevel(): Long
+  fun deviceInfo(): DeviceInfo
   /**
    * Stops the service. A non-null [finishedText] is left as a tappable notification when the
    * app is not in the foreground (e.g. "Photo ready").
@@ -720,6 +782,21 @@ interface RefocalPlatformApi {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               listOf(api.thermalLevel())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.deviceInfo$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.deviceInfo())
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)
             }

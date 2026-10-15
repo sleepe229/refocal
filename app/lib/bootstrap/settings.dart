@@ -23,6 +23,7 @@ class Settings {
     this.historyEnabled = true,
     this.batchAutosave = true,
     this.faceNoticeSeen = false,
+    this.tierOverride,
   });
 
   /// PRIV-META-001: location is removed from results unless the user asks to keep it.
@@ -51,6 +52,9 @@ class Settings {
   /// ADR-0022: the warning about face restoration was shown (first use only).
   final bool faceNoticeSeen;
 
+  /// FR-SET-003: "T0".."T2" chosen by the user; null: the benchmark decides.
+  final String? tierOverride;
+
   Settings copyWith({
     bool? keepGps,
     bool? aiMarker,
@@ -61,6 +65,7 @@ class Settings {
     bool? historyEnabled,
     bool? batchAutosave,
     bool? faceNoticeSeen,
+    String? Function()? tierOverride,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
     aiMarker: aiMarker ?? this.aiMarker,
@@ -71,6 +76,7 @@ class Settings {
     historyEnabled: historyEnabled ?? this.historyEnabled,
     batchAutosave: batchAutosave ?? this.batchAutosave,
     faceNoticeSeen: faceNoticeSeen ?? this.faceNoticeSeen,
+    tierOverride: tierOverride != null ? tierOverride() : this.tierOverride,
   );
 
   /// Rows of the `settings` table; null removes the key (the system language).
@@ -84,6 +90,7 @@ class Settings {
     'history_enabled': '$historyEnabled',
     'batch_autosave': '$batchAutosave',
     'face_notice_seen': '$faceNoticeSeen',
+    'tier_override': tierOverride,
   };
 
   /// The values are validated here, once: anything missing, unknown or out of range is the
@@ -106,6 +113,9 @@ class Settings {
       historyEnabled: flag('history_enabled', d.historyEnabled),
       batchAutosave: flag('batch_autosave', d.batchAutosave),
       faceNoticeSeen: flag('face_notice_seen', d.faceNoticeSeen),
+      tierOverride: const {'T0', 'T1', 'T2'}.contains(m['tier_override'])
+          ? m['tier_override']
+          : null,
     );
   }
 

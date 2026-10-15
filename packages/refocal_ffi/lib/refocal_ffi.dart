@@ -321,6 +321,35 @@ class RefocalSession {
     return jsonDecode(json) as Map<String, Object?>;
   }
 
+  /// The device micro-benchmark (ADR-0017, 05 §6.2) on a helper isolate (seconds): per backend
+  /// time on a 128 px tile and the GPU gate, the fastest healthy backend and the tier for
+  /// [ramBytes]. See native/core/src/policy/benchmark.hpp for the result.
+  Future<Map<String, Object?>> benchmark({required int ramBytes, int runs = 5}) async {
+    final libPath = _native._libPath;
+    final sessionAddr = _ptr.address;
+    final json = await Isolate.run(() {
+      final b = EnhBindings(RefocalNative._open(libPath));
+      final opt = jsonEncode({'runs': runs, 'ram_bytes': ramBytes}).toNativeUtf8();
+      final out = calloc<Pointer<Char>>();
+      try {
+        RefocalNative._check(
+          b.enh_benchmark(Pointer.fromAddress(sessionAddr), opt.cast(), out),
+          'benchmark',
+        );
+        final s = out.value.cast<Utf8>().toDartString();
+        b.enh_free(out.value.cast());
+        return s;
+      } finally {
+        malloc.free(opt);
+        calloc.free(out);
+      }
+    });
+    return jsonDecode(json) as Map<String, Object?>;
+  }
+
+  /// 0 T0, 1 T1, 2 T2: tile size and memory budget of later jobs (ADR-0017).
+  void setTier(int tier) => _b.enh_set_tier(_ptr, tier);
+
   void setGpuAllowed(bool allowed) => _b.enh_set_gpu_allowed(_ptr, allowed ? 1 : 0);
   void setMemoryPressure(int level) => _b.enh_set_memory_pressure(_ptr, level);
   void setThermal(int level) => _b.enh_set_thermal(_ptr, level);

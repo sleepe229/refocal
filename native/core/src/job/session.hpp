@@ -22,6 +22,8 @@ struct enh_session {
   std::atomic<int32_t> memory_pressure{0};
   std::atomic<int32_t> thermal{0};
   std::atomic<int32_t> gpu_allowed{1};
+  // Device tier (ADR-0017): 0 T0, 1 T1, 2 T2; from the config, then enh_set_tier (benchmark).
+  std::atomic<int32_t> tier_level{0};
 
   // One running job at a time (ADR-0006); later jobs wait in STAGE "queued".
   std::timed_mutex run_mu;
