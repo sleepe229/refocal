@@ -20,13 +20,34 @@ Rgb8 apply_orientation(Rgb8 src, int o) {
     for (int x = 0; x < W; ++x) {
       int dx, dy;
       switch (o) {
-        case 2: dx = W - 1 - x; dy = y; break;              // mirror horizontal
-        case 3: dx = W - 1 - x; dy = H - 1 - y; break;      // rotate 180
-        case 4: dx = x; dy = H - 1 - y; break;              // mirror vertical
-        case 5: dx = y; dy = x; break;                      // transpose
-        case 6: dx = H - 1 - y; dy = x; break;              // rotate 90 CW
-        case 7: dx = H - 1 - y; dy = W - 1 - x; break;      // transverse
-        default: dx = y; dy = W - 1 - x; break;             // 8: rotate 270 CW
+        case 2:
+          dx = W - 1 - x;
+          dy = y;
+          break;  // mirror horizontal
+        case 3:
+          dx = W - 1 - x;
+          dy = H - 1 - y;
+          break;  // rotate 180
+        case 4:
+          dx = x;
+          dy = H - 1 - y;
+          break;  // mirror vertical
+        case 5:
+          dx = y;
+          dy = x;
+          break;  // transpose
+        case 6:
+          dx = H - 1 - y;
+          dy = x;
+          break;  // rotate 90 CW
+        case 7:
+          dx = H - 1 - y;
+          dy = W - 1 - x;
+          break;  // transverse
+        default:
+          dx = y;
+          dy = W - 1 - x;
+          break;  // 8: rotate 270 CW
       }
       std::memcpy(dst.row(dy) + size_t(dx) * 3, s + size_t(x) * 3, 3);
     }
@@ -147,7 +168,8 @@ LanczosResampler::Axis LanczosResampler::make_axis(int in, int out) {
       a.w[size_t(o) * a.taps + t] = wt;
       sum += wt;
     }
-    for (int t = 0; t < a.taps; ++t) a.w[size_t(o) * a.taps + t] = float(a.w[size_t(o) * a.taps + t] / sum);
+    for (int t = 0; t < a.taps; ++t)
+      a.w[size_t(o) * a.taps + t] = float(a.w[size_t(o) * a.taps + t] / sum);
   }
   return a;
 }

@@ -12,7 +12,7 @@ namespace enh::fs {
 bool exists(const std::string& path);
 int64_t file_size(const std::string& path);  // -1 if missing
 void mkdirs(const std::string& path);
-void remove_tree(const std::string& path);   // best effort
+void remove_tree(const std::string& path);  // best effort
 void fsync_dir(const std::string& dir);
 // Atomic replace: data lands at `path` completely or not at all.
 void write_atomic(const std::string& path, const void* data, size_t n, bool durable = true);

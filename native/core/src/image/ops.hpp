@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "image/image.hpp"
@@ -45,8 +45,8 @@ class LanczosResampler {
  private:
   struct Axis {
     int taps = 0;
-    std::vector<int> idx;     // [out][taps], clamped source indices
-    std::vector<float> w;     // [out][taps], normalized
+    std::vector<int> idx;  // [out][taps], clamped source indices
+    std::vector<float> w;  // [out][taps], normalized
   };
   static Axis make_axis(int in, int out);
   const float* hrow(int sy);

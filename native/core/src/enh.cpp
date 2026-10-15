@@ -11,10 +11,10 @@
 #include <string>
 
 #include "job/session.hpp"
-#include "util/fs.hpp"
-#include "util/log.hpp"
 #include "json_util.hpp"
 #include "probe.hpp"
+#include "util/fs.hpp"
+#include "util/log.hpp"
 
 #ifndef ENH_VERSION_STRING
 #define ENH_VERSION_STRING "0.0.0"
@@ -41,7 +41,8 @@ void enh_free(void* p) { std::free(p); }
 enh_status enh_session_create(const enh_session_config* cfg, enh_session** out) {
   if (!cfg || !out) return ENH_E_INVALID;
   // Older callers may pass a smaller struct; never read past struct_size.
-  if (cfg->struct_size < offsetof(enh_session_config, tier) + sizeof(cfg->tier)) return ENH_E_INVALID;
+  if (cfg->struct_size < offsetof(enh_session_config, tier) + sizeof(cfg->tier))
+    return ENH_E_INVALID;
   auto* s = new (std::nothrow) enh_session();
   if (!s) return ENH_E_OOM;
   s->models_dir = opt(cfg->models_dir);
@@ -53,12 +54,14 @@ enh_status enh_session_create(const enh_session_config* cfg, enh_session** out) 
   s->blocklist_json = opt(cfg->blocklist_json);
   s->tier = opt(cfg->tier);
   // Fields appended after ABI 1.0 are read only when the caller's struct has them.
-  const char* prev_exit = cfg->struct_size >= offsetof(enh_session_config, previous_exit) + sizeof(void*)
-                              ? cfg->previous_exit
-                              : nullptr;
+  const char* prev_exit =
+      cfg->struct_size >= offsetof(enh_session_config, previous_exit) + sizeof(void*)
+          ? cfg->previous_exit
+          : nullptr;
   // GPU policy (S3, ADR-0016): built-in + manifest rules, then the crash sentinel.
   s->blocklist.add(enh::parse_blocklist(enh::builtin_blocklist_json(), "builtin"));
-  if (!s->blocklist_json.empty()) s->blocklist.add(enh::parse_blocklist(s->blocklist_json, "manifest"));
+  if (!s->blocklist_json.empty())
+    s->blocklist.add(enh::parse_blocklist(s->blocklist_json, "manifest"));
   if (!s->cache_dir.empty()) {
     try {
       std::string dir = enh::fs::join(s->cache_dir, "gpu");
