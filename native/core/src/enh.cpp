@@ -13,6 +13,7 @@
 
 #include "job/session.hpp"
 #include "json_util.hpp"
+#include "policy/analyze.hpp"
 #include "policy/benchmark.hpp"
 #include "probe.hpp"
 #include "util/error.hpp"
@@ -117,7 +118,16 @@ enh_status enh_benchmark(enh_session* s, const char* opts_json, char** out_json)
     return ENH_E_INTERNAL;
   }
 }
-enh_status enh_analyze(enh_session*, const char*, char**) { return ENH_E_INTERNAL; }
+enh_status enh_analyze(enh_session* s, const char* input_path, char** out_json) {
+  if (!s || !input_path || !out_json) return ENH_E_INVALID;
+  try {
+    return put_json(enh::analyze_image(*s, input_path).dump(), out_json);
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
 
 void enh_set_tier(enh_session* s, int32_t tier) {
   if (s && tier >= 0 && tier <= 2) s->tier_level = tier;

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-
 import 'db/database.dart';
 
 /// Device tiers (ADR-0017, 02 §1, 05 §6).

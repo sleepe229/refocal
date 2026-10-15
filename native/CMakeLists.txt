@@ -205,6 +205,7 @@ set(ENH_SOURCES
   core/src/job/events.cpp
   core/src/job/job.cpp
   core/src/job/export.cpp
+  core/src/policy/analyze.cpp
   core/src/policy/benchmark.cpp
   core/src/policy/blocklist.cpp
   core/src/policy/builtin_blocklist.cpp
