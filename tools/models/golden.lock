@@ -1,0 +1,5 @@
+# Golden references of TEST-ML-001 (native/tests/test_golden.cpp): a deterministic 160x160 tile
+# and the PyTorch fp32 output of sr.general-x4v3 (denoise 0.5) for it, written by
+# spikes/_shared/convert_sr.py. Planar float32 RGB, values 0..1. Hosted with the model weights.
+sr.general-x4v3 golden_in_3x160x160.f32 0f68674089b23528516fa65b1927fca2b0e057ef1df901cf8ae2868f77f8603d https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/golden_in_3x160x160.f32
+sr.general-x4v3 golden_out_dn050_3x640x640.f32 cc2c1b01f30d00d939d8ef78a931eebb9197bd3b65e3364af1d6714a9065c826 https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/golden_out_dn050_3x640x640.f32

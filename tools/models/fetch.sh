@@ -3,17 +3,22 @@
 # models.lock. Weights never go into git.
 #   tools/models/fetch.sh --from DIR   # DIR holds <id>/model.ncnn.{param,bin} or spike names
 #   tools/models/fetch.sh              # downloads from the URLs in models.lock
+# LOCK and DEST select another pin list and target, e.g. the golden references of the CI test:
+#   LOCK=tools/models/golden.lock DEST=native/build-ci/golden tools/models/fetch.sh
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
+LOCK=${LOCK:-$HERE/models.lock}
+DEST=${DEST:-$ROOT/app/assets/models}
 FROM=""
 [[ "${1:-}" == "--from" ]] && FROM=${2:?}
 while read -r id file sha url; do
   [[ -z "$id" || "$id" == \#* ]] && continue
-  dst="$ROOT/app/assets/models/$id/$file"
+  dst="$DEST/$id/$file"
   mkdir -p "$(dirname "$dst")"
   if [[ -n "$FROM" ]]; then
     src="$FROM/$id/$file"
+    [[ -f "$src" ]] || src="$FROM/$file"                            # flat directory
     [[ -f "$src" ]] || src="$FROM/sr_compact_dn050.${file#model.}"   # spikes/_shared/models layout
     cp "$src" "$dst.part"
   elif [[ "$url" != "-" ]]; then
@@ -35,4 +40,4 @@ while read -r id file sha url; do
   echo "$sha  $dst.part" | sha256sum -c --quiet - || { rm -f "$dst.part"; echo "checksum mismatch: $id/$file" >&2; exit 1; }
   mv "$dst.part" "$dst"
   echo "ok $id/$file"
-done < "$HERE/models.lock"
+done < "$LOCK"

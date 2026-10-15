@@ -262,6 +262,13 @@ if(ENH_BUILD_TESTS)
   add_executable(test_codecs tests/test_codecs.cpp)
   target_link_libraries(test_codecs PRIVATE enh_core)
   add_test(NAME codecs COMMAND test_codecs ${CMAKE_CURRENT_BINARY_DIR}/test-work-codecs)
+  # TEST-ML-001 on the real weights: skipped (77) unless tools/models/fetch.sh put them into
+  # ENH_GOLDEN_DIR (LOCK=tools/models/golden.lock and the models.lock pins).
+  set(ENH_GOLDEN_DIR "${CMAKE_BINARY_DIR}/golden" CACHE PATH "golden weights and references")
+  add_executable(test_golden tests/test_golden.cpp)
+  target_link_libraries(test_golden PRIVATE enh_core)
+  add_test(NAME golden COMMAND test_golden ${ENH_GOLDEN_DIR})
+  set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
   foreach(t blocklist sentinel log)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)
