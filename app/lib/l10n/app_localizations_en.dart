@@ -661,4 +661,97 @@ class AppLocalizationsEn extends AppLocalizations {
   String queueActionFailed(String error) {
     return 'Could not change the queue: $error';
   }
+
+  @override
+  String get storageTitle => 'Storage';
+
+  @override
+  String get settingsStorage => 'Storage';
+
+  @override
+  String storageTotal(String size) {
+    return 'Total: $size';
+  }
+
+  @override
+  String storageMeasureFailed(String error) {
+    return 'Could not measure the storage: $error';
+  }
+
+  @override
+  String get storageClear => 'Clear';
+
+  @override
+  String storageClearTitle(String category) {
+    return 'Clear: $category?';
+  }
+
+  @override
+  String storageClearFailed(String error) {
+    return 'Could not clear everything: $error';
+  }
+
+  @override
+  String get storageNoUndo => 'This cannot be undone.';
+
+  @override
+  String get storageCopies => 'Copies of originals';
+
+  @override
+  String get storageCopiesHint =>
+      'kept to process a history entry again; copies a paused job or the queue needs are not counted';
+
+  @override
+  String get storageCopiesClear =>
+      'History entries can no longer be processed again. Paused jobs and the queue keep their copies.';
+
+  @override
+  String get storageUnfinished => 'Unfinished jobs';
+
+  @override
+  String get storageUnfinishedHint => 'paused or unsaved results of the editor';
+
+  @override
+  String get storageUnfinishedClear =>
+      'Paused and unsaved results are deleted. The queue is not affected.';
+
+  @override
+  String get storageHistoryHint => 'previews of saved results';
+
+  @override
+  String get storageHistoryClear =>
+      'The whole history is deleted. Saved photos stay in the gallery.';
+
+  @override
+  String get storageCache => 'Cache';
+
+  @override
+  String get storageCacheHint => 'temporary copies for saving and sharing';
+
+  @override
+  String get storageLogs => 'Log';
+
+  @override
+  String get storageLogsHint => 'for bug reports, never sent by itself';
+
+  @override
+  String get storageModels => 'Models';
+
+  @override
+  String get storageModelsHint => 'built into the app';
+
+  @override
+  String sizeKb(String n) {
+    return '$n KB';
+  }
+
+  @override
+  String sizeMb(String n) {
+    return '$n MB';
+  }
+
+  @override
+  String sizeGb(String n) {
+    return '$n GB';
+  }
 }

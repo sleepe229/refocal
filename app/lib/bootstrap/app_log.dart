@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
@@ -25,6 +27,20 @@ class AppLog {
     native.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info); // PRIV-LOG-002
     _native = native;
     _path = path;
+  }
+
+  /// Deletes the log ("Clear logs", 07 §2) and starts a new file.
+  static Future<void> clear() async {
+    final n = _native, path = _path;
+    if (n == null || path == null) return;
+    for (final f in files) {
+      try {
+        await File(f).delete();
+      } on FileSystemException {
+        // not there yet (no rotation happened)
+      }
+    }
+    n.openLog(path, maxBytes: maxBytes); // reopens: the core closes the old handle
   }
 
   static void debug(String message) => _write(LogLevel.debug, message);

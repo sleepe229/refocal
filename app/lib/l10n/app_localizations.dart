@@ -1226,6 +1226,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not change the queue: {error}'**
   String queueActionFailed(String error);
+
+  /// No description provided for @storageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get storageTitle;
+
+  /// No description provided for @settingsStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get settingsStorage;
+
+  /// No description provided for @storageTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total: {size}'**
+  String storageTotal(String size);
+
+  /// No description provided for @storageMeasureFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not measure the storage: {error}'**
+  String storageMeasureFailed(String error);
+
+  /// No description provided for @storageClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get storageClear;
+
+  /// No description provided for @storageClearTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear: {category}?'**
+  String storageClearTitle(String category);
+
+  /// No description provided for @storageClearFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not clear everything: {error}'**
+  String storageClearFailed(String error);
+
+  /// No description provided for @storageNoUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone.'**
+  String get storageNoUndo;
+
+  /// No description provided for @storageCopies.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies of originals'**
+  String get storageCopies;
+
+  /// No description provided for @storageCopiesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'kept to process a history entry again; copies a paused job or the queue needs are not counted'**
+  String get storageCopiesHint;
+
+  /// No description provided for @storageCopiesClear.
+  ///
+  /// In en, this message translates to:
+  /// **'History entries can no longer be processed again. Paused jobs and the queue keep their copies.'**
+  String get storageCopiesClear;
+
+  /// No description provided for @storageUnfinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfinished jobs'**
+  String get storageUnfinished;
+
+  /// No description provided for @storageUnfinishedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'paused or unsaved results of the editor'**
+  String get storageUnfinishedHint;
+
+  /// No description provided for @storageUnfinishedClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused and unsaved results are deleted. The queue is not affected.'**
+  String get storageUnfinishedClear;
+
+  /// No description provided for @storageHistoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'previews of saved results'**
+  String get storageHistoryHint;
+
+  /// No description provided for @storageHistoryClear.
+  ///
+  /// In en, this message translates to:
+  /// **'The whole history is deleted. Saved photos stay in the gallery.'**
+  String get storageHistoryClear;
+
+  /// No description provided for @storageCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache'**
+  String get storageCache;
+
+  /// No description provided for @storageCacheHint.
+  ///
+  /// In en, this message translates to:
+  /// **'temporary copies for saving and sharing'**
+  String get storageCacheHint;
+
+  /// No description provided for @storageLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Log'**
+  String get storageLogs;
+
+  /// No description provided for @storageLogsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'for bug reports, never sent by itself'**
+  String get storageLogsHint;
+
+  /// No description provided for @storageModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get storageModels;
+
+  /// No description provided for @storageModelsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'built into the app'**
+  String get storageModelsHint;
+
+  /// No description provided for @sizeKb.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} KB'**
+  String sizeKb(String n);
+
+  /// No description provided for @sizeMb.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} MB'**
+  String sizeMb(String n);
+
+  /// No description provided for @sizeGb.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} GB'**
+  String sizeGb(String n);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

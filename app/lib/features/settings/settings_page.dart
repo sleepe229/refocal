@@ -115,6 +115,7 @@ class SettingsPage extends ConsumerWidget {
             ),
             ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
             ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
+            ListTile(title: Text(l10n.settingsStorage), onTap: () => context.push('/storage')),
             const Divider(),
             ListTile(
               title: Text(l10n.settingsLanguage),
