@@ -5,8 +5,8 @@
 # exact nearest x4, tiled == whole, cancel, pause/resume, NEEDS_USER, fallback ladder, PNG
 # input, export metadata), test_codecs (PNG/WebP, metaio EXIF rewrite + mutation fuzz).
 # clang-format check; libFuzzer targets 5 min (fuzz job, 1 h in nightly.yml).
-# TODO(0.1): clang-tidy, refocal-cli golden on the real compact model
-# (needs model hosting), license check, size gate,
+# Golden on the real model (TEST-ML-001, test_golden: ncnn CPU vs PyTorch fp32).
+# TODO(0.1): clang-tidy, license check, size gate,
 # iOS build without signing (needs enh.xcframework, see packages/refocal_ffi/ios).
 name: pr
 
@@ -41,7 +41,7 @@ jobs:
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then echo "native=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
           echo "$files"
-          if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|tools/fuzz/|\.clang-format|\.github/workflows/pr\.yml|\.gitmodules)'; then
+          if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|tools/fuzz/|tools/models/|\.clang-format|\.github/workflows/pr\.yml|\.gitmodules)'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
@@ -170,6 +170,15 @@ jobs:
           git ls-files 'native/core/*.cpp' 'native/core/*.hpp' 'native/include/*.h' \
             'native/tests/*.cpp' 'native/tests/*.hpp' 'tools/refocal-cli/*.cpp' \
             | xargs ~/.local/bin/clang-format --dry-run --Werror
+      # TEST-ML-001: the real weights and their PyTorch fp32 references (GitHub release assets;
+      # a private repository needs the token). The sanitizer builds skip the golden test.
+      - name: Golden weights and references
+        if: matrix.sanitize == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DEST=native/build-ci/golden tools/models/fetch.sh
+          LOCK=tools/models/golden.lock DEST=native/build-ci/golden tools/models/fetch.sh
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
