@@ -7,6 +7,7 @@ targets:
         options:
           databases:
             refocal: lib/src/db/database.dart
+            prefs: lib/src/db/prefs_database.dart
           schema_dir: drift_schemas/
           test_dir: test/drift/
           # SQL is checked against the newest version drift_dev knows (the bundled one is 3.54).

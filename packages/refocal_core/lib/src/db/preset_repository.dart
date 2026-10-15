@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../recipe.dart';
-import 'database.dart';
+import 'database.dart' show newId;
+import 'prefs_database.dart';
 
 /// A user preset (FR-PRE-002): processing parameters under a name. The output format is not
 /// part of it; it is chosen when saving (06 §3.4).
@@ -34,7 +35,7 @@ class Preset {
 class PresetRepository {
   PresetRepository(this._db);
 
-  final RefocalDatabase _db;
+  final PrefsDatabase _db;
 
   /// In the order they were created.
   Stream<List<Preset>> watchAll() =>

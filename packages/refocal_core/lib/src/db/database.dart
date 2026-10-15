@@ -4,105 +4,74 @@ import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
+import 'database.steps.dart';
+import 'prefs_database.dart';
+import 'tables.dart';
+
 part 'database.g.dart';
 
-// Schema of AppSupport/db.sqlite (ADR-0009, 07 §3). The tables of 07 §3 arrive with their
-// features, each through a migration (PRIV-DATA-001): queue_jobs with the queue, model_packs and
-// consents with the model manager, benchmark_cache with the tiers. Paths are relative to
-// AppSupport (iOS moves the app container on updates); times are Unix milliseconds.
+// AppSupport/db.sqlite (ADR-0009, 07 §3): assets, recipes, history, the queue. The tables of
+// 07 §3 arrive with their features, each through a migration (PRIV-DATA-001): model_packs and
+// consents with the model manager, benchmark_cache with the tiers.
 //
 // Changing a table: bump [RefocalDatabase.schemaVersion], run `dart run drift_dev
 // make-migrations` in packages/refocal_core, write the step and fill the generated test data.
 
-/// Key-value settings (FR-SET-*); keys and value formats belong to the app.
-@DataClassName('SettingRow')
-class SettingEntries extends Table {
-  @override
-  String get tableName => 'settings';
+/// Receives the settings and presets of schema 1 when db.sqlite migrates to 2 (they moved to
+/// prefs.sqlite, PRIV-DATA-005). Must have stored them when it returns: the tables are dropped
+/// next.
+typedef MovePrefs = Future<void> Function(LegacyPrefs prefs);
 
-  TextColumn get key => text()();
-  TextColumn get value => text()();
-
-  @override
-  Set<Column> get primaryKey => {key};
-}
-
-/// An input photo: its inbox copy (ADR-0010), which may already be gone, and its size. The
-/// SHA-256 deduplication and "keep for reprocessing" of 07 §3 come with FR-IMP-004 dedup.
-@DataClassName('AssetRow')
-class Assets extends Table {
-  TextColumn get id => text()();
-  TextColumn get inboxPath => text().unique()();
-  IntColumn get width => integer()();
-  IntColumn get height => integer()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Recipe JSON (`Recipe`); shared by history entries (and queue jobs later).
-@DataClassName('RecipeRow')
-class Recipes extends Table {
-  TextColumn get id => text()();
-  IntColumn get schema => integer()();
-  TextColumn get json => text()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// One saved or exported result (FR-HIST-001): recipe, preview <= 512 px, the result's URI.
-@DataClassName('HistoryRow')
-@TableIndex(name: 'history_created_at', columns: {#createdAt})
-class History extends Table {
-  TextColumn get id => text()();
-  TextColumn get assetId => text().references(Assets, #id)();
-  TextColumn get recipeId => text().references(Recipes, #id)();
-
-  /// Job directory name under AppSupport/jobs (deleted with the entry, FR-HIST-004).
-  TextColumn get jobId => text()();
-  TextColumn get resultUri => text()();
-  TextColumn get previewPath => text()();
-  IntColumn get width => integer()();
-  IntColumn get height => integer()();
-
-  /// JSON list of the model ids that produced the result.
-  TextColumn get modelIds => text()();
-  TextColumn get backend => text()();
-  IntColumn get durationMs => integer().nullable()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// User presets (FR-PRE-002); the built-in ones (FR-PRE-001) live in the app with the models
-/// they need.
-@DataClassName('PresetRow')
-class Presets extends Table {
-  TextColumn get id => text()();
-  TextColumn get name => text()();
-  TextColumn get recipeJson => text()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-@DriftDatabase(tables: [SettingEntries, Assets, Recipes, History, Presets])
+@DriftDatabase(tables: [Assets, Recipes, History, QueueJobs])
 class RefocalDatabase extends _$RefocalDatabase {
-  RefocalDatabase(super.e);
+  /// [movePrefs] is needed only to migrate a schema-1 file that holds settings or presets.
+  RefocalDatabase(super.e, {this._movePrefs});
 
   /// The database file, opened on a background isolate.
-  RefocalDatabase.open(File file) : super(NativeDatabase.createInBackground(file));
+  RefocalDatabase.open(File file, {MovePrefs? movePrefs})
+    : this(NativeDatabase.createInBackground(file), movePrefs: movePrefs);
 
   /// For tests.
-  RefocalDatabase.memory() : super(NativeDatabase.memory());
+  RefocalDatabase.memory() : this(NativeDatabase.memory());
+
+  final MovePrefs? _movePrefs;
+
+  late final _steps = stepByStep(
+    // Settings and presets move to prefs.sqlite (PRIV-DATA-005); assets get a nullable size (a
+    // queued photo is not read yet); the queue (FR-BATCH-001..008).
+    from1To2: (m, schema) async {
+      final legacy = LegacyPrefs(
+        settings: {
+          for (final r in await customSelect('SELECT key, value FROM settings').get())
+            r.read<String>('key'): r.read<String>('value'),
+        },
+        presets: [
+          for (final r in await customSelect(
+            'SELECT id, name, recipe_json, created_at FROM presets',
+          ).get())
+            PresetRow(
+              id: r.read('id'),
+              name: r.read('name'),
+              recipeJson: r.read('recipe_json'),
+              createdAt: r.read('created_at'),
+            ),
+        ],
+      );
+      if (!legacy.isEmpty) {
+        final move = _movePrefs;
+        if (move == null) throw StateError('schema 1 holds settings or presets: no movePrefs');
+        await move(legacy);
+      }
+      await m.deleteTable('settings');
+      await m.deleteTable('presets');
+      await m.alterTable(TableMigration(schema.assets));
+      await m.createTable(schema.queueJobs);
+      await m.createIndex(schema.queueJobsPosition);
+    },
+  );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,12 +80,34 @@ class RefocalDatabase extends _$RefocalDatabase {
       // An older app opening a newer database (the user installed an older APK): its tables
       // cannot be interpreted; failing keeps the data for the newer version.
       if (from > to) throw StateError('database schema $from is newer than this app ($to)');
-      throw StateError('no migration from schema $from to $to');
+      // Table rebuilds (alterTable) need foreign keys off, which cannot change inside a
+      // transaction; beforeOpen turns them on again.
+      await customStatement('PRAGMA foreign_keys = OFF');
+      await transaction(() async {
+        await _steps(m, from, to);
+        final broken = await customSelect('PRAGMA foreign_key_check').get();
+        if (broken.isNotEmpty) throw StateError('migration $from -> $to broke foreign keys');
+      });
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Deletes recipes and assets no history entry or queue job refers to; returns the inbox
+  /// paths of those assets (the caller deletes the files). Call inside a transaction.
+  Future<Set<String>> dropUnreferenced() async {
+    Expression<bool> unusedAsset($AssetsTable a) =>
+        a.id.isNotInQuery(selectOnly(history)..addColumns([history.assetId])) &
+        a.id.isNotInQuery(selectOnly(queueJobs)..addColumns([queueJobs.assetId]));
+    Expression<bool> unusedRecipe($RecipesTable r) =>
+        r.id.isNotInQuery(selectOnly(history)..addColumns([history.recipeId])) &
+        r.id.isNotInQuery(selectOnly(queueJobs)..addColumns([queueJobs.recipeId]));
+    final orphans = await (select(assets)..where(unusedAsset)).get();
+    await (delete(assets)..where(unusedAsset)).go();
+    await (delete(recipes)..where(unusedRecipe)).go();
+    return {for (final o in orphans) o.inboxPath};
+  }
 }
 
 final _random = Random.secure();
