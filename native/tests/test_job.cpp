@@ -5,6 +5,8 @@
 // Also: EXIF orientation, cancel, pause + resume (byte-identical), NEEDS_USER, errors, export,
 // and the event invariants (one terminal event, nothing after it, monotonic progress).
 // SPDX-License-Identifier: Apache-2.0
+#include <png.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -13,12 +15,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <nlohmann/json.hpp>
-#include <png.h>
 
 #include "enh.h"
 #include "image/decode.hpp"
@@ -32,12 +32,12 @@ using namespace enh;
 using json = nlohmann::json;
 
 static int fails = 0;
-#define CHECK(c)                                                          \
-  do {                                                                    \
-    if (!(c)) {                                                           \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c);   \
-      ++fails;                                                            \
-    }                                                                     \
+#define CHECK(c)                                                        \
+  do {                                                                  \
+    if (!(c)) {                                                         \
+      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                          \
+    }                                                                   \
   } while (0)
 
 // ---- event collection --------------------------------------------------------------------------
@@ -130,8 +130,13 @@ static std::string make_jpeg(const std::string& name, int w, int h, int orientat
   jpeg_encode(p, texture(w, h), 95);
   if (orientation != 1) {
     auto bytes = fs::read_all(p);
-    const uint8_t exif[] = {'E', 'x', 'i', 'f', 0, 0, 'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0, 0x12,
-                            0x01, 3, 0, 1, 0, 0, 0, uint8_t(orientation), 0, 0, 0, 0, 0, 0, 0};
+    const uint8_t exif[] = {'E', 'x',  'i',  'f', 0,
+                            0,   'I',  'I',  42,  0,
+                            8,   0,    0,    0,   1,
+                            0,   0x12, 0x01, 3,   0,
+                            1,   0,    0,    0,   uint8_t(orientation),
+                            0,   0,    0,    0,   0,
+                            0,   0};
     std::vector<uint8_t> seg = {0xFF, 0xE1, 0, uint8_t(sizeof exif + 2)};
     seg.insert(seg.end(), exif, exif + sizeof exif);
     bytes.insert(bytes.begin() + 2, seg.begin(), seg.end());
@@ -288,7 +293,8 @@ static void test_export(Session& se) {
   const Rgb8 sr = read_output(job);
   std::string dst = fs::join(g_root, "exported.jpg");
   char* out = nullptr;
-  CHECK(enh_export(se.s, job.c_str(), "{\"format\":\"jpeg\",\"quality\":90}", dst.c_str(), &out) == ENH_OK);
+  CHECK(enh_export(se.s, job.c_str(), "{\"format\":\"jpeg\",\"quality\":90}", dst.c_str(), &out) ==
+        ENH_OK);
   CHECK(out && json::parse(out)["width"] == 300);
   enh_free(out);
   JpegInfo ji = jpeg_probe(dst);
@@ -308,7 +314,8 @@ static void test_export(Session& se) {
   CHECK(lossy.w == 300 && lossy.h == 202 && psnr(lossy.px, sr.px) > 28);
 
   // Strength (FR-ENH-005): 0 is the Lanczos upscale of the input, 1 the SR result.
-  Rgb8 src = jpeg_decode(json::parse(fs::read_text(fs::join(job, "request.json")))["input"].get<std::string>());
+  Rgb8 src = jpeg_decode(
+      json::parse(fs::read_text(fs::join(job, "request.json")))["input"].get<std::string>());
   Rgb8 lz;
   lz.w = sr.w;
   lz.h = sr.h;
@@ -326,13 +333,16 @@ static void test_export(Session& se) {
 
   // Thumbnail (history preview, FR-HIST-001): the exported pixels, strength applied, <= max_side.
   const std::string thumb = fs::join(g_root, "thumb.jpg");
-  const json topt = {{"format", "png"}, {"strength", 0.5}, {"thumbnail", {{"path", thumb}, {"max_side", 64}}}};
+  const json topt = {
+      {"format", "png"}, {"strength", 0.5}, {"thumbnail", {{"path", thumb}, {"max_side", 64}}}};
   out = nullptr;
-  CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), fs::join(g_root, "t.png").c_str(), &out) == ENH_OK);
+  CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), fs::join(g_root, "t.png").c_str(),
+                   &out) == ENH_OK);
   const json tj = out ? json::parse(out) : json();
   enh_free(out);
   CHECK(tj.value("/thumbnail/path"_json_pointer, std::string()) == thumb);
-  CHECK(tj.value("/thumbnail/width"_json_pointer, 0) == 64 && tj.value("/thumbnail/height"_json_pointer, 0) == 43);
+  CHECK(tj.value("/thumbnail/width"_json_pointer, 0) == 64 &&
+        tj.value("/thumbnail/height"_json_pointer, 0) == 43);
   CHECK(!fs::exists(thumb + ".part"));
   PreviewAccumulator acc;
   acc.init(half.w, half.h, 64);
@@ -348,10 +358,11 @@ static void test_export(Session& se) {
   CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), nowhere.c_str(), nullptr) != ENH_OK);
   CHECK(!fs::exists(thumb) && !fs::exists(thumb + ".part"));
 
-  for (const char* bad : {"{\"format\":\"gif\"}", "{\"format\":\"jpeg\",\"lossless\":true}",
-                          "{\"strength\":1.5}", "{\"strength\":-0.1}", "{\"quality\":0}",
-                          "{\"thumbnail\":{}}", "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"max_side\":8}}",
-                          "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"quality\":101}}"}) {
+  for (const char* bad :
+       {"{\"format\":\"gif\"}", "{\"format\":\"jpeg\",\"lossless\":true}", "{\"strength\":1.5}",
+        "{\"strength\":-0.1}", "{\"quality\":0}", "{\"thumbnail\":{}}",
+        "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"max_side\":8}}",
+        "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"quality\":101}}"}) {
     CHECK(enh_export(se.s, job.c_str(), bad, dst.c_str(), nullptr) == ENH_E_INVALID);
   }
 }
@@ -399,7 +410,8 @@ static void test_png_input(Session& se) {
   CHECK(rr.status == ENH_OK);
   CHECK(rr.payload["input"]["format"] == "png");
   bool warned = false;
-  for (auto& e : c.evs) warned |= e.type == ENH_EV_WARNING && e.payload.value("code", "") == "alpha_flattened";
+  for (auto& e : c.evs)
+    warned |= e.type == ENH_EV_WARNING && e.payload.value("code", "") == "alpha_flattened";
   CHECK(warned);
   Rgb8 out = read_output(fs::join(g_work, "png1"));
   src.px[0] = src.px[1] = src.px[2] = 255;
@@ -448,15 +460,14 @@ static void test_icc_validation() {
 
 // EXIF (orientation 6, Make, GPS) + ICC in the input -> the export carries them per policy.
 static void test_export_metadata(Session& se) {
-  const uint8_t tiff[] = {'I', 'I', 42, 0, 8, 0, 0, 0,
-                          3, 0,                                                // IFD0: 3 entries
-                          0x0F, 0x01, 2, 0, 4, 0, 0, 0, 'C', 'a', 'm', 0,      // Make "Cam"
-                          0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0,            // Orientation 6
-                          0x25, 0x88, 4, 0, 1, 0, 0, 0, 50, 0, 0, 0,           // GPS IFD at 50
-                          0, 0, 0, 0,                                          // no IFD1
-                          1, 0,                                                // GPS: 1 entry
-                          0, 0, 1, 0, 4, 0, 0, 0, 2, 3, 0, 0,                  // GPSVersionID
-                          0, 0, 0, 0};
+  const uint8_t tiff[] = {'I',  'I',  42, 0, 8, 0, 0, 0, 3,   0,            // IFD0: 3 entries
+                          0x0F, 0x01, 2,  0, 4, 0, 0, 0, 'C', 'a', 'm', 0,  // Make "Cam"
+                          0x12, 0x01, 3,  0, 1, 0, 0, 0, 6,   0,   0,   0,  // Orientation 6
+                          0x25, 0x88, 4,  0, 1, 0, 0, 0, 50,  0,   0,   0,  // GPS IFD at 50
+                          0,    0,    0,  0,                                // no IFD1
+                          1,    0,                                          // GPS: 1 entry
+                          0,    0,    1,  0, 4, 0, 0, 0, 2,   3,   0,   0,  // GPSVersionID
+                          0,    0,    0,  0};
   OutputMeta in_meta;
   in_meta.exif.assign(tiff, tiff + sizeof tiff);
   in_meta.icc = icc_profile();
@@ -490,7 +501,8 @@ static void test_export_metadata(Session& se) {
     SourceMeta m;
     auto [st, r] = exported("{\"format\":\"jpeg\"}", m);
     CHECK(st == ENH_OK);
-    CHECK(r["metadata"]["exif"] == true && r["metadata"]["icc"] == true && r["metadata"]["ai_marker"] == true);
+    CHECK(r["metadata"]["exif"] == true && r["metadata"]["icc"] == true &&
+          r["metadata"]["ai_marker"] == true);
     CHECK(exif_orientation(m.exif.data(), m.exif.size()) == 1);  // baked: result is 80x128
     CHECK(exif_get(m.exif, kExifIfd, 0xA002) == 80 && exif_get(m.exif, kExifIfd, 0xA003) == 128);
     CHECK(exif_get(m.exif, kIfd0, 0x010F) == 4);
@@ -548,7 +560,8 @@ static void test_cancel(Session& se, const std::string& in) {
   auto t0 = std::chrono::steady_clock::now();
   enh_job_cancel(j);
   CHECK(wait_terminal(c, 10));
-  double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  double ms =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   std::printf("cancel latency: %.1f ms\n", ms);
   CHECK(ms < 1000);
   CHECK(enh_job_status(j) == ENH_E_CANCELLED);
@@ -625,7 +638,8 @@ static void test_thermal(Session& se, const std::string& in) {
       std::unique_lock lk(c.mu);
       c.cv.wait_for(lk, std::chrono::seconds(30), [&] {
         for (auto& e : c.evs)
-          if (e.type == ENH_EV_WARNING && e.payload.value("code", "") == "thermal_wait") return true;
+          if (e.type == ENH_EV_WARNING && e.payload.value("code", "") == "thermal_wait")
+            return true;
         return false;
       });
     }
@@ -703,8 +717,10 @@ static void test_needs_user(Session& se) {
 static void test_errors(Session& se) {
   enh_job* j = nullptr;
   CHECK(enh_job_create(se.s, "not json", &j) == ENH_E_INVALID);
-  CHECK(enh_job_create(se.s, "{\"schema\":1,\"job_id\":\"../x\",\"input\":\"a\"}", &j) == ENH_E_INVALID);
-  CHECK(enh_job_create(se.s, "{\"schema\":1,\"job_id\":\"x\",\"input\":\"a\",\"scale\":3}", &j) == ENH_E_INVALID);
+  CHECK(enh_job_create(se.s, "{\"schema\":1,\"job_id\":\"../x\",\"input\":\"a\"}", &j) ==
+        ENH_E_INVALID);
+  CHECK(enh_job_create(se.s, "{\"schema\":1,\"job_id\":\"x\",\"input\":\"a\",\"scale\":3}", &j) ==
+        ENH_E_INVALID);
   std::string txt = fs::join(g_root, "not_a_jpeg.png");
   fs::write_atomic(txt, std::string("\x89PNG\r\n\x1a\n"));
   {
@@ -713,12 +729,14 @@ static void test_errors(Session& se) {
   }
   {
     Collector c;
-    CHECK(run_job(se, req("e2", make_jpeg("e.jpg", 40, 40), "missing.model"), c).status == ENH_E_MODEL);
+    CHECK(run_job(se, req("e2", make_jpeg("e.jpg", 40, 40), "missing.model"), c).status ==
+          ENH_E_MODEL);
   }
   {  // the last rung of the backend ladder fails -> terminal ERROR, not a crash
     setenv("ENH_FAULT", "cpu:numeric:2", 1);
     Collector c;
-    CHECK(run_job(se, req("e4", make_jpeg("e4.jpg", 300, 200), "nearest4"), c).status == ENH_E_NUMERIC);
+    CHECK(run_job(se, req("e4", make_jpeg("e4.jpg", 300, 200), "nearest4"), c).status ==
+          ENH_E_NUMERIC);
     unsetenv("ENH_FAULT");
   }
   enh_job_destroy(nullptr);

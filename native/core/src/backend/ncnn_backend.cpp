@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <cpu.h>
+#include <gpu.h>
+#include <net.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <mutex>
 #include <nlohmann/json.hpp>
-
-#include <cpu.h>
-#include <gpu.h>
-#include <net.h>
 
 #include "backend/backend.hpp"
 #include "util/error.hpp"
@@ -25,7 +25,8 @@ ModelInfo resolve_model(const std::string& models_dir, const std::string& id) {
   std::string dir = fs::join(models_dir, id);
   m.param_path = fs::join(dir, "model.ncnn.param");
   m.bin_path = fs::join(dir, "model.ncnn.bin");
-  if (!fs::exists(m.param_path) || !fs::exists(m.bin_path)) fail(ENH_E_MODEL, "model not installed: " + id);
+  if (!fs::exists(m.param_path) || !fs::exists(m.bin_path))
+    fail(ENH_E_MODEL, "model not installed: " + id);
   std::string meta = fs::join(dir, "model.json");
   if (fs::exists(meta)) {
     auto j = nlohmann::json::parse(fs::read_text(meta), nullptr, false);
@@ -100,7 +101,8 @@ class NcnnBackend final : public InferenceBackend {
     }
     if (net_.load_param(m.param_path.c_str()) != 0) fail(ENH_E_MODEL, "load_param failed: " + m.id);
     if (net_.load_model(m.bin_path.c_str()) != 0) fail(ENH_E_MODEL, "load_model failed: " + m.id);
-    if (net_.input_names().empty() || net_.output_names().empty()) fail(ENH_E_MODEL, "model has no blobs");
+    if (net_.input_names().empty() || net_.output_names().empty())
+      fail(ENH_E_MODEL, "model has no blobs");
     in_name_ = net_.input_names().front();
     out_name_ = net_.output_names().front();
   }
@@ -116,7 +118,8 @@ class NcnnBackend final : public InferenceBackend {
     net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
     ncnn::Extractor ex = net_.create_extractor();
     if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
-    if (ex.extract(out_name_.c_str(), out) != 0 || out.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
+    if (ex.extract(out_name_.c_str(), out) != 0 || out.empty())
+      fail(ENH_E_BACKEND, "ncnn extract failed");
     // Silent garbage is checked by the benchmark gate (S3); NaN/Inf is checked on every tile.
     if (out.elemsize != 4 || out.elempack != 1) fail(ENH_E_BACKEND, "unexpected output layout");
 #ifdef ENH_FAULT_INJECTION
@@ -144,7 +147,9 @@ class NcnnBackend final : public InferenceBackend {
   bool inject_fault() {
     const char* f = std::getenv("ENH_FAULT");
     if (!f) return false;
-    std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu" : cfg_.fp16 ? "vulkan_fp16" : "vulkan_fp32";
+    std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu"
+                                : cfg_.fp16                   ? "vulkan_fp16"
+                                                              : "vulkan_fp32";
     size_t a = spec.find(':'), b = spec.find(':', a + 1);
     if (a == std::string::npos || b == std::string::npos || spec.substr(0, a) != kind) return false;
     const std::string mode = spec.substr(a + 1, b - a - 1);

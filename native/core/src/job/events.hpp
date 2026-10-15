@@ -5,9 +5,8 @@
 
 #include <cstdint>
 #include <mutex>
-#include <string>
-
 #include <nlohmann/json.hpp>
+#include <string>
 
 #include "enh.h"
 
@@ -28,7 +27,8 @@ class EventSink {
   void set_port(int64_t port, int64_t token);  // throws if the Dart API is not initialized
   bool attached() const;
 
-  void emit(int32_t type, int32_t stage, int64_t done, int64_t total, const nlohmann::json& payload);
+  void emit(int32_t type, int32_t stage, int64_t done, int64_t total,
+            const nlohmann::json& payload);
   // PROGRESS, coalesced to <= 30 Hz unless `force` (first/last tile).
   void progress(int32_t stage, int64_t done, int64_t total, int64_t eta_ms, bool force);
 

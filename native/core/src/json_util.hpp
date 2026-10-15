@@ -29,7 +29,7 @@ inline size_t utf8_seq_len(std::string_view s, size_t i) {
   if (c >= 0xF0 && c <= 0xF4) {
     if (!cont(i + 1) || !cont(i + 2) || !cont(i + 3)) return 0;
     uint8_t c1 = b(i + 1);
-    if (c == 0xF0 && c1 < 0x90) return 0;  // overlong
+    if (c == 0xF0 && c1 < 0x90) return 0;   // overlong
     if (c == 0xF4 && c1 >= 0x90) return 0;  // > U+10FFFF
     return 4;
   }
@@ -49,11 +49,21 @@ inline void json_str(std::string& out, std::string_view s) {
     if (n == 1) {
       char c = s[i];
       switch (c) {
-        case '"': out += "\\\""; break;
-        case '\\': out += "\\\\"; break;
-        case '\n': out += "\\n"; break;
-        case '\r': out += "\\r"; break;
-        case '\t': out += "\\t"; break;
+        case '"':
+          out += "\\\"";
+          break;
+        case '\\':
+          out += "\\\\";
+          break;
+        case '\n':
+          out += "\\n";
+          break;
+        case '\r':
+          out += "\\r";
+          break;
+        case '\t':
+          out += "\\t";
+          break;
         default:
           if (static_cast<uint8_t>(c) < 0x20) {
             char buf[8];

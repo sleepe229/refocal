@@ -98,10 +98,23 @@ class Sha256 {
       uint32_t S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
       uint32_t mj = (a & bb) ^ (a & c) ^ (bb & c);
       uint32_t t2 = S0 + mj;
-      hh = g; g = f; f = e; e = d + t1; d = c; c = bb; bb = a; a = t1 + t2;
+      hh = g;
+      g = f;
+      f = e;
+      e = d + t1;
+      d = c;
+      c = bb;
+      bb = a;
+      a = t1 + t2;
     }
-    h_[0] += a; h_[1] += bb; h_[2] += c; h_[3] += d;
-    h_[4] += e; h_[5] += f; h_[6] += g; h_[7] += hh;
+    h_[0] += a;
+    h_[1] += bb;
+    h_[2] += c;
+    h_[3] += d;
+    h_[4] += e;
+    h_[5] += f;
+    h_[6] += g;
+    h_[7] += hh;
   }
   uint32_t h_[8];
   uint64_t len_;

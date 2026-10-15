@@ -11,11 +11,10 @@
 #include "util/error.hpp"
 
 #if defined(__ANDROID__)
+#include <android/bitmap.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <unistd.h>
-
-#include <android/bitmap.h>
 #endif
 
 namespace enh {
@@ -50,14 +49,16 @@ struct Api {
       fn = reinterpret_cast<std::remove_reference_t<decltype(fn)>>(dlsym(h, name));
       return fn != nullptr;
     };
-    ok = sym(create_from_fd, "AImageDecoder_createFromFd") && sym(destroy, "AImageDecoder_delete") &&
-         sym(header, "AImageDecoder_getHeaderInfo") && sym(width, "AImageDecoderHeaderInfo_getWidth") &&
+    ok = sym(create_from_fd, "AImageDecoder_createFromFd") &&
+         sym(destroy, "AImageDecoder_delete") && sym(header, "AImageDecoder_getHeaderInfo") &&
+         sym(width, "AImageDecoderHeaderInfo_getWidth") &&
          sym(height, "AImageDecoderHeaderInfo_getHeight") &&
          sym(mime, "AImageDecoderHeaderInfo_getMimeType") &&
          sym(alpha_flags, "AImageDecoderHeaderInfo_getAlphaFlags") &&
          sym(set_format, "AImageDecoder_setAndroidBitmapFormat") &&
          sym(set_dataspace, "AImageDecoder_setDataSpace") &&
-         sym(min_stride, "AImageDecoder_getMinimumStride") && sym(decode, "AImageDecoder_decodeImage");
+         sym(min_stride, "AImageDecoder_getMinimumStride") &&
+         sym(decode, "AImageDecoder_decodeImage");
   }
 };
 
@@ -135,7 +136,8 @@ Rgb8 platform_decode(const std::string& path) {
     fail(ENH_E_INVALID, "image decode failed");
   }
   if (stride != row) {  // compact rows in place
-    for (int y = 1; y < img.h; ++y) std::memmove(buf.data() + y * row, buf.data() + y * stride, row);
+    for (int y = 1; y < img.h; ++y)
+      std::memmove(buf.data() + y * row, buf.data() + y * stride, row);
   }
   const size_t n = size_t(img.w) * img.h;
   buf.resize(n * 4);

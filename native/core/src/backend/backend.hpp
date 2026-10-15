@@ -16,15 +16,15 @@ enum class BackendKind { cpu, vulkan };
 
 struct BackendConfig {
   BackendKind kind = BackendKind::cpu;
-  int device = 0;     // Vulkan device index
-  bool fp16 = true;   // Vulkan: fp16 storage+arithmetic; false = fp32 (fallback, S3)
-  int threads = 0;    // CPU threads, 0 = big cores
+  int device = 0;    // Vulkan device index
+  bool fp16 = true;  // Vulkan: fp16 storage+arithmetic; false = fp32 (fallback, S3)
+  int threads = 0;   // CPU threads, 0 = big cores
 };
 
 struct ModelInfo {
   std::string id, param_path, bin_path;
-  int scale = 4;      // spatial scale of the network
-  int pad = 16;       // tile pad (S2: 16 for compact)
+  int scale = 4;  // spatial scale of the network
+  int pad = 16;   // tile pad (S2: 16 for compact)
 };
 
 // Resolves models_dir/<id>/model.ncnn.{param,bin} (+ optional model.json {scale, pad}).

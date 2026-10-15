@@ -49,8 +49,10 @@ void remove_tree(const std::string& path) {
       if (!std::strcmp(e->d_name, ".") || !std::strcmp(e->d_name, "..")) continue;
       std::string p = join(path, e->d_name);
       struct stat st;
-      if (::lstat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) remove_tree(p);
-      else ::unlink(p.c_str());
+      if (::lstat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+        remove_tree(p);
+      else
+        ::unlink(p.c_str());
     }
     ::closedir(d);
     ::rmdir(path.c_str());

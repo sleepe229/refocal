@@ -1,11 +1,11 @@
 // PNG input and output on libpng (ADR-0003, FR-EXP-001). Pixels through the simplified API (palette, gray, 16-bit,
 // interlace, gAMA handled by libpng); eXIf/iCCP through a header-only pass of the classic API.
 // SPDX-License-Identifier: Apache-2.0
+#include <png.h>
+
 #include <csetjmp>
 #include <cstdio>
 #include <memory>
-
-#include <png.h>
 
 #include "image/decode.hpp"
 #include "image/encode.hpp"
@@ -52,7 +52,8 @@ void read_header(const std::string& path, ImageInfo* info, SourceMeta* meta) {
     int comp = 0;
     png_bytep prof = nullptr;
     png_uint_32 prof_len = 0;
-    if (meta && png_get_iCCP(png, pi, &name, &comp, &prof, &prof_len) && prof && prof_len <= kMaxMetaBytes) {
+    if (meta && png_get_iCCP(png, pi, &name, &comp, &prof, &prof_len) && prof &&
+        prof_len <= kMaxMetaBytes) {
       meta->icc.assign(prof, prof + prof_len);
     }
     *ok = true;

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "policy/gpu_identity.hpp"
 
-#include <sys/utsname.h>
-
 #include <gpu.h>
+#include <sys/utsname.h>
 
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>

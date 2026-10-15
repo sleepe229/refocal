@@ -23,25 +23,31 @@ constexpr uint16_t kInteropIfd = 0xA005;
 constexpr uint16_t kOrientation = 0x0112;
 constexpr uint16_t kPixelX = 0xA002, kPixelY = 0xA003;
 
-bool is_ifd_pointer(uint16_t tag) { return tag == kExifIfd || tag == kGpsIfd || tag == kInteropIfd; }
+bool is_ifd_pointer(uint16_t tag) {
+  return tag == kExifIfd || tag == kGpsIfd || tag == kInteropIfd;
+}
 
 // Tags that point into data we do not carry over (thumbnail, strips, sub-images), that the
 // result replaces (embedded XMP/ICC, size) or that identify the camera or the original
 // (PRIV-META-002). Everything else is copied as is.
 bool dropped(uint16_t tag) {
   switch (tag) {
-    case 0x0100: case 0x0101:  // ImageWidth/Length (the result has its own)
-    case 0x0111: case 0x0117:  // StripOffsets/ByteCounts
-    case 0x0144: case 0x0145:  // TileOffsets/ByteCounts
-    case 0x014A:               // SubIFDs
-    case 0x0201: case 0x0202:  // JPEGInterchangeFormat(Length): thumbnail
-    case 0x02BC:               // XMP in TIFF
-    case 0x8773:               // ICC in TIFF
-    case 0x927C:               // MakerNote: vendor offsets break when moved; serials inside
-    case 0xA420:               // ImageUniqueID: identifies the original
-    case 0xA431:               // BodySerialNumber
-    case 0xA435:               // LensSerialNumber
-    case 0xC4A5:               // PrintIM
+    case 0x0100:
+    case 0x0101:  // ImageWidth/Length (the result has its own)
+    case 0x0111:
+    case 0x0117:  // StripOffsets/ByteCounts
+    case 0x0144:
+    case 0x0145:  // TileOffsets/ByteCounts
+    case 0x014A:  // SubIFDs
+    case 0x0201:
+    case 0x0202:  // JPEGInterchangeFormat(Length): thumbnail
+    case 0x02BC:  // XMP in TIFF
+    case 0x8773:  // ICC in TIFF
+    case 0x927C:  // MakerNote: vendor offsets break when moved; serials inside
+    case 0xA420:  // ImageUniqueID: identifies the original
+    case 0xA431:  // BodySerialNumber
+    case 0xA435:  // LensSerialNumber
+    case 0xC4A5:  // PrintIM
       return true;
     default:
       return false;
@@ -63,9 +69,12 @@ class Tiff {
  public:
   Tiff(const uint8_t* d, size_t n) : d_(d), n_(n) {
     if (n < 8) throw Bad{};
-    if (d[0] == 'I' && d[1] == 'I') le_ = true;
-    else if (d[0] == 'M' && d[1] == 'M') le_ = false;
-    else throw Bad{};
+    if (d[0] == 'I' && d[1] == 'I')
+      le_ = true;
+    else if (d[0] == 'M' && d[1] == 'M')
+      le_ = false;
+    else
+      throw Bad{};
     if (u16(2) != 42) throw Bad{};
   }
   bool le() const { return le_; }
@@ -73,7 +82,8 @@ class Tiff {
 
   uint32_t u16(uint64_t o) const {
     need(o, 2);
-    return le_ ? uint32_t(d_[o]) | uint32_t(d_[o + 1]) << 8 : uint32_t(d_[o]) << 8 | uint32_t(d_[o + 1]);
+    return le_ ? uint32_t(d_[o]) | uint32_t(d_[o + 1]) << 8
+               : uint32_t(d_[o]) << 8 | uint32_t(d_[o + 1]);
   }
   uint32_t u32(uint64_t o) const {
     return le_ ? u16(o) | u16(o + 2) << 16 : u16(o) << 16 | u16(o + 2);
@@ -136,7 +146,8 @@ class Writer {
     std::vector<Item> items;
     for (const auto& e : ifd.entries) items.push_back({e.tag, &e});
     for (const auto& [tag, sub] : ifd.subs) items.push_back({tag, nullptr});
-    std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.tag < b.tag; });
+    std::sort(items.begin(), items.end(),
+              [](const Item& a, const Item& b) { return a.tag < b.tag; });
 
     const uint32_t off = uint32_t(out_.size());
     const uint32_t data_start = off + 2 + 12 * uint32_t(items.size()) + 4;
@@ -200,7 +211,8 @@ class Writer {
 };
 
 std::vector<uint8_t> encode16(bool le, uint16_t v) {
-  return le ? std::vector<uint8_t>{uint8_t(v), uint8_t(v >> 8)} : std::vector<uint8_t>{uint8_t(v >> 8), uint8_t(v)};
+  return le ? std::vector<uint8_t>{uint8_t(v), uint8_t(v >> 8)}
+            : std::vector<uint8_t>{uint8_t(v >> 8), uint8_t(v)};
 }
 std::vector<uint8_t> encode32(bool le, uint32_t v) {
   std::vector<uint8_t> b = {uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)};
@@ -221,13 +233,18 @@ int64_t read_int(const Entry& e, bool le) {
   if (e.data.empty()) return -1;
   auto b = [&](size_t i) { return int64_t(e.data[i]); };
   switch (e.type) {
-    case 1: case 6: case 7:
+    case 1:
+    case 6:
+    case 7:
       return b(0);
-    case 3: case 8:
+    case 3:
+    case 8:
       return e.data.size() < 2 ? -1 : le ? b(0) | b(1) << 8 : b(0) << 8 | b(1);
-    case 4: case 9:
+    case 4:
+    case 9:
       if (e.data.size() < 4) return -1;
-      return le ? b(0) | b(1) << 8 | b(2) << 16 | b(3) << 24 : b(0) << 24 | b(1) << 16 | b(2) << 8 | b(3);
+      return le ? b(0) | b(1) << 8 | b(2) << 16 | b(3) << 24
+                : b(0) << 24 | b(1) << 16 | b(2) << 8 | b(3);
     default:
       return int64_t(e.data.size());
   }
@@ -314,11 +331,20 @@ std::string ai_marker_xmp(const std::string& creator_tool) {
   std::string tool;
   for (char c : creator_tool) {  // attribute value: escape XML specials
     switch (c) {
-      case '&': tool += "&amp;"; break;
-      case '<': tool += "&lt;"; break;
-      case '>': tool += "&gt;"; break;
-      case '"': tool += "&quot;"; break;
-      default: tool += c;
+      case '&':
+        tool += "&amp;";
+        break;
+      case '<':
+        tool += "&lt;";
+        break;
+      case '>':
+        tool += "&gt;";
+        break;
+      case '"':
+        tool += "&quot;";
+        break;
+      default:
+        tool += c;
     }
   }
   return std::string("<?xpacket begin=\"\xEF\xBB\xBF\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n") +
@@ -327,8 +353,12 @@ std::string ai_marker_xmp(const std::string& creator_tool) {
          "  <rdf:Description rdf:about=\"\"\n"
          "    xmlns:Iptc4xmpExt=\"http://iptc.org/std/Iptc4xmpExt/2008-02-29/\"\n"
          "    xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n"
-         "    Iptc4xmpExt:DigitalSourceType=\"" + kDigitalSourceType + "\"\n"
-         "    xmp:CreatorTool=\"" + tool + "\"/>\n"
+         "    Iptc4xmpExt:DigitalSourceType=\"" +
+         kDigitalSourceType +
+         "\"\n"
+         "    xmp:CreatorTool=\"" +
+         tool +
+         "\"/>\n"
          " </rdf:RDF>\n"
          "</x:xmpmeta>\n"
          "<?xpacket end=\"w\"?>";

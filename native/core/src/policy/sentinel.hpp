@@ -27,54 +27,56 @@ ExitReason parse_exit_reason(const std::string& s);
 const char* exit_reason_name(ExitReason r);
 
 struct SentinelRecord {
-    GpuIdentity gpu;
-    std::string model;    // e.g. "sr.general-x4v3"
-    std::string backend;  // e.g. "vulkan-fp16"
-    int tile = 0;
-    std::string key() const;  // "<vendor>:<device>:<driver>|<model>"
+  GpuIdentity gpu;
+  std::string model;    // e.g. "sr.general-x4v3"
+  std::string backend;  // e.g. "vulkan-fp16"
+  int tile = 0;
+  std::string key() const;  // "<vendor>:<device>:<driver>|<model>"
 };
 
 struct StartupReport {
-    bool sentinel_found = false;
-    std::string key;
-    ExitReason reason = ExitReason::Unknown;
-    int hits = 0;
-    bool blocked_now = false;      // permanent rule added in this startup
-    bool quarantined_now = false;  // CPU for this session only
-    std::string note;
+  bool sentinel_found = false;
+  std::string key;
+  ExitReason reason = ExitReason::Unknown;
+  int hits = 0;
+  bool blocked_now = false;      // permanent rule added in this startup
+  bool quarantined_now = false;  // CPU for this session only
+  std::string note;
 };
 
 struct SentinelPolicy {
-    int block_after = 2;
-    bool quarantine_first_hit = true;
+  int block_after = 2;
+  bool quarantine_first_hit = true;
 };
 
 class SentinelStore {
-public:
-    explicit SentinelStore(std::string dir, SentinelPolicy policy = {});
+ public:
+  explicit SentinelStore(std::string dir, SentinelPolicy policy = {});
 
-    // Call once per process start, before any GPU work. Increments the session counter.
-    StartupReport on_startup(ExitReason previous_exit = ExitReason::Unknown);
+  // Call once per process start, before any GPU work. Increments the session counter.
+  StartupReport on_startup(ExitReason previous_exit = ExitReason::Unknown);
 
-    void arm(const SentinelRecord& rec);
-    void disarm(const SentinelRecord& rec);  // success: removes sentinel, resets hits
+  void arm(const SentinelRecord& rec);
+  void disarm(const SentinelRecord& rec);  // success: removes sentinel, resets hits
 
-    // Record a crash observed directly (probe parent saw the child die by a signal).
-    void record_confirmed_crash(const SentinelRecord& rec, const std::string& why, Action action = Action::Cpu);
+  // Record a crash observed directly (probe parent saw the child die by a signal).
+  void record_confirmed_crash(const SentinelRecord& rec, const std::string& why,
+                              Action action = Action::Cpu);
 
-    bool quarantined(const SentinelRecord& rec) const;  // CPU for this session
-    int hits(const SentinelRecord& rec) const;
-    ParseResult local_rules() const;  // permanent rules, as a "local" blocklist source
-    void reset();                     // "reset GPU blocklist" in settings
+  bool quarantined(const SentinelRecord& rec) const;  // CPU for this session
+  int hits(const SentinelRecord& rec) const;
+  ParseResult local_rules() const;  // permanent rules, as a "local" blocklist source
+  void reset();                     // "reset GPU blocklist" in settings
 
-    std::string sentinel_path() const;
-    std::string store_path() const;
+  std::string sentinel_path() const;
+  std::string store_path() const;
 
-private:
-    std::string dir_;
-    SentinelPolicy policy_;
-    long session_ = 0;
-    void add_permanent(const SentinelRecord& rec, const std::string& reason, Action action = Action::Cpu);
+ private:
+  std::string dir_;
+  SentinelPolicy policy_;
+  long session_ = 0;
+  void add_permanent(const SentinelRecord& rec, const std::string& reason,
+                     Action action = Action::Cpu);
 };
 
 // Atomic file write helper (tmp + fsync + rename).

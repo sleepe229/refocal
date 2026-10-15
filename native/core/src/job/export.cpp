@@ -20,7 +20,6 @@
 
 #include <cstdlib>
 #include <cstring>
-
 #include <nlohmann/json.hpp>
 
 #include "enh.h"
@@ -58,7 +57,8 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     const int quality = opt.value("quality", 92);
     const bool lossless = opt.value("lossless", false);
     const double strength = opt.value("strength", 1.0);
-    if (format != "jpeg" && format != "png" && format != "webp") fail(ENH_E_INVALID, "unsupported format");
+    if (format != "jpeg" && format != "png" && format != "webp")
+      fail(ENH_E_INVALID, "unsupported format");
     if (quality < 1 || quality > 100) fail(ENH_E_INVALID, "bad quality");
     if (lossless && format != "webp") fail(ENH_E_INVALID, "lossless is for webp");
     if (!(strength >= 0 && strength <= 1)) fail(ENH_E_INVALID, "strength must be 0..1");
@@ -92,8 +92,8 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     if (md.value("ai_marker", true)) {
       meta.xmp = ai_marker_xmp(md.value("creator_tool", std::string("Refocal ") + enh_version()));
     }
-    nlohmann::json written = {{"exif", !meta.exif.empty()}, {"icc", !meta.icc.empty()},
-                              {"ai_marker", !meta.xmp.empty()}};
+    nlohmann::json written = {
+        {"exif", !meta.exif.empty()}, {"icc", !meta.icc.empty()}, {"ai_marker", !meta.xmp.empty()}};
 
     // Base of the strength blend: the oriented input, resampled to the result size.
     Rgb8 src;
@@ -147,8 +147,12 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     }
     if (::rename(tmp.c_str(), dst_path) != 0) fail(ENH_E_IO, "rename failed");
     if (out_json) {
-      nlohmann::json r = {{"path", dst_path}, {"format", format}, {"width", w}, {"height", h},
-                          {"bytes", fs::file_size(dst_path)}, {"strength", strength},
+      nlohmann::json r = {{"path", dst_path},
+                          {"format", format},
+                          {"width", w},
+                          {"height", h},
+                          {"bytes", fs::file_size(dst_path)},
+                          {"strength", strength},
                           {"metadata", written}};
       if (thumb_max) r["thumbnail"] = {{"path", thumb_path}, {"width", tn.w}, {"height", tn.h}};
       std::string d = dump_json(r);
