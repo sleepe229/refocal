@@ -597,6 +597,76 @@ static void test_pause_resume(Session& se, const std::string& in) {
   CHECK(enh_job_resume(se.s, "/etc", &j2) != ENH_OK);
 }
 
+// NFR-THERM-002: critical holds the job before its next tile until fair; serious throttles.
+static void test_thermal(Session& se, const std::string& in) {
+  auto warnings = [](Collector& c) {
+    std::vector<std::string> w;
+    std::lock_guard lk(c.mu);
+    for (auto& e : c.evs)
+      if (e.type == ENH_EV_WARNING) w.push_back(e.payload.value("code", ""));
+    return w;
+  };
+  auto progress = [](Collector& c) {
+    std::lock_guard lk(c.mu);
+    int64_t done = -1;
+    for (auto& e : c.evs)
+      if (e.type == ENH_EV_PROGRESS) done = e.done;
+    return done;
+  };
+  {
+    Collector c;
+    g_col = &c;
+    enh_set_thermal(se.s, 4);
+    enh_job* j = nullptr;
+    std::string r = slow_req("th_crit", in).dump();
+    CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
+    CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
+    {
+      std::unique_lock lk(c.mu);
+      c.cv.wait_for(lk, std::chrono::seconds(30), [&] {
+        for (auto& e : c.evs)
+          if (e.type == ENH_EV_WARNING && e.payload.value("code", "") == "thermal_wait") return true;
+        return false;
+      });
+    }
+    const int64_t held = progress(c);
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    CHECK(progress(c) == held);  // no tile while critical
+    CHECK(c.terminals == 0);
+    enh_set_thermal(se.s, 2);  // fair
+    CHECK(wait_terminal(c));
+    CHECK(enh_job_status(j) == ENH_OK);
+    enh_job_destroy(j);
+    check_invariants(c);
+    auto w = warnings(c);
+    CHECK(std::count(w.begin(), w.end(), "thermal_wait") == 1);
+    CHECK(std::count(w.begin(), w.end(), "thermal_resumed") == 1);
+  }
+  {  // waiting does not block pause
+    Collector c;
+    g_col = &c;
+    enh_set_thermal(se.s, 4);
+    enh_job* j = nullptr;
+    std::string r = slow_req("th_pause", in).dump();
+    CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
+    CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
+    CHECK(wait_for(c, ENH_EV_WARNING, 30));
+    enh_job_pause(j);
+    CHECK(wait_terminal(c, 5));
+    CHECK(enh_job_status(j) == ENH_E_PAUSED);
+    enh_job_destroy(j);
+  }
+  {
+    Collector c;
+    enh_set_thermal(se.s, 3);  // serious
+    CHECK(run_job(se, req("th_serious", in, "nearest4"), c).status == ENH_OK);
+    auto w = warnings(c);
+    CHECK(std::count(w.begin(), w.end(), "thermal_throttle") == 1);
+    CHECK(std::count(w.begin(), w.end(), "thermal_wait") == 0);
+  }
+  enh_set_thermal(se.s, 0);
+}
+
 static void test_needs_user(Session& se) {
   std::string in = make_jpeg("nu.jpg", 200, 150);
   for (bool cancel : {false, true}) {
@@ -682,6 +752,7 @@ int main(int argc, char** argv) {
     // Large enough that the job cannot finish before the cancel, even with AVX kernels.
     test_cancel(se, make_jpeg("slower.jpg", 2048, 1536));
     test_pause_resume(se, slow);
+    test_thermal(se, slow);
     test_needs_user(se);
     test_errors(se);
   }

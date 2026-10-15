@@ -603,6 +603,27 @@ class RefocalPlatformApi {
     _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 
+  /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
+  /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
+  Future<int> thermalLevel() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.thermalLevel$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as int;
+  }
+
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").
   Future<void> stopProcessing(String? finishedText) async {
@@ -630,6 +651,9 @@ abstract class RefocalPlatformEvents {
 
   /// Images were shared to the running app; fetch them with takeSharedImages().
   void onSharedImage();
+
+  /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
+  void onThermalLevel(int level);
 
   static void setUp(
     RefocalPlatformEvents? api, {
@@ -674,6 +698,31 @@ abstract class RefocalPlatformEvents {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           try {
             api.onSharedImage();
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onThermalLevel$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final int arg_level = args[0]! as int;
+          try {
+            api.onThermalLevel(arg_level);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

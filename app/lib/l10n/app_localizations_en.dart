@@ -754,4 +754,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String sizeGb(String n) {
     return '$n GB';
   }
+
+  @override
+  String get noteThermalWait => 'The phone is hot: waiting for it to cool down.';
+
+  @override
+  String get noteThermalThrottle => 'The phone is warm: processing more slowly.';
 }

@@ -79,6 +79,7 @@ class NcnnBackend final : public InferenceBackend {
     ncnn::Option& o = net_.opt;
     o.lightmode = true;
     o.num_threads = cfg_.threads > 0 ? cfg_.threads : std::max(1, ncnn::get_big_cpu_count());
+    loaded_threads_ = o.num_threads;
     o.use_bf16_storage = false;
     if (cfg_.kind == BackendKind::vulkan) {
 #if NCNN_VULKAN
@@ -104,10 +105,15 @@ class NcnnBackend final : public InferenceBackend {
     out_name_ = net_.output_names().front();
   }
 
+  void set_threads(int n) override { threads_ = n; }
+  int threads() const override { return loaded_threads_; }
+
   void run(const ncnn::Mat& in, ncnn::Mat& out) override {
 #ifdef ENH_FAULT_INJECTION
     const bool garbage = inject_fault();
 #endif
+    // The extractor copies net_.opt; layers read num_threads from it in forward().
+    net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
     ncnn::Extractor ex = net_.create_extractor();
     if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
     if (ex.extract(out_name_.c_str(), out) != 0 || out.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
@@ -129,6 +135,8 @@ class NcnnBackend final : public InferenceBackend {
   }
 
  private:
+  int threads_ = 0;  // the inference thread only (set_threads and run)
+  int loaded_threads_ = 1;
 #ifdef ENH_FAULT_INJECTION
   // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend|garbage>:<n> injects a fault
   // into the n-th run (0-based; "garbage": every run from n on) of that backend.

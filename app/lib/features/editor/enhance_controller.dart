@@ -197,6 +197,16 @@ class EnhanceController extends Notifier<EnhanceState> {
             note = l10n.noteAlphaFlattened;
           case WarningEvent(code: 'animation_first_frame'):
             note = l10n.noteFirstFrame;
+          case WarningEvent(code: 'thermal_wait'):
+            AppLog.info('thermal: waiting');
+            note = l10n.noteThermalWait;
+            state = Running(stage, progress, null, note: note);
+          case WarningEvent(code: 'thermal_resumed'):
+            note = null;
+            state = Running(stage, progress, null);
+          case WarningEvent(code: 'thermal_throttle'):
+            AppLog.info('thermal: throttled');
+            note = l10n.noteThermalThrottle;
           case NeedsUserEvent():
             state = AskUser(e);
           default:

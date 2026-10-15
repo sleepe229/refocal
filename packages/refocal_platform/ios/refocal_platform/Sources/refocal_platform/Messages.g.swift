@@ -483,6 +483,9 @@ protocol RefocalPlatformApi {
   func startProcessing(texts: ProcessingTexts) throws
   /// [percent] 0..100, or -1 for indeterminate.
   func updateProcessing(text: String, percent: Int64) throws
+  /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
+  /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
+  func thermalLevel() throws -> Int64
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").
   func stopProcessing(finishedText: String?) throws
@@ -674,6 +677,21 @@ class RefocalPlatformApiSetup {
     } else {
       updateProcessingChannel.setMessageHandler(nil)
     }
+    /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
+    /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
+    let thermalLevelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.thermalLevel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      thermalLevelChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.thermalLevel()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      thermalLevelChannel.setMessageHandler(nil)
+    }
     /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
     /// app is not in the foreground (e.g. "Photo ready").
     let stopProcessingChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
@@ -703,6 +721,8 @@ protocol RefocalPlatformEventsProtocol {
   @MainActor func onProcessingAction(action actionArg: String) async throws
   /// Images were shared to the running app; fetch them with takeSharedImages().
   @MainActor func onSharedImage() async throws
+  /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
+  @MainActor func onThermalLevel(level levelArg: Int64) async throws
 }
 class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
@@ -742,6 +762,27 @@ class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
       let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage\(messageChannelSuffix)"
       let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
       channel.sendMessage(nil) { response in
+        guard let listResponse = response as? [Any?] else {
+          continuation.resume(throwing: createConnectionError(withChannelName: channelName))
+          return
+        }
+        if listResponse.count > 1 {
+          let code: String = listResponse[0] as! String
+          let message: String? = nilOrValue(listResponse[1])
+          let details: String? = nilOrValue(listResponse[2])
+          continuation.resume(throwing: PigeonError(code: code, message: message, details: details))
+        } else {
+          continuation.resume()
+        }
+      }
+    }
+  }
+  /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
+  @MainActor func onThermalLevel(level levelArg: Int64) async throws {
+    return try await withCheckedThrowingContinuation { continuation in
+      let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onThermalLevel\(messageChannelSuffix)"
+      let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+      channel.sendMessage([levelArg] as [Any?]) { response in
         guard let listResponse = response as? [Any?] else {
           continuation.resume(throwing: createConnectionError(withChannelName: channelName))
           return

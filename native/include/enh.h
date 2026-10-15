@@ -130,7 +130,11 @@ enh_status enh_analyze(enh_session* s, const char* input_path, char** out_json);
 /* Runtime signals from the platform layer */
 void enh_set_memory_pressure(enh_session* s, int32_t level); /* 0 none .. 3 critical */
 void enh_set_gpu_allowed(enh_session* s, int32_t allowed);   /* iOS lifecycle gate */
-void enh_set_thermal(enh_session* s, int32_t level);         /* 0 nominal .. 4 critical */
+/* Thermal level (NFR-THERM-002): 0 nominal, 1 light, 2 fair, 3 serious, 4 critical (Android
+ * PowerManager NONE/LIGHT/MODERATE/SEVERE/CRITICAL+; iOS nominal 0, fair 2, serious 3, critical 4).
+ * serious: a pause between tiles and half the CPU threads; critical: the job waits before its next
+ * tile until the level is fair or lower (WARNING "thermal_wait", then "thermal_resumed"). */
+void enh_set_thermal(enh_session* s, int32_t level);
 
 /* ---- jobs ---- */
 enh_status enh_job_create(enh_session* s, const char* request_json, enh_job** out);

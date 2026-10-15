@@ -38,6 +38,10 @@ class InferenceBackend {
   // Throws enh::Error: ENH_E_MODEL (load), ENH_E_BACKEND (run), ENH_E_NUMERIC (NaN/Inf output).
   virtual void load(const ModelInfo& m) = 0;
   virtual void run(const ncnn::Mat& in, ncnn::Mat& out) = 0;
+  // CPU threads of the next runs (thermal throttling, NFR-THERM-002); 0: as loaded.
+  virtual void set_threads(int n) = 0;
+  // CPU threads it was loaded with.
+  virtual int threads() const = 0;
 };
 
 std::unique_ptr<InferenceBackend> make_ncnn_backend(const BackendConfig& cfg);
