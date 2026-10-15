@@ -533,5 +533,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "noteThermalWait": "The phone is hot: waiting for it to cool down.",
+  "noteThermalThrottle": "The phone is warm: processing more slowly."
 }

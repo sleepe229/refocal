@@ -110,6 +110,8 @@ class EngineQueueRunner implements QueueJobRunner {
           }
         case FallbackEvent():
           AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
+        case WarningEvent(code: final c) when c.startsWith('thermal_'):
+          AppLog.info('queue: $c');
         default:
       }
     });

@@ -126,6 +126,10 @@ class BoundedQueue {
   bool closed_ = false;
 };
 
+// enh_set_thermal levels (enh.h).
+constexpr int kThermalFair = 2, kThermalSerious = 3, kThermalCritical = 4;
+constexpr int kThermalPauseMs = 300;  // NFR-THERM-002: 200..500 ms between tiles at serious
+
 struct Stopped {};  // unwinds the runner on cancel/pause outside the tile pipeline
 
 struct TileIn {
@@ -202,6 +206,35 @@ struct enh_job {
     answered = false;
     return answer;
   }
+
+  // NFR-THERM-002, before each tile on the inference thread. serious: half the CPU threads
+  // and a pause between tiles; critical: wait until fair or lower. False: the job was stopped
+  // while waiting.
+  bool thermal_gate(InferenceBackend& be, int64_t done, int64_t total) {
+    int level = s->thermal.load();
+    if (level >= kThermalCritical) {
+      sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_wait"}});
+      while (s->thermal.load() > kThermalFair) {
+        if (stop()) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_resumed"}});
+      level = s->thermal.load();
+    }
+    const bool hot = level >= kThermalSerious;
+    if (hot != throttled) {
+      throttled = hot;
+      const int n = hot ? std::max(1, (be.threads() + 1) / 2) : 0;
+      be.set_threads(n);
+      if (hot) sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_throttle"}});
+    }
+    if (hot) {
+      for (int i = 0; i < kThermalPauseMs / 50 && !stop(); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return !stop();
+  }
+
+  bool throttled = false;  // inference thread only
 
   void run();
   void run_impl(nlohmann::json& result);
@@ -548,6 +581,7 @@ void enh_job::run_impl(nlohmann::json& result) {
         request_stop();
         break;
       }
+      if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
       TileOut o{t->band, t->j, {}};
       for (;;) {
         try {
@@ -567,6 +601,7 @@ void enh_job::run_impl(nlohmann::json& result) {
           be.reset();
           be = make_ncnn_backend(ladder[rung]);
           be->load(model);
+          throttled = false;  // a new backend runs unthrottled: the next gate applies it again
         }
       }
       const int S = g.model_scale;

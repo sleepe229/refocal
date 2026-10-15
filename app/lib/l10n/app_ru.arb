@@ -213,5 +213,7 @@
   "storageModelsHint": "встроены в приложение",
   "sizeKb": "{n} КБ",
   "sizeMb": "{n} МБ",
-  "sizeGb": "{n} ГБ"
+  "sizeGb": "{n} ГБ",
+  "noteThermalWait": "Телефон перегрелся: ждём, пока остынет.",
+  "noteThermalThrottle": "Телефон нагрелся: обработка идёт медленнее."
 }

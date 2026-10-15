@@ -14,6 +14,7 @@ import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.ext.SdkExtensions
 import android.provider.MediaStore
 import android.provider.OpenableColumns
@@ -59,13 +60,40 @@ class RefocalPlatformPlugin :
     RefocalPlatformApi.setUp(b.binaryMessenger, this)
     events = RefocalPlatformEvents(b.binaryMessenger)
     instance = this
+    context.getSystemService(PowerManager::class.java)?.addThermalStatusListener(context.mainExecutor, thermalListener)
   }
 
   override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
+    context.getSystemService(PowerManager::class.java)?.removeThermalStatusListener(thermalListener)
     RefocalPlatformApi.setUp(b.binaryMessenger, null)
     events = null
     if (instance === this) instance = null
   }
+
+  override fun thermalLevel(): Long =
+      levelOf(context.getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE)
+
+  /** NFR-THERM-002: PowerManager's status as the core's level (enh.h enh_set_thermal). */
+  private fun levelOf(status: Int): Long =
+      when (status) {
+        PowerManager.THERMAL_STATUS_NONE -> 0L
+        PowerManager.THERMAL_STATUS_LIGHT -> 1L
+        PowerManager.THERMAL_STATUS_MODERATE -> 2L
+        PowerManager.THERMAL_STATUS_SEVERE -> 3L
+        else -> 4L // CRITICAL, EMERGENCY, SHUTDOWN
+      }
+
+  private val thermalListener =
+      PowerManager.OnThermalStatusChangedListener { status ->
+        val level = levelOf(status)
+        main.launch {
+          try {
+            events?.onThermalLevel(level)
+          } catch (_: Exception) {
+            // Dart side not ready: it reads thermalLevel() when it opens the core
+          }
+        }
+      }
 
   override fun onAttachedToActivity(b: ActivityPluginBinding) {
     binding = b

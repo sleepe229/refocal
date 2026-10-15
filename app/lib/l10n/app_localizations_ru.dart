@@ -754,4 +754,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String sizeGb(String n) {
     return '$n ГБ';
   }
+
+  @override
+  String get noteThermalWait => 'Телефон перегрелся: ждём, пока остынет.';
+
+  @override
+  String get noteThermalThrottle => 'Телефон нагрелся: обработка идёт медленнее.';
 }

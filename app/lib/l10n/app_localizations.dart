@@ -1376,6 +1376,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{n} GB'**
   String sizeGb(String n);
+
+  /// No description provided for @noteThermalWait.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone is hot: waiting for it to cool down.'**
+  String get noteThermalWait;
+
+  /// No description provided for @noteThermalThrottle.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone is warm: processing more slowly.'**
+  String get noteThermalThrottle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
