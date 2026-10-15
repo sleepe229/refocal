@@ -9,11 +9,14 @@
 #include <cstring>
 #include <new>
 #include <string>
+#include <vector>
 
 #include "job/session.hpp"
 #include "json_util.hpp"
 #include "probe.hpp"
+#include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/integrity.hpp"
 #include "util/log.hpp"
 
 #ifndef ENH_VERSION_STRING
@@ -113,7 +116,36 @@ void enh_set_thermal(enh_session* s, int32_t level) {
   if (s) s->thermal = level;
 }
 
-enh_status enh_verify_file(const char*, const char*) { return ENH_E_INTERNAL; }
-enh_status enh_verify_minisign(const char*, const char*, const char*) { return ENH_E_INTERNAL; }
+enh_status enh_verify_file(const char* path, const char* sha256_hex) {
+  if (!path || !sha256_hex) return ENH_E_INVALID;
+  try {
+    enh::verify_file_sha256(path, sha256_hex);
+    return ENH_OK;
+  } catch (const enh::Error& e) {
+    return e.status();
+  }
+}
+
+enh_status enh_verify_minisign(const char* msg_path, const char* sig_path,
+                               const char* pubkeys_csv) {
+  if (!msg_path || !sig_path || !pubkeys_csv) return ENH_E_INVALID;
+  try {
+    std::vector<enh::MinisignKey> keys;
+    std::string csv = pubkeys_csv;
+    for (size_t i = 0; i <= csv.size();) {
+      size_t j = csv.find(',', i);
+      if (j == std::string::npos) j = csv.size();
+      if (j > i) keys.push_back(enh::parse_minisign_key(csv.substr(i, j - i)));
+      i = j + 1;
+    }
+    if (keys.empty()) return ENH_E_INVALID;
+    enh::verify_minisign(msg_path, enh::fs::read_text(sig_path), keys);
+    return ENH_OK;
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
 
 }  // extern "C"

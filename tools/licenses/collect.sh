@@ -17,6 +17,7 @@ entries = [
     ("libwebp", "native/third_party/libwebp/COPYING"),
     ("libwebp (patent grant)", "native/third_party/libwebp/PATENTS"),
     ("nlohmann/json", "native/third_party/json/LICENSE.MIT"),
+    ("Monocypher", "native/third_party/monocypher/LICENCE.md"),
     ("Dart API DL", "native/third_party/dart_api_dl/LICENSE"),
     ("SQLite", "tools/licenses/upstream/SQLite.LICENSE"),
     ("Real-ESRGAN (model weights: sr.general-x4v3)", "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
