@@ -21,6 +21,7 @@ entries = [
     ("Dart API DL", "native/third_party/dart_api_dl/LICENSE"),
     ("SQLite", "tools/licenses/upstream/SQLite.LICENSE"),
     ("Real-ESRGAN (model weights: sr.general-x4v3)", "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
+    ("YuNet (model weights: det.yunet-2023mar)", "tools/licenses/upstream/YuNet.LICENSE"),
 ]
 out = []
 for name, path in entries:

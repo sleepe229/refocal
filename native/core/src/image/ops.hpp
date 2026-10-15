@@ -17,6 +17,9 @@ Rgb8 apply_orientation(Rgb8 src, int orientation);
 void area_down(const uint8_t* src, int w, int rows, int f, uint8_t* dst);
 // Whole-image area downscale; odd remainder rows/cols are dropped (as in S2 "fast 2x").
 Rgb8 area_down(const Rgb8& src, int f);
+// Downscale to w x h (each <= the source side) by area averaging with fractional pixel
+// coverage, separably: the mean of the source area each output pixel covers.
+Rgb8 resize_area(const Rgb8& src, int w, int h);
 
 // Area-accumulated preview (<= max_side px), fed band by band (S2).
 class PreviewAccumulator {
