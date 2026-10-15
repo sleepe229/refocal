@@ -39,9 +39,15 @@ class JobEntry {
 }
 
 class JobStore {
-  JobStore({required this.jobsDir, required this.inboxDir});
+  JobStore({required this.jobsDir, required this.inboxDir, this.otherInputs = _none});
 
   final String jobsDir, inboxDir;
+
+  /// Inbox copies referred to outside jobs/ (the queue's photos not started yet). With
+  /// deduplication (FR-IMP-004) one copy may serve the editor and the queue at once.
+  final Future<Set<String>> Function() otherInputs;
+
+  static Future<Set<String>> _none() async => const {};
 
   /// Jobs and inbox copies are deleted after this long (07 §1).
   static const maxAge = Duration(days: 7);
@@ -106,6 +112,7 @@ class JobStore {
   Future<void> releaseInput(String input, {Set<String> inUse = const {}}) async {
     if (!_isInInbox(input) || inUse.contains(input)) return;
     if ((await list()).any((j) => j.input == input)) return;
+    if ((await otherInputs()).contains(input)) return;
     final f = File(input);
     if (await f.exists()) await f.delete();
   }

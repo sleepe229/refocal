@@ -93,10 +93,17 @@ class QueueRepository {
             );
         final ids = <String>[];
         for (final input in inputs) {
-          final assetId = newId(), id = newId();
-          await _db
-              .into(_db.assets)
-              .insert(AssetsCompanion.insert(id: assetId, inboxPath: input, createdAt: at));
+          // One copy per content (FR-IMP-004): the same photo again, or one the history or
+          // another queue job already has, shares its asset.
+          final existing = await (_db.select(
+            _db.assets,
+          )..where((a) => a.inboxPath.equals(input))).getSingleOrNull();
+          final assetId = existing?.id ?? newId(), id = newId();
+          if (existing == null) {
+            await _db
+                .into(_db.assets)
+                .insert(AssetsCompanion.insert(id: assetId, inboxPath: input, createdAt: at));
+          }
           await _db
               .into(_db.queueJobs)
               .insert(
