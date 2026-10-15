@@ -457,7 +457,7 @@ static void test_export_metadata(Session& se) {
                           1, 0,                                                // GPS: 1 entry
                           0, 0, 1, 0, 4, 0, 0, 0, 2, 3, 0, 0,                  // GPSVersionID
                           0, 0, 0, 0};
-  JpegMeta in_meta;
+  OutputMeta in_meta;
   in_meta.exif.assign(tiff, tiff + sizeof tiff);
   in_meta.icc = icc_profile();
   std::string in = fs::join(g_root, "meta_in.jpg");

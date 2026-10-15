@@ -108,14 +108,14 @@ struct PngWriter::Impl {
   png_infop info = nullptr;
   int w = 0;
   bool finished = false;
-  JpegMeta meta;
+  OutputMeta meta;
   ~Impl() {
     if (png) png_destroy_write_struct(&png, info ? &info : nullptr);
     if (f) std::fclose(f);
   }
 };
 
-PngWriter::PngWriter(const std::string& path, int w, int h, const JpegMeta* meta)
+PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* meta)
     : impl_(std::make_unique<Impl>()) {
   Impl& m = *impl_;
   if (meta) m.meta = *meta;

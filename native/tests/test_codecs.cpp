@@ -426,7 +426,7 @@ static void test_jpeg_meta(const std::string& dir) {
   img.w = 16;
   img.h = 8;
   img.px.assign(16 * 8 * 3, 90);
-  JpegMeta meta;
+  OutputMeta meta;
   meta.exif = exif_rewrite(camera_exif(false).data(), camera_exif(false).size(), {16, 8, false});
   meta.xmp = ai_marker_xmp("Refocal test");
   meta.icc = fake_icc();
@@ -455,7 +455,7 @@ static void test_prefixed_exif(const std::string& dir) {
   Bytes prefixed = {'E', 'x', 'i', 'f', 0, 0};
   const Bytes cam = camera_exif(true);
   prefixed.insert(prefixed.end(), cam.begin(), cam.end());
-  JpegMeta md;
+  OutputMeta md;
   md.exif = prefixed;
   std::vector<uint8_t> px(16 * 8 * 3, 128);
   const std::string png = fs::join(dir, "prefixed.png"), webp = fs::join(dir, "prefixed.webp");

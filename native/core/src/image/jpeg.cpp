@@ -135,7 +135,7 @@ struct JpegWriter::Impl {
   }
 };
 
-JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const JpegMeta* meta)
+JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const OutputMeta* meta)
     : impl_(std::make_unique<Impl>()) {
   Impl& m = *impl_;
   m.f = std::fopen(path.c_str(), "wb");

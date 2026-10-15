@@ -130,12 +130,12 @@ struct WebpWriter::Impl {
   std::string path;
   int w = 0, h = 0, quality = 0, y = 0;
   bool lossless = false, finished = false;
-  JpegMeta meta;
+  OutputMeta meta;
   std::vector<uint8_t> rgb;  // libwebp encodes a whole picture
 };
 
 WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
-                       const JpegMeta* meta)
+                       const OutputMeta* meta)
     : impl_(std::make_unique<Impl>()) {
   if (w > kWebpMaxSide || h > kWebpMaxSide) fail(ENH_E_LIMIT, "WebP is limited to 16383 px per side");
   if (double(w) * h > (lossless ? kWebpLosslessMaxPixels : kWebpMaxPixels)) {
@@ -205,7 +205,7 @@ void WebpWriter::finish() {
 
   const uint8_t* bytes = mw.mem;
   size_t size = mw.size;
-  const JpegMeta& md = m.meta;
+  const OutputMeta& md = m.meta;
   if (!md.exif.empty() || !md.icc.empty() || !md.xmp.empty()) {
     const WebPData bits{mw.mem, mw.size};
     out.mux = WebPMuxCreate(&bits, 0);
