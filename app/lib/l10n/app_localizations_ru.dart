@@ -899,4 +899,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String noteFacesFound(int count) {
     return 'Найдено лиц: $count';
   }
+
+  @override
+  String get regionAll => 'Всё фото';
+
+  @override
+  String get regionFaces => 'Только лица';
 }

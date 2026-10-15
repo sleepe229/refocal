@@ -1628,6 +1628,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Faces found: {count}'**
   String noteFacesFound(int count);
+
+  /// No description provided for @regionAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Whole photo'**
+  String get regionAll;
+
+  /// No description provided for @regionFaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Only faces'**
+  String get regionFaces;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

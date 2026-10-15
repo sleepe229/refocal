@@ -13,6 +13,7 @@ class JobRequest {
     required this.srModel,
     this.faceModel,
     this.faceStrength = Recipe.defaultFaceStrength,
+    this.facesOnly = false,
   }) : id = id ?? 'job-${newId()}' {
     if (!_id.hasMatch(this.id)) throw ArgumentError.value(this.id, 'id', 'not a job id');
     recipe(); // the same parameter rules as a recipe
@@ -27,6 +28,7 @@ class JobRequest {
     srModel: recipe.srModel,
     faceModel: recipe.faceModel,
     faceStrength: recipe.faceStrength,
+    facesOnly: recipe.facesOnly,
   );
 
   /// The job directory name under AppSupport/jobs (`[A-Za-z0-9_-]{1,64}` in the core).
@@ -43,6 +45,9 @@ class JobRequest {
   final String? faceModel;
   final double faceStrength;
 
+  /// Region "Faces" (FR-FACE-006): `background: lanczos` in the core.
+  final bool facesOnly;
+
   static final _id = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
   /// The recipe this request runs, at [strength] (not stored in the request).
@@ -53,6 +58,7 @@ class JobRequest {
     strength: strength,
     faceModel: faceModel,
     faceStrength: faceStrength,
+    facesOnly: facesOnly,
   );
 
   static const schemaVersion = 1;
@@ -64,7 +70,11 @@ class JobRequest {
     'sr_model': srModel,
     'scale': scale,
     'fast2': fast2,
-    if (faceModel case final f?) ...{'face_model': f, 'face_strength': faceStrength},
+    if (faceModel case final f?) ...{
+      'face_model': f,
+      'face_strength': faceStrength,
+      if (facesOnly) 'background': 'lanczos',
+    },
   };
 
   /// Reads request.json as the core rewrote it (it adds its own fields, e.g. `tile`, and may
@@ -93,6 +103,7 @@ class JobRequest {
           // The core writes "" for no face restoration.
           faceModel: face == null || face == '' ? null : face as String,
           faceStrength: faceStrength.toDouble(),
+          facesOnly: j['background'] == 'lanczos',
         );
       } on ArgumentError catch (e) {
         throw FormatException('${e.message}', j);

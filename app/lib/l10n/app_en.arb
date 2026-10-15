@@ -630,5 +630,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "regionAll": "Whole photo",
+  "regionFaces": "Only faces"
 }

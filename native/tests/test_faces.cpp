@@ -292,6 +292,37 @@ TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4
   CHECK(enh_job_status(j) == ENH_OK);
   CHECK(seen.faces == 1);
   enh_job_destroy(j);
+
+  // Region Faces (FR-FACE-006): the background is a Lanczos upscale, the SR model does not run.
+  q["job_id"] = "faces_only";
+  q["background"] = "lanczos";
+  q["fast2"] = false;
+  const std::string r2 = q.dump();
+  CHECK(enh_job_create(s, r2.c_str(), &j) == ENH_OK);
+  seen = {};
+  CHECK(enh_job_start(
+            j,
+            [](int64_t, int32_t type, int32_t, int64_t, int64_t, char* p) {
+              const auto e = nlohmann::json::parse(p);
+              enh_free(p);
+              if (type == ENH_EV_WARNING && e.value("code", "") == "faces_found")
+                g->faces = e["count"];
+            },
+            2) == ENH_OK);
+  for (int i = 0; i < 1200 && enh_job_status(j) < 0; ++i) usleep(100000);
+  CHECK(enh_job_status(j) == ENH_OK);
+  CHECK(seen.faces == 1);
+  enh_job_destroy(j);
+  const auto res = nlohmann::json::parse(fs::read_text(fs::join(g_work, "faces_only/result.json")));
+  CHECK(res["backend"] == "lanczos");
+  CHECK(res["width"] == 675 * 2 && res["height"] == 900 * 2);
+
+  // Lanczos background without faces is not a region.
+  nlohmann::json bad = q;
+  bad.erase("face_model");
+  bad["job_id"] = "bad";
+  const std::string r3 = bad.dump();
+  CHECK(enh_job_create(s, r3.c_str(), &j) == ENH_E_INVALID);
   enh_session_destroy(s);
 }
 
