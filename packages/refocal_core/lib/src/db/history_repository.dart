@@ -133,10 +133,12 @@ class HistoryRepository {
         (rows) => [for (final r in rows) _entry(r)],
       );
 
-  Future<HistoryEntry?> get(String id) async {
-    final r = await (_joined()..where(_db.history.id.equals(id))).getSingleOrNull();
-    return r == null ? null : _entry(r);
-  }
+  Future<HistoryEntry?> get(String id) => watch(id).first;
+
+  /// One entry; null once it is deleted.
+  Stream<HistoryEntry?> watch(String id) => (_joined()..where(_db.history.id.equals(id)))
+      .watchSingleOrNull()
+      .map((r) => r == null ? null : _entry(r));
 
   /// Preview paths of all entries (the startup sweep deletes files no entry refers to).
   Future<Set<String>> previewPaths() async {

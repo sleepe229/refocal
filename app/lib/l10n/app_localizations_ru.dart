@@ -553,4 +553,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportShareTitle => 'Журнал Refocal';
+
+  @override
+  String get errorStorage => 'не удалось прочитать или записать файл';
+
+  @override
+  String get errorSystem => 'система отклонила запрос';
+
+  @override
+  String get errorUnexpected => 'непредвиденная ошибка (подробности в журнале)';
 }

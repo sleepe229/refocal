@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +9,7 @@ import '../../bootstrap/engine.dart';
 import '../../bootstrap/job_store.dart';
 import '../../bootstrap/processing.dart';
 import '../../l10n/app_localizations.dart';
+import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
 import '../editor/editor_page.dart';
 
@@ -66,22 +66,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   });
 
   Future<void> _open(Future<String?> Function() take) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     setState(() => _picking = true);
     String? path;
     try {
       path = await take();
-    } on PlatformException catch (e) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        final text = e.code == 'limit' ? l10n.failLimit : l10n.homeOpenFailed(e.message ?? e.code);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-      }
-    } on Exception catch (e) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.homeOpenFailed('$e'))));
-      }
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'open photo', e, stack, l10n.homeOpenFailed);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -89,13 +81,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _discard(JobEntry j) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     final engine = await ref.read(engineProvider.future);
     try {
-      engine.jobs.discard(j.dir);
-    } on FileSystemException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      await engine.jobs.discard(j.dir);
+    } on FileSystemException catch (e, stack) {
+      showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
     }
     ref.invalidate(jobListProvider);
   }
@@ -131,7 +123,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(l10n.homeCoreUnavailable('$e')),
+            child: Text(l10n.homeCoreUnavailable(errorReason(l10n, e))),
           ),
         ),
         data: (e) => ListView(
@@ -190,7 +182,7 @@ class _JobTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final scale = scaleLabel(l10n, job.scale, fast2: job.fast2);
+    final scale = scaleLabel(l10n, job.request.scale, fast2: job.request.fast2);
     final subtitle = job.finished
         ? l10n.jobReadyNotSaved(scale)
         : job.inputExists

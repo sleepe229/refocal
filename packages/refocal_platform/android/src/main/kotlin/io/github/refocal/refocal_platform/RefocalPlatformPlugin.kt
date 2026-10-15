@@ -23,6 +23,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -241,7 +242,8 @@ class RefocalPlatformPlugin :
       "image/avif" -> "avif"
       else -> "img"
     }
-    val dst = File(inbox, "in-${System.currentTimeMillis()}.$ext")
+    // Random, not a timestamp: several images arrive within the same millisecond (multi-pick).
+    val dst = File(inbox, "in-${UUID.randomUUID()}.$ext")
     val tmp = File(inbox, dst.name + ".part")
     try {
       (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->

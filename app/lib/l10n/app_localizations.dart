@@ -1052,6 +1052,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share the Refocal log'**
   String get reportShareTitle;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'a file could not be read or written'**
+  String get errorStorage;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'the system refused the request'**
+  String get errorSystem;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'unexpected error (details are in the log)'**
+  String get errorUnexpected;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

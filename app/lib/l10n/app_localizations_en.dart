@@ -553,4 +553,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportShareTitle => 'Share the Refocal log';
+
+  @override
+  String get errorStorage => 'a file could not be read or written';
+
+  @override
+  String get errorSystem => 'the system refused the request';
+
+  @override
+  String get errorUnexpected => 'unexpected error (details are in the log)';
 }

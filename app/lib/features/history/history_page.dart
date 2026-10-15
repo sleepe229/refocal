@@ -9,6 +9,7 @@ import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
+import '../../ui_kit/errors.dart';
 
 /// Saved results with their recipes (FR-HIST-001, 06 §2 `/history`).
 class HistoryPage extends ConsumerWidget {
@@ -80,8 +81,8 @@ class HistoryPage extends ConsumerWidget {
     if (ok != true) return;
     try {
       await (await ref.read(historyStoreProvider.future)).clear();
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.historyDeleteFailed('$e'))));
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'clear history', e, stack, l10n.historyDeleteFailed);
     }
   }
 }

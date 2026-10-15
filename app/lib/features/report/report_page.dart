@@ -32,7 +32,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   Future<void> _share(List<String> lines) async {
     final l10n = AppLocalizations.of(context);
     final engine = await ref.read(engineProvider.future);
-    final dir = Directory('${engine.dirs.cache}/share')..createSync(recursive: true);
+    final dir = await Directory('${engine.dirs.cache}/share').create(recursive: true);
     final file = File('${dir.path}/refocal-log.txt');
     await file.writeAsString('Refocal $appVersion\n${lines.join('\n')}\n', flush: true);
     await ref.read(platformApiProvider).shareFile(file.path, 'text/plain', l10n.reportShareTitle);

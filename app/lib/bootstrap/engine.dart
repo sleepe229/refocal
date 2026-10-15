@@ -44,7 +44,10 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final ready = await _installBundledModel(models);
   final native = RefocalNative.open();
   try {
-    AppLog.open(native, '${dirs.support}/logs');
+    final logs = await Directory('${dirs.support}/logs').create(recursive: true);
+    AppLog.open(native, logs.path);
+  } on FileSystemException catch (e) {
+    debugPrint('log file unavailable: ${e.message}'); // the app works without it
   } on EnhException catch (e) {
     debugPrint('log file unavailable: ${e.status.name}'); // the app works without it
   }
@@ -55,9 +58,9 @@ final engineProvider = FutureProvider<Engine>((ref) async {
     'previous exit ${previousExit ?? 'unknown'}, model ${ready ? 'ok' : 'missing'}',
   );
   try {
-    jobStoreOf(dirs).sweep(); // once per process: no screen holds an input yet
-  } on FileSystemException {
-    // jobs/ or inbox/ could not be listed: the sweep is retried at the next start
+    await jobStoreOf(dirs).sweep(); // once per process: no screen holds an input yet
+  } on FileSystemException catch (e) {
+    AppLog.warn('startup sweep: ${e.message}'); // retried at the next start
   }
   final session = native.openSession(
     modelsDir: models,
@@ -72,9 +75,10 @@ final engineProvider = FutureProvider<Engine>((ref) async {
 
 Future<bool> _installBundledModel(String modelsDir) async {
   final dir = Directory('$modelsDir/$bundledSrModel');
-  if (_modelFiles.every((f) => File('${dir.path}/$f').existsSync())) return true;
+  final present = await Future.wait(_modelFiles.map((f) => File('${dir.path}/$f').exists()));
+  if (present.every((p) => p)) return true;
   try {
-    dir.createSync(recursive: true);
+    await dir.create(recursive: true);
     for (final f in _modelFiles) {
       final data = await rootBundle.load('assets/models/$bundledSrModel/$f');
       final tmp = File('${dir.path}/$f.part');

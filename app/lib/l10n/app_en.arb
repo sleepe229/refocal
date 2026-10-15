@@ -339,5 +339,17 @@
   "reportIntro": "This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.",
   "reportEmpty": "The log is empty.",
   "reportShare": "Share the log",
-  "reportShareTitle": "Share the Refocal log"
+  "reportShareTitle": "Share the Refocal log",
+  "errorStorage": "a file could not be read or written",
+  "@errorStorage": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorSystem": "the system refused the request",
+  "@errorSystem": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorUnexpected": "unexpected error (details are in the log)",
+  "@errorUnexpected": {
+    "description": "Reason inserted into an error message ({error})."
+  }
 }

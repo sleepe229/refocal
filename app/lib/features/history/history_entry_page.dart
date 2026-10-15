@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/files.dart';
 import '../../bootstrap/history.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
+import '../../ui_kit/errors.dart';
 import '../editor/editor_page.dart';
 import 'history_page.dart';
 
@@ -21,13 +23,13 @@ class HistoryEntryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final store = ref.watch(historyStoreProvider).value;
-    final entries = ref.watch(historyProvider).value;
-    final e = entries?.where((e) => e.id == id).firstOrNull;
+    final entry = ref.watch(historyEntryProvider(id));
+    final e = entry.value;
     return Scaffold(
       appBar: AppBar(
         title: Text(e == null ? l10n.historyTitle : formatDateTime(context, e.createdAt)),
       ),
-      body: store == null || entries == null
+      body: store == null || !entry.hasValue
           ? const Center(child: CircularProgressIndicator())
           : e == null
           ? Center(child: Text(l10n.historyEntryGone))
@@ -45,7 +47,7 @@ class HistoryEntryPage extends ConsumerWidget {
     final r = e.recipe;
     final out = r.output!;
     final input = store.absolute(e.inputPath);
-    final inputExists = File(input).existsSync();
+    final inputExists = ref.watch(fileExistsProvider(input)).value ?? false;
     final canRun = inputExists && r.srModel == bundledSrModel;
     final mono = Theme.of(context).textTheme.bodySmall;
     Widget row(String label, String value) =>
@@ -121,8 +123,8 @@ class HistoryEntryPage extends ConsumerWidget {
     final router = GoRouter.of(context);
     try {
       await (await ref.read(historyStoreProvider.future)).remove(id);
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.historyDeleteFailed('$e'))));
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'delete history entry', e, stack, l10n.historyDeleteFailed);
     }
     router.pop();
   }

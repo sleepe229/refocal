@@ -7,6 +7,7 @@ import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
+import '../../ui_kit/errors.dart';
 
 /// Export format and quality, metadata policy, history and presets, language (FR-SET-001/002/006,
 /// FR-META-003/005, FR-HIST-005, FR-PRE-002).
@@ -23,8 +24,8 @@ class SettingsPage extends ConsumerWidget {
       try {
         await ref.read(settingsProvider.notifier).change(f);
         return true;
-      } on Exception catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaveFailed('$e'))));
+      } on Exception catch (e, stack) {
+        showError(messenger, l10n, 'save setting', e, stack, l10n.settingsSaveFailed);
         return false;
       }
     }
@@ -101,8 +102,8 @@ class SettingsPage extends ConsumerWidget {
                 if (!await change((c) => c.copyWith(historyEnabled: false))) return;
                 try {
                   await (await ref.read(historyStoreProvider.future)).clear();
-                } on Exception catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text(l10n.historyDeleteFailed('$e'))));
+                } on Exception catch (e, stack) {
+                  showError(messenger, l10n, 'clear history', e, stack, l10n.historyDeleteFailed);
                 }
               },
             ),
