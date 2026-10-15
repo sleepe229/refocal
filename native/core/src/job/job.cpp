@@ -61,6 +61,7 @@ JobRequest parse_job_request(const std::string& text) {
     r.det_model = j.value("det_model", r.det_model);
     r.face_strength = j.value("face_strength", r.face_strength);
     r.face_color_match = j.value("face_color_match", r.face_color_match);
+    r.background = j.value("background", r.background);
   } catch (const nlohmann::json::exception& e) {
     fail(ENH_E_INVALID, std::string("bad request: ") + e.what());
   }
@@ -75,6 +76,10 @@ JobRequest parse_job_request(const std::string& text) {
   if (r.preview_max < 64 || r.preview_max > 8192) fail(ENH_E_INVALID, "bad preview_max");
   if (!(r.face_strength >= 0 && r.face_strength <= 1)) fail(ENH_E_INVALID, "bad face_strength");
   if (!r.face_model.empty() && r.det_model.empty()) fail(ENH_E_INVALID, "faces need det_model");
+  if (r.background != "sr" && r.background != "lanczos") fail(ENH_E_INVALID, "bad background");
+  if (r.background == "lanczos" && r.face_model.empty()) {
+    fail(ENH_E_INVALID, "a Lanczos background is the Faces region: it needs face_model");
+  }
   return r;
 }
 
@@ -92,7 +97,8 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
           {"face_model", r.face_model},
           {"det_model", r.det_model},
           {"face_strength", r.face_strength},
-          {"face_color_match", r.face_color_match}};
+          {"face_color_match", r.face_color_match},
+          {"background", r.background}};
 }
 
 namespace {
@@ -516,6 +522,67 @@ void enh_job::run_impl(nlohmann::json& result) {
   if (!req.face_model.empty() && req.face_strength > 0) {
     faces = restore_faces(req, img);
     if (stop()) throw Stopped{};
+  }
+
+  // ---- region Faces (FR-FACE-006): Lanczos background, no SR model ----
+  if (req.background == "lanczos") {
+    const int ow = src_w * req.scale, oh = src_h * req.scale;
+    constexpr int kRows = 256;
+    const int bands = (oh + kRows - 1) / kRows;
+    BandStore store(dir);
+    store.reset();
+    Checkpoint ck;
+    ck.bands_total = bands;
+    ck.out_w = ow;
+    ck.out_h = oh;
+    ck.recipe_hash = "lanczos:" + input_sha;
+    PreviewAccumulator preview;
+    preview.init(ow, oh, req.preview_max);
+    LanczosResampler up(img, ow, oh);
+    sink.emit(ENH_EV_STAGE, kStageUpscale, 0, bands, {{"stage", "upscale"}});
+    std::vector<uint8_t> band;
+    nlohmann::json band_rows = nlohmann::json::array();
+    for (int b = 0; b < bands; ++b) {
+      if (stop()) throw Stopped{};
+      const int y0 = b * kRows, rows = std::min(kRows, oh - y0);
+      band.resize(size_t(rows) * ow * 3);
+      up.rows(y0, rows, band.data());
+      paste_faces(band.data(), ow, y0, rows, faces);
+      preview.add_rows(band.data(), y0, rows);
+      store.commit(b, band.data(), band.size(), ck);
+      band_rows.push_back(rows);
+      sink.progress(kStageUpscale, b + 1, bands, -1, b + 1 == bands);
+    }
+    sink.emit(ENH_EV_STAGE, kStageFinalize, 0, 0, {{"stage", "finalize"}});
+    Rgb8 pv = preview.finish();
+    jpeg_encode(fs::join(dir, kPreviewFile), pv, 90);
+    result = {
+        {"schema", 1},
+        {"job_id", req.job_id},
+        {"job_dir", dir},
+        {"width", ow},
+        {"height", oh},
+        {"band_rows", band_rows},
+        {"preview", {{"file", kPreviewFile}, {"width", pv.w}, {"height", pv.h}}},
+        {"input",
+         {{"width", src_w},
+          {"height", src_h},
+          {"orientation", info.orientation},
+          {"format", info.format}}},
+        {"scale", req.scale},
+        {"fast2", false},
+        {"model", req.face_model},
+        {"backend", "lanczos"},
+        {"fallbacks", nlohmann::json::array()},
+        {"tile", 0},
+        {"pad", 0},
+        {"resumed_from_band", 0},
+        {"recipe_hash", ck.recipe_hash},
+        {"timings_ms",
+         {{"sr", 0},
+          {"total", int64_t(duration<double>(steady_clock::now() - t_start).count() * 1000)}}}};
+    fs::write_atomic(fs::join(dir, kResultFile), result.dump(2) + "\n");
+    return;
   }
   if (req.fast2) img = area_down(img, 2);
 

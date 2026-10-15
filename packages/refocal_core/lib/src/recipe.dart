@@ -64,8 +64,10 @@ class Recipe {
     this.strength = 1,
     this.faceModel,
     this.faceStrength = defaultFaceStrength,
+    this.facesOnly = false,
     this.output,
   }) {
+    if (facesOnly && faceModel == null) throw ArgumentError('facesOnly needs a face model');
     if (_invalid(scale, fast2, srModel, strength, faceModel, faceStrength) case final why?) {
       throw ArgumentError(why);
     }
@@ -117,6 +119,10 @@ class Recipe {
   /// How much of the restored face is blended in, 0..1 (FR-FACE-004).
   final double faceStrength;
 
+  /// FR-FACE-006 region "Faces": only faces are restored, the rest is a Lanczos upscale (the
+  /// SR model does not run). Region "Background" is [faceModel] null; "All" is the default.
+  final bool facesOnly;
+
   /// What was saved; null in presets, where the format is chosen when saving (06 §3.4).
   final OutputSpec? output;
 
@@ -124,6 +130,7 @@ class Recipe {
     double? strength,
     String? Function()? faceModel,
     double? faceStrength,
+    bool? facesOnly,
     OutputSpec? Function()? output,
   }) => Recipe(
     scale: scale,
@@ -132,6 +139,8 @@ class Recipe {
     strength: strength ?? this.strength,
     faceModel: faceModel != null ? faceModel() : this.faceModel,
     faceStrength: faceStrength ?? this.faceStrength,
+    facesOnly:
+        (faceModel != null ? faceModel() : this.faceModel) != null && (facesOnly ?? this.facesOnly),
     output: output != null ? output() : this.output,
   );
 
@@ -141,7 +150,11 @@ class Recipe {
     'fast2': fast2,
     'sr_model': srModel,
     'strength': strength,
-    if (faceModel case final f?) ...{'face_model': f, 'face_strength': faceStrength},
+    if (faceModel case final f?) ...{
+      'face_model': f,
+      'face_strength': faceStrength,
+      if (facesOnly) 'faces_only': true,
+    },
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
   };
 
@@ -178,6 +191,11 @@ class Recipe {
         strength: strength.toDouble(),
         faceModel: faceModel,
         faceStrength: faceStrength,
+        facesOnly: switch (j['faces_only']) {
+          null => false,
+          true when faceModel != null => true,
+          final other => throw FormatException('bad faces_only', other),
+        },
         output: switch (j['output']) {
           null => null,
           {'format': final String name} && final Map<String, Object?> o => _output(
@@ -208,8 +226,10 @@ class Recipe {
       other.strength == strength &&
       other.faceModel == faceModel &&
       other.faceStrength == faceStrength &&
+      other.facesOnly == facesOnly &&
       other.output == output;
 
   @override
-  int get hashCode => Object.hash(scale, fast2, srModel, strength, faceModel, faceStrength, output);
+  int get hashCode =>
+      Object.hash(scale, fast2, srModel, strength, faceModel, faceStrength, facesOnly, output);
 }
