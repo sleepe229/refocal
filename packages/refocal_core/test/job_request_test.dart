@@ -28,6 +28,12 @@ void main() {
     expect(q.toJson(), containsPair('face_model', 'face.g'));
     expect(q.toJson(), containsPair('face_strength', 0.3));
     expect(JobRequest.fromJson(q.toJson()).recipe(), r);
+    final only = Recipe(scale: 2, srModel: 'm', faceModel: 'face.g', facesOnly: true);
+    final oq = JobRequest.of(only, '/a');
+    expect(oq.toJson(), containsPair('background', 'lanczos'));
+    expect(JobRequest.fromJson(oq.toJson()).recipe(), only);
+    expect(Recipe.fromJson(only.toJson()), only);
+    expect(() => Recipe(scale: 2, srModel: 'm', facesOnly: true), throwsArgumentError);
     final none = JobRequest.fromJson({
       ...JobRequest(id: 'job-n', input: '/a', scale: 4, srModel: 'm').toJson(),
       'face_model': '',

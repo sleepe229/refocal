@@ -145,6 +145,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _model = r.srModel;
     _faces = r.faceModel != null;
     _faceStrength = r.faceStrength;
+    _facesOnly = r.facesOnly;
   }
 
   bool _matches(Recipe r) =>
@@ -152,11 +153,14 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       _strength == r.strength &&
       _model == r.srModel &&
       _faces == (r.faceModel != null) &&
-      (!_faces || _faceStrength == r.faceStrength);
+      (!_faces || (_faceStrength == r.faceStrength && _facesOnly == r.facesOnly));
 
   /// FR-FACE-002/004: restore faces with the face pack, at this strength.
   bool _faces = false;
   double _faceStrength = Recipe.defaultFaceStrength;
+
+  /// FR-FACE-006 region "Faces": the rest of the photo is only upscaled (Lanczos), faster.
+  bool _facesOnly = false;
 
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
@@ -172,6 +176,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       strength: _strength,
       faceModel: _faces ? defaultFacePack : null,
       faceStrength: _faceStrength,
+      facesOnly: _faces && _facesOnly,
     );
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
   }
@@ -207,6 +212,15 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             setState(() => _faces = v);
           },
         ),
+        if (_faces)
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(value: false, label: Text(l10n.regionAll)),
+              ButtonSegment(value: true, label: Text(l10n.regionFaces)),
+            ],
+            selected: {_facesOnly},
+            onSelectionChanged: (s) => setState(() => _facesOnly = s.first),
+          ),
         if (_faces)
           Row(
             children: [

@@ -900,4 +900,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String noteFacesFound(int count) {
     return 'Faces found: $count';
   }
+
+  @override
+  String get regionAll => 'Whole photo';
+
+  @override
+  String get regionFaces => 'Only faces';
 }

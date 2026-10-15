@@ -32,6 +32,7 @@ String recipeLabel(AppLocalizations l10n, Recipe r) {
     scaleLabel(l10n, r.scale, fast2: r.fast2),
     l10n.strengthValue((r.strength * 100).round()),
     if (r.faceModel != null) l10n.recipeFaces((r.faceStrength * 100).round()),
+    if (r.facesOnly) l10n.regionFaces,
     if (r.output case final o?)
       o.quality == null
           ? formatLabel(l10n, o.format)
