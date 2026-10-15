@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.0.5-alpha.1
+
+Fifth developer preview. Still **not tested on a phone**: only on a desktop and a headless
+Android 15 emulator. Please report problems with the device model and Android version.
+
+New:
+- **Storage** (Settings → Storage): how much space copies of originals, unfinished photos,
+  history, cache, the log and the models take, and a button to clear each.
+- **No duplicate copies:** a photo picked or shared again reuses the copy Refocal already has.
+- **Heat protection:** when the phone gets hot, processing slows down; when it is very hot, it
+  waits until the phone cools down, then continues by itself. The editor says so.
+- **Accessibility:** a "Show original" button next to the before/after slider, a description of
+  the result for screen readers, progress announced every 10%, notes and errors announced.
+  Settings stay usable with very large text.
+
+Fixed:
+- With very large text, the format and language menus in Settings did not fit.
+- An image shared with its address set as data could open an empty screen.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- One built-in model; face restoration and more models come with the model manager.
+- WebP is limited to 50 MP (lossless: 24 MP). HEIC output is not available yet. Transparency is
+  not kept.
+
+Model: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled.
+
 ## 0.0.4-alpha.1
 
 Fourth developer preview. Still **not tested on a phone**: only on a desktop and a headless
