@@ -107,6 +107,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 after: FileImage(File(result.previewPath)),
                 aspectRatio: result.width / result.height,
                 strength: strength,
+                resultLabel: l10n.resultAlt(result.width, result.height),
               ),
               _ => ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -245,14 +246,37 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       JobStage.finalize => l10n.stageFinishing,
       JobStage.unknown => l10n.stageWorking,
     };
+    // A11Y-PRG-001: the screen reader hears the progress at most once per 10%.
+    final spoken = switch (s.stage) {
+      JobStage.upscale => l10n.stageEnhancing((s.progress * 10).floor() * 10),
+      _ => label,
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LinearProgressIndicator(value: s.stage == JobStage.upscale ? s.progress : null),
-        const SizedBox(height: 8),
-        Text(label, textAlign: TextAlign.center),
-        if (s.note != null)
-          Text(s.note!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        Semantics(
+          liveRegion: true,
+          label: spoken,
+          child: ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(value: s.stage == JobStage.upscale ? s.progress : null),
+                const SizedBox(height: 8),
+                Text(label, textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
+        if (s.note != null) // A11Y-PRG-002: fallback and thermal notes are announced
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              s.note!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -419,7 +443,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(text, textAlign: TextAlign.center),
+        Semantics(liveRegion: true, child: Text(text, textAlign: TextAlign.center)),
         const SizedBox(height: 12),
         FilledButton(onPressed: ctl.reset, child: Text(l10n.back)),
       ],

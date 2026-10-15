@@ -55,9 +55,12 @@ void BandStore::discard_after(int last, int total) const {
 }
 
 std::string checkpoint_to_json(const Checkpoint& ck) {
-  nlohmann::json j = {{"version", 1},           {"band_idx", ck.band_idx},
-                      {"bands_total", ck.bands_total}, {"recipe_hash", ck.recipe_hash},
-                      {"out_w", ck.out_w},      {"out_h", ck.out_h}};
+  nlohmann::json j = {{"version", 1},
+                      {"band_idx", ck.band_idx},
+                      {"bands_total", ck.bands_total},
+                      {"recipe_hash", ck.recipe_hash},
+                      {"out_w", ck.out_w},
+                      {"out_h", ck.out_h}};
   return j.dump(2) + "\n";
 }
 

@@ -24,11 +24,16 @@ int64_t now_ns() {
 
 const char* stage_name(int32_t s) {
   switch (s) {
-    case kStageQueued: return "queued";
-    case kStageDecode: return "decode";
-    case kStageUpscale: return "upscale";
-    case kStageFinalize: return "finalize";
-    default: return "unknown";
+    case kStageQueued:
+      return "queued";
+    case kStageDecode:
+      return "decode";
+    case kStageUpscale:
+      return "upscale";
+    case kStageFinalize:
+      return "finalize";
+    default:
+      return "unknown";
   }
 }
 

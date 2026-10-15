@@ -1,0 +1,5 @@
+# C++ of native/ and tools/ (11 §1: checked by pr.yml). 100 columns as dart format here.
+BasedOnStyle: Google
+ColumnLimit: 100
+# Comments are wrapped by hand (lists, aligned continuations in enh.h).
+ReflowComments: false

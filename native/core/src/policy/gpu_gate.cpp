@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "policy/gpu_gate.hpp"
 
+#include <mat.h>
+
 #include <algorithm>
 #include <cmath>
 #include <nlohmann/json.hpp>
-
-#include <mat.h>
 
 #include "util/fs.hpp"
 
@@ -22,7 +22,8 @@ int to_u8(float v) {
 
 GateMetrics compare_tiles(const ncnn::Mat& out, const ncnn::Mat& ref) {
   GateMetrics m;
-  if (out.w != ref.w || out.h != ref.h || out.c != ref.c || out.elemsize != 4 || ref.elemsize != 4) {
+  if (out.w != ref.w || out.h != ref.h || out.c != ref.c || out.elemsize != 4 ||
+      ref.elemsize != 4) {
     return m;  // shape mismatch: fail
   }
   double se = 0;
@@ -80,8 +81,11 @@ void GateCache::put(const std::string& key, const std::string& verdict, const Ga
     auto old = nlohmann::json::parse(fs::read_text(path_), nullptr, false);
     if (!old.is_discarded() && old.is_object()) j = old;
   }
-  j[key] = {{"verdict", verdict}, {"psnr", m.psnr}, {"bad_frac", m.bad_frac},
-            {"max_abs", m.max_abs}, {"nonfinite", m.nonfinite}};
+  j[key] = {{"verdict", verdict},
+            {"psnr", m.psnr},
+            {"bad_frac", m.bad_frac},
+            {"max_abs", m.max_abs},
+            {"nonfinite", m.nonfinite}};
   fs::write_atomic(path_, j.dump(2) + "\n");
 }
 

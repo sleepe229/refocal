@@ -1,31 +1,31 @@
 // Unit tests of the pipeline building blocks.
 // SPDX-License-Identifier: Apache-2.0
+#include <mat.h>
+
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include "image/metaio.hpp"
 #include "image/jpeg.hpp"
+#include "image/metaio.hpp"
 #include "image/ops.hpp"
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
 #include "policy/gpu_gate.hpp"
-
-#include <cmath>
-#include <mat.h>
-#include "util/fs.hpp"
 #include "util/error.hpp"
+#include "util/fs.hpp"
 #include "util/sha256.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                                          \
-  do {                                                                    \
-    if (!(c)) {                                                           \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c);   \
-      ++fails;                                                            \
-    }                                                                     \
+#define CHECK(c)                                                        \
+  do {                                                                  \
+    if (!(c)) {                                                         \
+      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                          \
+    }                                                                   \
   } while (0)
 
 using namespace enh;
@@ -65,11 +65,11 @@ static void test_geometry() {
 
 static void test_exif() {
   // "Exif\0\0" + little-endian TIFF with one IFD0 entry: Orientation = 6.
-  const uint8_t le[] = {'E', 'x', 'i', 'f', 0, 0, 'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0,
-                        0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0};
+  const uint8_t le[] = {'E',  'x',  'i', 'f', 0, 0, 'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0,
+                        0x12, 0x01, 3,   0,   1, 0, 0,   0,   6,  0, 0, 0, 0, 0, 0, 0};
   CHECK(exif_orientation(le, sizeof le) == 6);
-  const uint8_t be[] = {'E', 'x', 'i', 'f', 0, 0, 'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1,
-                        0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 8, 0, 0, 0, 0, 0, 0};
+  const uint8_t be[] = {'E',  'x',  'i', 'f', 0, 0, 'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1,
+                        0x01, 0x12, 0,   3,   0, 0, 0,   1,   0, 8,  0, 0, 0, 0, 0, 0};
   CHECK(exif_orientation(be, sizeof be) == 8);
   CHECK(exif_orientation(le, 10) == 1);  // truncated
 }
@@ -140,7 +140,8 @@ static void test_bandstore(const std::string& dir) {
   st.read_band(0, back, 12);
   CHECK(back == band);
   CHECK(!fs::exists(st.band_path(0) + ".tmp"));
-  CHECK(Sha256::of_string("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  CHECK(Sha256::of_string("abc") ==
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }
 
 static void test_gpu_gate() {

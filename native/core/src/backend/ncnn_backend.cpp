@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <cpu.h>
+#include <gpu.h>
+#include <net.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <mutex>
 #include <nlohmann/json.hpp>
-
-#include <cpu.h>
-#include <gpu.h>
-#include <net.h>
 
 #include "backend/backend.hpp"
 #include "util/error.hpp"
@@ -25,7 +25,8 @@ ModelInfo resolve_model(const std::string& models_dir, const std::string& id) {
   std::string dir = fs::join(models_dir, id);
   m.param_path = fs::join(dir, "model.ncnn.param");
   m.bin_path = fs::join(dir, "model.ncnn.bin");
-  if (!fs::exists(m.param_path) || !fs::exists(m.bin_path)) fail(ENH_E_MODEL, "model not installed: " + id);
+  if (!fs::exists(m.param_path) || !fs::exists(m.bin_path))
+    fail(ENH_E_MODEL, "model not installed: " + id);
   std::string meta = fs::join(dir, "model.json");
   if (fs::exists(meta)) {
     auto j = nlohmann::json::parse(fs::read_text(meta), nullptr, false);
@@ -79,6 +80,7 @@ class NcnnBackend final : public InferenceBackend {
     ncnn::Option& o = net_.opt;
     o.lightmode = true;
     o.num_threads = cfg_.threads > 0 ? cfg_.threads : std::max(1, ncnn::get_big_cpu_count());
+    loaded_threads_ = o.num_threads;
     o.use_bf16_storage = false;
     if (cfg_.kind == BackendKind::vulkan) {
 #if NCNN_VULKAN
@@ -99,18 +101,25 @@ class NcnnBackend final : public InferenceBackend {
     }
     if (net_.load_param(m.param_path.c_str()) != 0) fail(ENH_E_MODEL, "load_param failed: " + m.id);
     if (net_.load_model(m.bin_path.c_str()) != 0) fail(ENH_E_MODEL, "load_model failed: " + m.id);
-    if (net_.input_names().empty() || net_.output_names().empty()) fail(ENH_E_MODEL, "model has no blobs");
+    if (net_.input_names().empty() || net_.output_names().empty())
+      fail(ENH_E_MODEL, "model has no blobs");
     in_name_ = net_.input_names().front();
     out_name_ = net_.output_names().front();
   }
+
+  void set_threads(int n) override { threads_ = n; }
+  int threads() const override { return loaded_threads_; }
 
   void run(const ncnn::Mat& in, ncnn::Mat& out) override {
 #ifdef ENH_FAULT_INJECTION
     const bool garbage = inject_fault();
 #endif
+    // The extractor copies net_.opt; layers read num_threads from it in forward().
+    net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
     ncnn::Extractor ex = net_.create_extractor();
     if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
-    if (ex.extract(out_name_.c_str(), out) != 0 || out.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
+    if (ex.extract(out_name_.c_str(), out) != 0 || out.empty())
+      fail(ENH_E_BACKEND, "ncnn extract failed");
     // Silent garbage is checked by the benchmark gate (S3); NaN/Inf is checked on every tile.
     if (out.elemsize != 4 || out.elempack != 1) fail(ENH_E_BACKEND, "unexpected output layout");
 #ifdef ENH_FAULT_INJECTION
@@ -129,6 +138,8 @@ class NcnnBackend final : public InferenceBackend {
   }
 
  private:
+  int threads_ = 0;  // the inference thread only (set_threads and run)
+  int loaded_threads_ = 1;
 #ifdef ENH_FAULT_INJECTION
   // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend|garbage>:<n> injects a fault
   // into the n-th run (0-based; "garbage": every run from n on) of that backend.
@@ -136,7 +147,9 @@ class NcnnBackend final : public InferenceBackend {
   bool inject_fault() {
     const char* f = std::getenv("ENH_FAULT");
     if (!f) return false;
-    std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu" : cfg_.fp16 ? "vulkan_fp16" : "vulkan_fp32";
+    std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu"
+                                : cfg_.fp16                   ? "vulkan_fp16"
+                                                              : "vulkan_fp32";
     size_t a = spec.find(':'), b = spec.find(':', a + 1);
     if (a == std::string::npos || b == std::string::npos || spec.substr(0, a) != kind) return false;
     const std::string mode = spec.substr(a + 1, b - a - 1);

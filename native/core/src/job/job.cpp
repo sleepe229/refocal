@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "job/job.hpp"
 
+#include <net.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -16,8 +18,6 @@
 #include <regex>
 #include <thread>
 #include <vector>
-
-#include <net.h>
 
 #include "backend/backend.hpp"
 #include "enh.h"
@@ -65,15 +65,22 @@ JobRequest parse_job_request(const std::string& text) {
   if (r.scale != 1 && r.scale != 2 && r.scale != 4) fail(ENH_E_INVALID, "scale must be 1, 2 or 4");
   if (r.fast2 && r.scale != 2) fail(ENH_E_INVALID, "fast2 requires scale 2");
   if (r.tile != 0 && (r.tile < 32 || r.tile > 1024)) fail(ENH_E_INVALID, "tile out of range");
-  if (r.backend != "auto" && r.backend != "cpu" && r.backend != "vulkan") fail(ENH_E_INVALID, "bad backend");
+  if (r.backend != "auto" && r.backend != "cpu" && r.backend != "vulkan")
+    fail(ENH_E_INVALID, "bad backend");
   if (r.preview_max < 64 || r.preview_max > 8192) fail(ENH_E_INVALID, "bad preview_max");
   return r;
 }
 
 nlohmann::json job_request_to_json(const JobRequest& r) {
-  return {{"schema", 1},           {"job_id", r.job_id},   {"input", r.input},
-          {"sr_model", r.sr_model}, {"scale", r.scale},     {"fast2", r.fast2},
-          {"tile", r.tile},         {"backend", r.backend}, {"preview_max", r.preview_max},
+  return {{"schema", 1},
+          {"job_id", r.job_id},
+          {"input", r.input},
+          {"sr_model", r.sr_model},
+          {"scale", r.scale},
+          {"fast2", r.fast2},
+          {"tile", r.tile},
+          {"backend", r.backend},
+          {"preview_max", r.preview_max},
           {"max_output_mp", r.max_output_mp}};
 }
 
@@ -125,6 +132,10 @@ class BoundedQueue {
   size_t cap_;
   bool closed_ = false;
 };
+
+// enh_set_thermal levels (enh.h).
+constexpr int kThermalFair = 2, kThermalSerious = 3, kThermalCritical = 4;
+constexpr int kThermalPauseMs = 300;  // NFR-THERM-002: 200..500 ms between tiles at serious
 
 struct Stopped {};  // unwinds the runner on cancel/pause outside the tile pipeline
 
@@ -203,6 +214,37 @@ struct enh_job {
     return answer;
   }
 
+  // NFR-THERM-002, before each tile on the inference thread. serious: half the CPU threads
+  // and a pause between tiles; critical: wait until fair or lower. False: the job was stopped
+  // while waiting.
+  bool thermal_gate(InferenceBackend& be, int64_t done, int64_t total) {
+    int level = s->thermal.load();
+    if (level >= kThermalCritical) {
+      sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_wait"}});
+      while (s->thermal.load() > kThermalFair) {
+        if (stop()) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_resumed"}});
+      level = s->thermal.load();
+    }
+    const bool hot = level >= kThermalSerious;
+    if (hot != throttled) {
+      throttled = hot;
+      const int n = hot ? std::max(1, (be.threads() + 1) / 2) : 0;
+      be.set_threads(n);
+      if (hot)
+        sink.emit(ENH_EV_WARNING, kStageUpscale, done, total, {{"code", "thermal_throttle"}});
+    }
+    if (hot) {
+      for (int i = 0; i < kThermalPauseMs / 50 && !stop(); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return !stop();
+  }
+
+  bool throttled = false;  // inference thread only
+
   void run();
   void run_impl(nlohmann::json& result);
 };
@@ -231,7 +273,8 @@ Ladder backend_ladder(enh_session& s, const JobRequest& r, const std::string& mo
     } else if (s.sentinel && s.sentinel->quarantined(rec)) {
       l.skipped_reason = "crash_quarantine";
     } else {
-      if (m.action != Action::GpuFp32) l.rungs.push_back({BackendKind::vulkan, dev, true, s.cpu_threads});
+      if (m.action != Action::GpuFp32)
+        l.rungs.push_back({BackendKind::vulkan, dev, true, s.cpu_threads});
       l.rungs.push_back({BackendKind::vulkan, dev, false, s.cpu_threads});
     }
   }
@@ -277,10 +320,10 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
                         const JobRequest& r) {
   Sha256 h;
   std::string model_sha = Sha256::of_file(m.param_path) + Sha256::of_file(m.bin_path);
-  std::string s = "v1;in=" + input_sha + ";model=" + model_sha + ";scale=" + std::to_string(r.scale) +
-                  ";fast2=" + std::to_string(r.fast2) + ";tile=" + std::to_string(g.tw) + "x" +
-                  std::to_string(g.th) + ";pad=" + std::to_string(g.pad) +
-                  ";down=" + std::to_string(g.down);
+  std::string s = "v1;in=" + input_sha + ";model=" + model_sha +
+                  ";scale=" + std::to_string(r.scale) + ";fast2=" + std::to_string(r.fast2) +
+                  ";tile=" + std::to_string(g.tw) + "x" + std::to_string(g.th) +
+                  ";pad=" + std::to_string(g.pad) + ";down=" + std::to_string(g.down);
   return Sha256::of_string(s);
 }
 
@@ -353,7 +396,8 @@ void enh_job::run_impl(nlohmann::json& result) {
       JobRequest t = req;
       t.scale = sc;
       t.fast2 = f2;
-      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) && out_mp(t) <= req.max_output_mp)
+      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) &&
+          out_mp(t) <= req.max_output_mp)
         opts.push_back({{"scale", sc}, {"fast2", f2}});
     }
     if (opts.empty()) fail(ENH_E_LIMIT, "input too large for any scale");
@@ -372,10 +416,13 @@ void enh_job::run_impl(nlohmann::json& result) {
   Rgb8 img = decode_image(req.input, &info, &meta);
   img = apply_orientation(std::move(img), info.orientation);
   // Kept for enh_export (metaio, ADR-0018): the input may be gone by then.
-  if (!meta.exif.empty()) fs::write_atomic(fs::join(dir, kSourceExifFile), meta.exif.data(), meta.exif.size());
-  if (!meta.icc.empty()) fs::write_atomic(fs::join(dir, kSourceIccFile), meta.icc.data(), meta.icc.size());
+  if (!meta.exif.empty())
+    fs::write_atomic(fs::join(dir, kSourceExifFile), meta.exif.data(), meta.exif.size());
+  if (!meta.icc.empty())
+    fs::write_atomic(fs::join(dir, kSourceIccFile), meta.icc.data(), meta.icc.size());
   if (info.alpha) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "alpha_flattened"}});
-  if (info.animated) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
+  if (info.animated)
+    sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
   const int src_w = img.w, src_h = img.h;
   if (req.fast2) img = area_down(img, 2);
   if (stop()) throw Stopped{};
@@ -384,8 +431,9 @@ void enh_job::run_impl(nlohmann::json& result) {
   Ladder lad = backend_ladder(*s, req, model.id);
   std::vector<BackendConfig>& ladder = lad.rungs;
   if (!lad.skipped_reason.empty()) {
-    sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0,
-              {{"code", "gpu_skipped"}, {"reason", lad.skipped_reason}, {"device", lad.gpu.device_name}});
+    sink.emit(
+        ENH_EV_WARNING, kStageDecode, 0, 0,
+        {{"code", "gpu_skipped"}, {"reason", lad.skipped_reason}, {"device", lad.gpu.device_name}});
   }
   size_t rung = 0;
   std::unique_ptr<InferenceBackend> be;
@@ -409,7 +457,8 @@ void enh_job::run_impl(nlohmann::json& result) {
   SentinelGuard sentinel(*s, lad.gpu, model.id, g.tw);
   if (ladder[rung].kind == BackendKind::vulkan) {
     std::unique_ptr<GateCache> cache;
-    if (!s->cache_dir.empty()) cache = std::make_unique<GateCache>(fs::join(s->cache_dir, "gpu/gate.json"));
+    if (!s->cache_dir.empty())
+      cache = std::make_unique<GateCache>(fs::join(s->cache_dir, "gpu/gate.json"));
     const ncnn::Mat in = gate_input(g.net_in_w(), g.net_in_h());
     ncnn::Mat ref;
     while (ladder[rung].kind == BackendKind::vulkan) {
@@ -440,8 +489,10 @@ void enh_job::run_impl(nlohmann::json& result) {
       }
       if (verdict == "ok") break;
       sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0,
-                {{"code", "gpu_check_failed"}, {"backend", backend_kind_name(ladder[rung])},
-                 {"psnr", m.psnr}, {"device", lad.gpu.device_name}});
+                {{"code", "gpu_check_failed"},
+                 {"backend", backend_kind_name(ladder[rung])},
+                 {"psnr", m.psnr},
+                 {"device", lad.gpu.device_name}});
       ++rung;
       be.reset();
       be = make_ncnn_backend(ladder[rung]);
@@ -548,6 +599,7 @@ void enh_job::run_impl(nlohmann::json& result) {
         request_stop();
         break;
       }
+      if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
       TileOut o{t->band, t->j, {}};
       for (;;) {
         try {
@@ -560,13 +612,15 @@ void enh_job::run_impl(nlohmann::json& result) {
           ++rung;
           std::string to = backend_kind_name(ladder[rung]);
           sink.emit(ENH_EV_FALLBACK, kStageUpscale, done_tiles, total_tiles,
-                    {{"from", from}, {"to", to},
+                    {{"from", from},
+                     {"to", to},
                      {"reason", e.status() == ENH_E_NUMERIC ? "numeric" : "backend_error"}});
           fallbacks.push_back(from + "->" + to);
           if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
           be.reset();
           be = make_ncnn_backend(ladder[rung]);
           be->load(model);
+          throttled = false;  // a new backend runs unthrottled: the next gate applies it again
         }
       }
       const int S = g.model_scale;
@@ -651,7 +705,10 @@ void enh_job::run_impl(nlohmann::json& result) {
             {"band_rows", band_rows},
             {"preview", {{"file", kPreviewFile}, {"width", pv.w}, {"height", pv.h}}},
             {"input",
-             {{"width", src_w}, {"height", src_h}, {"orientation", info.orientation}, {"format", info.format}}},
+             {{"width", src_w},
+              {"height", src_h},
+              {"orientation", info.orientation},
+              {"format", info.format}}},
             {"scale", req.scale},
             {"fast2", req.fast2},
             {"model", model.id},
@@ -681,7 +738,8 @@ enh_status create_job(enh_session* s, const JobRequest& r, bool resume, enh_job*
   j->dir = fs::join(s->work_dir, r.job_id);
   j->resume = resume;
   fs::mkdirs(j->dir);
-  if (!resume) fs::write_atomic(fs::join(j->dir, kRequestFile), dump_json(job_request_to_json(r)) + "\n");
+  if (!resume)
+    fs::write_atomic(fs::join(j->dir, kRequestFile), dump_json(job_request_to_json(r)) + "\n");
   *out = j.release();
   return ENH_OK;
 }

@@ -32,16 +32,18 @@ std::string sniff_format(const std::string& path) {
   std::fclose(f);
   if (n >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return "jpeg";
   if (n >= 8 && std::memcmp(b, "\x89PNG\r\n\x1a\n", 8) == 0) return "png";
-  if (n >= 12 && std::memcmp(b, "RIFF", 4) == 0 && std::memcmp(b + 8, "WEBP", 4) == 0) return "webp";
+  if (n >= 12 && std::memcmp(b, "RIFF", 4) == 0 && std::memcmp(b + 8, "WEBP", 4) == 0)
+    return "webp";
   if (n >= 12 && std::memcmp(b + 4, "ftyp", 4) == 0) {
     const std::string brand(reinterpret_cast<char*>(b + 8), 4);
     if (brand == "avif" || brand == "avis") return "avif";
-    if (brand == "heic" || brand == "heix" || brand == "hevc" || brand == "hevx" || brand == "heim" ||
-        brand == "heis" || brand == "mif1" || brand == "msf1") {
+    if (brand == "heic" || brand == "heix" || brand == "hevc" || brand == "hevx" ||
+        brand == "heim" || brand == "heis" || brand == "mif1" || brand == "msf1") {
       return "heif";
     }
   }
-  if (n >= 6 && (std::memcmp(b, "GIF87a", 6) == 0 || std::memcmp(b, "GIF89a", 6) == 0)) return "gif";
+  if (n >= 6 && (std::memcmp(b, "GIF87a", 6) == 0 || std::memcmp(b, "GIF89a", 6) == 0))
+    return "gif";
   if (n >= 2 && b[0] == 'B' && b[1] == 'M') return "bmp";
   return "";
 }

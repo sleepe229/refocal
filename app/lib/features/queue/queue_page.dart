@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 
+import '../../bootstrap/engine.dart';
 import '../../bootstrap/queue.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/errors.dart';
@@ -57,7 +58,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final l10n = AppLocalizations.of(context);
     final items = ref.watch(queueItemsProvider).value ?? const <QueueItem>[];
     final status = ref.watch(queueStatusProvider).value ?? const QueueStatus();
-    final engine = ref.watch(startupProvider).value;
+    final dirs = ref.watch(appDirsProvider).value;
     final failed = items.where((i) => i.state == QueueState.failed).length;
     final finished = items
         .where((i) => i.state == QueueState.done || i.state == QueueState.saved)
@@ -77,7 +78,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           ),
         ],
       ),
-      body: engine == null
+      body: dirs == null
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
           ? Center(
@@ -144,9 +145,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                         item: item,
                         running: running,
                         progress: running ? status.progress : item.progress,
-                        supportDir: engine.dirs.support,
+                        supportDir: dirs.support,
                         onOpen: item.state == QueueState.done
-                            ? () => _open(item, engine.dirs.support, engine.jobsDir)
+                            ? () => _open(item, dirs.support, '${dirs.support}/jobs')
                             : null,
                         onRemove: running
                             ? null
@@ -208,13 +209,20 @@ class _QueueTile extends StatelessWidget {
       ),
       title: Text(recipeLabel(l10n, item.recipe)),
       subtitle: running
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(subtitle),
-                const SizedBox(height: 4),
-                LinearProgressIndicator(value: progress),
-              ],
+          // A11Y-PRG-001: announced at most once per 10%.
+          ? Semantics(
+              liveRegion: true,
+              label: l10n.queueStateRunning((progress * 10).floor() * 10),
+              child: ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subtitle),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(value: progress),
+                  ],
+                ),
+              ),
             )
           : Text(subtitle),
       onTap: onOpen,

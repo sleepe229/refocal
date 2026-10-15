@@ -91,7 +91,8 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   if (header_only) return {};
   if (meta) {
     for (jpeg_saved_marker_ptr m = d->cinfo.marker_list; m; m = m->next) {
-      if (m->marker == JPEG_APP0 + 1 && meta->exif.empty()) meta->exif = exif_to_tiff(m->data, m->data_length);
+      if (m->marker == JPEG_APP0 + 1 && meta->exif.empty())
+        meta->exif = exif_to_tiff(m->data, m->data_length);
     }
     JOCTET* icc = nullptr;
     unsigned int icc_len = 0;
@@ -172,9 +173,12 @@ JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const
   // EXIF readers expect APP1 right after SOI; JFIF is redundant with it.
   if (!exif_seg.empty()) m.cinfo.write_JFIF_header = FALSE;
   jpeg_start_compress(&m.cinfo, TRUE);
-  if (!exif_seg.empty()) jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, exif_seg.data(), unsigned(exif_seg.size()));
-  if (!xmp_seg.empty()) jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, xmp_seg.data(), unsigned(xmp_seg.size()));
-  if (meta && !meta->icc.empty()) jpeg_write_icc_profile(&m.cinfo, meta->icc.data(), unsigned(meta->icc.size()));
+  if (!exif_seg.empty())
+    jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, exif_seg.data(), unsigned(exif_seg.size()));
+  if (!xmp_seg.empty())
+    jpeg_write_marker(&m.cinfo, JPEG_APP0 + 1, xmp_seg.data(), unsigned(xmp_seg.size()));
+  if (meta && !meta->icc.empty())
+    jpeg_write_icc_profile(&m.cinfo, meta->icc.data(), unsigned(meta->icc.size()));
 }
 
 JpegWriter::~JpegWriter() = default;

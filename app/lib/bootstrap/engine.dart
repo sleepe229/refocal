@@ -7,7 +7,7 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
 import 'app_log.dart';
-import 'job_store.dart';
+import 'processing.dart';
 
 /// Model bundled with the app (04-ml-models: sr.general-x4v3, denoise 0.5). The weights are not
 /// in git; tools/models/fetch.sh puts them into assets/models before a build.
@@ -17,10 +17,6 @@ const _modelFiles = ['model.ncnn.param', 'model.ncnn.bin', 'model.json'];
 final platformApiProvider = Provider((_) => RefocalPlatformApi());
 
 final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiProvider).getDirs());
-
-/// Jobs and inbox copies under AppSupport (07 §2).
-JobStore jobStoreOf(AppDirs d) =>
-    JobStore(jobsDir: '${d.support}/jobs', inboxDir: '${d.support}/inbox');
 
 class Engine {
   Engine(this.native, this.session, this.dirs, this.modelReady);
@@ -37,7 +33,6 @@ class Engine {
   String get inboxDir => '${dirs.support}/inbox';
   String get jobsDir => '${dirs.support}/jobs';
   String get exportDir => '${dirs.cache}/export';
-  JobStore get jobs => jobStoreOf(dirs);
 }
 
 /// Opens the native core once per process and installs the bundled model on first run.
@@ -68,6 +63,15 @@ final engineProvider = FutureProvider<Engine>((ref) async {
     previousExit: previousExit,
   );
   ref.onDispose(session.dispose);
+  // NFR-THERM-002: the core throttles or waits on the platform's thermal level.
+  final platform = ref.read(platformApiProvider);
+  final thermal = ProcessingActions.instance.thermal.listen(session.setThermal);
+  ref.onDispose(thermal.cancel);
+  try {
+    session.setThermal(await platform.thermalLevel());
+  } on PlatformException catch (e) {
+    AppLog.warn('thermal level: ${e.code}'); // nominal until the first change
+  }
   return Engine(native, session, dirs, ready);
 });
 
