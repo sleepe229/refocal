@@ -215,5 +215,8 @@
   "sizeMb": "{n} МБ",
   "sizeGb": "{n} ГБ",
   "noteThermalWait": "Телефон перегрелся: ждём, пока остынет.",
-  "noteThermalThrottle": "Телефон нагрелся: обработка идёт медленнее."
+  "noteThermalThrottle": "Телефон нагрелся: обработка идёт медленнее.",
+  "compareShowOriginal": "Показать оригинал",
+  "compareShowResult": "Показать результат",
+  "resultAlt": "Результат, {width}×{height}, улучшено ИИ"
 }

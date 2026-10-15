@@ -760,4 +760,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noteThermalThrottle => 'Телефон нагрелся: обработка идёт медленнее.';
+
+  @override
+  String get compareShowOriginal => 'Показать оригинал';
+
+  @override
+  String get compareShowResult => 'Показать результат';
+
+  @override
+  String resultAlt(int width, int height) {
+    return 'Результат, $width×$height, улучшено ИИ';
+  }
 }

@@ -535,5 +535,18 @@
     }
   },
   "noteThermalWait": "The phone is hot: waiting for it to cool down.",
-  "noteThermalThrottle": "The phone is warm: processing more slowly."
+  "noteThermalThrottle": "The phone is warm: processing more slowly.",
+  "compareShowOriginal": "Show original",
+  "compareShowResult": "Show result",
+  "resultAlt": "Result, {width}×{height}, enhanced by AI",
+  "@resultAlt": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  }
 }
