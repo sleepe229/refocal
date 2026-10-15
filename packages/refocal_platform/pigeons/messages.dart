@@ -12,11 +12,26 @@ import 'package:pigeon/pigeon.dart';
   ),
 )
 class AppDirs {
-  AppDirs({required this.support, required this.cache});
+  AppDirs({required this.support, required this.backedUp, required this.cache});
 
-  /// Persistent, not backed up: models/, jobs/, inbox/ live here.
+  /// Persistent, not backed up: models/, jobs/, inbox/, db.sqlite live here (PRIV-DATA-005).
   String support;
+
+  /// Persistent, in the platform backup: prefs.sqlite only (Android: filesDir, restricted to
+  /// that file by the app's backup rules; iOS: Application Support).
+  String backedUp;
   String cache;
+}
+
+/// Images copied into the inbox, and how many of the selection could not be.
+class PickedImages {
+  PickedImages({required this.images, required this.failed, this.failure});
+
+  List<PickedImage> images;
+  int failed;
+
+  /// Error code of the first failure ("limit": larger than SEC-INP-002 allows; "io").
+  String? failure;
 }
 
 class PickedImage {
@@ -59,9 +74,10 @@ abstract class RefocalPlatformApi {
   /// "os_kill" or null (unknown; Android < 11, iOS).
   String? lastExitReason();
 
-  /// System photo picker; copies the selection into [inboxDir]. Null when cancelled.
+  /// System photo picker, up to [maxCount] images (1: single selection); copies the selection
+  /// into [inboxDir] in the order picked. Empty when cancelled.
   @async
-  PickedImage? pickImage(String inboxDir);
+  PickedImages pickImages(String inboxDir, int maxCount);
 
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   @async
@@ -76,10 +92,11 @@ abstract class RefocalPlatformApi {
   /// provider, read-only; the file must be in the cache "share" directory).
   void shareFile(String path, String mimeType, String chooserTitle);
 
-  /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
-  /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+  /// The images shared to the app (Android ACTION_SEND / ACTION_SEND_MULTIPLE of images,
+  /// FR-SHARE-001) that have not been taken yet, copied into [inboxDir]; empty if none. Each
+  /// share is returned once.
   @async
-  PickedImage? takeSharedImage(String inboxDir);
+  PickedImages takeSharedImages(String inboxDir);
 
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
   /// granted or not needed. Processing works either way; only the notification is hidden.
@@ -106,6 +123,6 @@ abstract class RefocalPlatformEvents {
   /// pause and checkpoint now, the user continues later).
   void onProcessingAction(String action);
 
-  /// An image was shared to the running app; fetch it with takeSharedImage().
+  /// Images were shared to the running app; fetch them with takeSharedImages().
   void onSharedImage();
 }

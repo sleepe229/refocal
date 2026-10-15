@@ -192,24 +192,30 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
 /// Generated class from Pigeon that represents data sent in messages.
 struct AppDirs: Hashable, CustomStringConvertible {
-  /// Persistent, not backed up: models/, jobs/, inbox/ live here.
+  /// Persistent, not backed up: models/, jobs/, inbox/, db.sqlite live here (PRIV-DATA-005).
   var support: String
+  /// Persistent, in the platform backup: prefs.sqlite only (Android: filesDir, restricted to
+  /// that file by the app's backup rules; iOS: Application Support).
+  var backedUp: String
   var cache: String
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> AppDirs? {
     let support = pigeonVar_list[0] as! String
-    let cache = pigeonVar_list[1] as! String
+    let backedUp = pigeonVar_list[1] as! String
+    let cache = pigeonVar_list[2] as! String
 
     return AppDirs(
       support: support,
+      backedUp: backedUp,
       cache: cache
     )
   }
   func toList() -> [Any?] {
     return [
       support,
+      backedUp,
       cache,
     ]
   }
@@ -217,17 +223,66 @@ struct AppDirs: Hashable, CustomStringConvertible {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return MessagesPigeonInternal.deepEquals(lhs.support, rhs.support) && MessagesPigeonInternal.deepEquals(lhs.cache, rhs.cache)
+    return MessagesPigeonInternal.deepEquals(lhs.support, rhs.support) && MessagesPigeonInternal.deepEquals(lhs.backedUp, rhs.backedUp) && MessagesPigeonInternal.deepEquals(lhs.cache, rhs.cache)
   }
 
   func hash(into hasher: inout Hasher) {
     hasher.combine("AppDirs")
     MessagesPigeonInternal.deepHash(value: support, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: backedUp, hasher: &hasher)
     MessagesPigeonInternal.deepHash(value: cache, hasher: &hasher)
   }
 
   public var description: String {
-    return "AppDirs(support: \(String(describing: support)), cache: \(String(describing: cache)))"
+    return "AppDirs(support: \(String(describing: support)), backedUp: \(String(describing: backedUp)), cache: \(String(describing: cache)))"
+  }
+}
+
+/// Images copied into the inbox, and how many of the selection could not be.
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct PickedImages: Hashable, CustomStringConvertible {
+  var images: [PickedImage]
+  var failed: Int64
+  /// Error code of the first failure ("limit": larger than SEC-INP-002 allows; "io").
+  var failure: String? = nil
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> PickedImages? {
+    let images = pigeonVar_list[0] as! [PickedImage]
+    let failed = pigeonVar_list[1] as! Int64
+    let failure: String? = nilOrValue(pigeonVar_list[2])
+
+    return PickedImages(
+      images: images,
+      failed: failed,
+      failure: failure
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      images,
+      failed,
+      failure,
+    ]
+  }
+  static func == (lhs: PickedImages, rhs: PickedImages) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return MessagesPigeonInternal.deepEquals(lhs.images, rhs.images) && MessagesPigeonInternal.deepEquals(lhs.failed, rhs.failed) && MessagesPigeonInternal.deepEquals(lhs.failure, rhs.failure)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("PickedImages")
+    MessagesPigeonInternal.deepHash(value: images, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: failed, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: failure, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "PickedImages(images: \(String(describing: images)), failed: \(String(describing: failed)), failure: \(String(describing: failure)))"
   }
 }
 
@@ -352,8 +407,10 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
     case 129:
       return AppDirs.fromList(self.readValue() as! [Any?])
     case 130:
-      return PickedImage.fromList(self.readValue() as! [Any?])
+      return PickedImages.fromList(self.readValue() as! [Any?])
     case 131:
+      return PickedImage.fromList(self.readValue() as! [Any?])
+    case 132:
       return ProcessingTexts.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -366,11 +423,14 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
     if let value = value as? AppDirs {
       super.writeByte(129)
       super.writeValue(value.toList())
-    } else if let value = value as? PickedImage {
+    } else if let value = value as? PickedImages {
       super.writeByte(130)
       super.writeValue(value.toList())
-    } else if let value = value as? ProcessingTexts {
+    } else if let value = value as? PickedImage {
       super.writeByte(131)
+      super.writeValue(value.toList())
+    } else if let value = value as? ProcessingTexts {
+      super.writeByte(132)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -399,8 +459,9 @@ protocol RefocalPlatformApi {
   /// How the previous process ended, for the crash sentinel (ADR-0016): "native_crash",
   /// "os_kill" or null (unknown; Android < 11, iOS).
   func lastExitReason() throws -> String?
-  /// System photo picker; copies the selection into [inboxDir]. Null when cancelled.
-  func pickImage(inboxDir: String) async throws -> PickedImage?
+  /// System photo picker, up to [maxCount] images (1: single selection); copies the selection
+  /// into [inboxDir] in the order picked. Empty when cancelled.
+  func pickImages(inboxDir: String, maxCount: Int64) async throws -> PickedImages
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   func saveToGallery(path: String, displayName: String, mimeType: String) async throws -> String
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
@@ -409,9 +470,10 @@ protocol RefocalPlatformApi {
   /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
   /// provider, read-only; the file must be in the cache "share" directory).
   func shareFile(path: String, mimeType: String, chooserTitle: String) throws
-  /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
-  /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
-  func takeSharedImage(inboxDir: String) async throws -> PickedImage?
+  /// The images shared to the app (Android ACTION_SEND / ACTION_SEND_MULTIPLE of images,
+  /// FR-SHARE-001) that have not been taken yet, copied into [inboxDir]; empty if none. Each
+  /// share is returned once.
+  func takeSharedImages(inboxDir: String) async throws -> PickedImages
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
   /// granted or not needed. Processing works either way; only the notification is hidden.
   func requestNotificationPermission() async throws -> Bool
@@ -460,15 +522,17 @@ class RefocalPlatformApiSetup {
     } else {
       lastExitReasonChannel.setMessageHandler(nil)
     }
-    /// System photo picker; copies the selection into [inboxDir]. Null when cancelled.
-    let pickImageChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImage\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    /// System photo picker, up to [maxCount] images (1: single selection); copies the selection
+    /// into [inboxDir] in the order picked. Empty when cancelled.
+    let pickImagesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImages\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      pickImageChannel.setMessageHandler { message, reply in
+      pickImagesChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
         let inboxDirArg = args[0] as! String
+        let maxCountArg = args[1] as! Int64
         Task { @MainActor in
           do {
-            let result = try await api.pickImage(inboxDir: inboxDirArg)
+            let result = try await api.pickImages(inboxDir: inboxDirArg, maxCount: maxCountArg)
             reply(wrapResult(result))
           } catch {
             reply(wrapError(error))
@@ -476,7 +540,7 @@ class RefocalPlatformApiSetup {
         }
       }
     } else {
-      pickImageChannel.setMessageHandler(nil)
+      pickImagesChannel.setMessageHandler(nil)
     }
     /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
     let saveToGalleryChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToGallery\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
@@ -538,16 +602,17 @@ class RefocalPlatformApiSetup {
     } else {
       shareFileChannel.setMessageHandler(nil)
     }
-    /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
-    /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
-    let takeSharedImageChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    /// The images shared to the app (Android ACTION_SEND / ACTION_SEND_MULTIPLE of images,
+    /// FR-SHARE-001) that have not been taken yet, copied into [inboxDir]; empty if none. Each
+    /// share is returned once.
+    let takeSharedImagesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImages\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      takeSharedImageChannel.setMessageHandler { message, reply in
+      takeSharedImagesChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
         let inboxDirArg = args[0] as! String
         Task { @MainActor in
           do {
-            let result = try await api.takeSharedImage(inboxDir: inboxDirArg)
+            let result = try await api.takeSharedImages(inboxDir: inboxDirArg)
             reply(wrapResult(result))
           } catch {
             reply(wrapError(error))
@@ -555,7 +620,7 @@ class RefocalPlatformApiSetup {
         }
       }
     } else {
-      takeSharedImageChannel.setMessageHandler(nil)
+      takeSharedImagesChannel.setMessageHandler(nil)
     }
     /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
     /// granted or not needed. Processing works either way; only the notification is hidden.
@@ -636,7 +701,7 @@ protocol RefocalPlatformEventsProtocol {
   /// A notification action: "pause", "cancel", or "timeout" (Android 15 FGS time limit:
   /// pause and checkpoint now, the user continues later).
   @MainActor func onProcessingAction(action actionArg: String) async throws
-  /// An image was shared to the running app; fetch it with takeSharedImage().
+  /// Images were shared to the running app; fetch them with takeSharedImages().
   @MainActor func onSharedImage() async throws
 }
 class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
@@ -671,7 +736,7 @@ class RefocalPlatformEvents: RefocalPlatformEventsProtocol {
       }
     }
   }
-  /// An image was shared to the running app; fetch it with takeSharedImage().
+  /// Images were shared to the running app; fetch them with takeSharedImages().
   @MainActor func onSharedImage() async throws {
     return try await withCheckedThrowingContinuation { continuation in
       let channelName: String = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage\(messageChannelSuffix)"
