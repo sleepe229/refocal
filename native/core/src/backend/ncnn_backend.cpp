@@ -108,6 +108,24 @@ class NcnnBackend final : public InferenceBackend {
   }
 
   void set_threads(int n) override { threads_ = n; }
+
+  std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in) override {
+    net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
+    ncnn::Extractor ex = net_.create_extractor();
+    if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
+    std::vector<ncnn::Mat> outs;
+    for (const char* name : net_.output_names()) {
+      ncnn::Mat m;
+      if (ex.extract(name, m) != 0 || m.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
+      for (int c = 0; c < m.c; ++c) {
+        const float* ch = m.channel(c);
+        for (size_t i = 0; i < size_t(m.w) * m.h; ++i)
+          if (!std::isfinite(ch[i])) fail(ENH_E_NUMERIC, "non-finite model output");
+      }
+      outs.push_back(m);
+    }
+    return outs;
+  }
   int threads() const override { return loaded_threads_; }
 
   void run(const ncnn::Mat& in, ncnn::Mat& out) override {

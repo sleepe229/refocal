@@ -1,6 +1,7 @@
 # Nightly (docs/spec/11-ci-cd-release.md §1). Fuzzing 1 h (30 min per target) on the corpus the
-# PR runs grew; Beta gate (10 §5): 1 h without findings. Patrol on emulators, NR-IQA/ArcFace and
-# device-farm perf join with their tooling.
+# PR runs grew; Beta gate (10 §5): 1 h without findings. Faces end to end with the real face
+# pack (177 MB, too large for every PR). Patrol on emulators, NR-IQA/ArcFace and device-farm
+# perf join with their tooling.
 name: nightly
 
 on:
@@ -30,3 +31,23 @@ jobs:
         with:
           name: fuzz-findings
           path: native/build-fuzz/findings
+
+  faces:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - run: sudo apt-get install -y --no-install-recommends libomp-18-dev python3-jsonschema >/dev/null
+      - name: Bundled models and the face pack, verified against the manifest
+        run: |
+          DEST=native/build-ci/golden tools/models/fetch.sh
+          python3 tools/models/fetch_pack.py face.gfpgan-1.4 native/build-ci/golden
+      - name: Build and run test_faces
+        run: |
+          CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -DENH_BUILD_TESTS=ON \
+            -DENH_NCNN_RUNTIME_CPU=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build native/build-ci -j"$(nproc)" --target test_faces
+          ctest --test-dir native/build-ci -R faces --output-on-failure

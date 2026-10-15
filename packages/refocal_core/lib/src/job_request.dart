@@ -11,6 +11,8 @@ class JobRequest {
     required this.scale,
     this.fast2 = false,
     required this.srModel,
+    this.faceModel,
+    this.faceStrength = Recipe.defaultFaceStrength,
   }) : id = id ?? 'job-${newId()}' {
     if (!_id.hasMatch(this.id)) throw ArgumentError.value(this.id, 'id', 'not a job id');
     recipe(); // the same parameter rules as a recipe
@@ -23,6 +25,8 @@ class JobRequest {
     scale: recipe.scale,
     fast2: recipe.fast2,
     srModel: recipe.srModel,
+    faceModel: recipe.faceModel,
+    faceStrength: recipe.faceStrength,
   );
 
   /// The job directory name under AppSupport/jobs (`[A-Za-z0-9_-]{1,64}` in the core).
@@ -34,11 +38,22 @@ class JobRequest {
   final bool fast2;
   final String srModel;
 
+  /// The face pack (FR-FACE-002), null without face restoration; the detector is the core's
+  /// default (bundled YuNet).
+  final String? faceModel;
+  final double faceStrength;
+
   static final _id = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
   /// The recipe this request runs, at [strength] (not stored in the request).
-  Recipe recipe({double strength = 1}) =>
-      Recipe(scale: scale, fast2: fast2, srModel: srModel, strength: strength);
+  Recipe recipe({double strength = 1}) => Recipe(
+    scale: scale,
+    fast2: fast2,
+    srModel: srModel,
+    strength: strength,
+    faceModel: faceModel,
+    faceStrength: faceStrength,
+  );
 
   static const schemaVersion = 1;
 
@@ -49,6 +64,7 @@ class JobRequest {
     'sr_model': srModel,
     'scale': scale,
     'fast2': fast2,
+    if (faceModel case final f?) ...{'face_model': f, 'face_strength': faceStrength},
   };
 
   /// Reads request.json as the core rewrote it (it adds its own fields, e.g. `tile`, and may
@@ -62,8 +78,22 @@ class JobRequest {
       'scale': final int scale,
       'fast2': final bool fast2,
     }) {
+      final face = j['face_model'];
+      final faceStrength = j['face_strength'] ?? Recipe.defaultFaceStrength;
+      if ((face != null && face is! String) || faceStrength is! num) {
+        throw FormatException('bad face fields', j);
+      }
       try {
-        return JobRequest(id: id, input: input, scale: scale, fast2: fast2, srModel: srModel);
+        return JobRequest(
+          id: id,
+          input: input,
+          scale: scale,
+          fast2: fast2,
+          srModel: srModel,
+          // The core writes "" for no face restoration.
+          faceModel: face == null || face == '' ? null : face as String,
+          faceStrength: faceStrength.toDouble(),
+        );
       } on ArgumentError catch (e) {
         throw FormatException('${e.message}', j);
       }

@@ -22,6 +22,7 @@ class Settings {
     this.onboardingDone = false,
     this.historyEnabled = true,
     this.batchAutosave = true,
+    this.faceNoticeSeen = false,
   });
 
   /// PRIV-META-001: location is removed from results unless the user asks to keep it.
@@ -47,6 +48,9 @@ class Settings {
   /// FR-BATCH-006: a batch saves each result to the app album in [format] when it is done.
   final bool batchAutosave;
 
+  /// ADR-0022: the warning about face restoration was shown (first use only).
+  final bool faceNoticeSeen;
+
   Settings copyWith({
     bool? keepGps,
     bool? aiMarker,
@@ -56,6 +60,7 @@ class Settings {
     bool? onboardingDone,
     bool? historyEnabled,
     bool? batchAutosave,
+    bool? faceNoticeSeen,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
     aiMarker: aiMarker ?? this.aiMarker,
@@ -65,6 +70,7 @@ class Settings {
     onboardingDone: onboardingDone ?? this.onboardingDone,
     historyEnabled: historyEnabled ?? this.historyEnabled,
     batchAutosave: batchAutosave ?? this.batchAutosave,
+    faceNoticeSeen: faceNoticeSeen ?? this.faceNoticeSeen,
   );
 
   /// Rows of the `settings` table; null removes the key (the system language).
@@ -77,6 +83,7 @@ class Settings {
     'onboarding_done': '$onboardingDone',
     'history_enabled': '$historyEnabled',
     'batch_autosave': '$batchAutosave',
+    'face_notice_seen': '$faceNoticeSeen',
   };
 
   /// The values are validated here, once: anything missing, unknown or out of range is the
@@ -98,6 +105,7 @@ class Settings {
       onboardingDone: flag('onboarding_done', d.onboardingDone),
       historyEnabled: flag('history_enabled', d.historyEnabled),
       batchAutosave: flag('batch_autosave', d.batchAutosave),
+      faceNoticeSeen: flag('face_notice_seen', d.faceNoticeSeen),
     );
   }
 

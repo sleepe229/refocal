@@ -2,14 +2,22 @@ import 'enh_status.dart';
 
 /// Pipeline stage reported by the native core (`stage` of ENH_EV_STAGE).
 enum JobStage {
-  queued,
-  decode,
-  upscale,
-  finalize,
-  unknown;
+  queued('queued'),
+  decode('decode'),
+
+  /// DetectFaces + RestoreFaces (ADR-0012).
+  faces('restore_faces'),
+  upscale('upscale'),
+  finalize('finalize'),
+  unknown('');
+
+  const JobStage(this.wire);
+
+  /// The name the core reports.
+  final String wire;
 
   static JobStage fromName(String? name) =>
-      values.firstWhere((s) => s.name == name, orElse: () => unknown);
+      values.firstWhere((s) => s != unknown && s.wire == name, orElse: () => unknown);
 }
 
 /// Events of one enhancement job (docs/spec/03 §4.1). Decoded from the native event tuple

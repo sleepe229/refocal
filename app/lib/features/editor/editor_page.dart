@@ -3,14 +3,17 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/app_log.dart';
 import '../../bootstrap/files.dart';
 import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
+import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';
@@ -140,24 +143,115 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _choice = ScaleChoice.of(r);
     _strength = r.strength;
     _model = r.srModel;
+    _faces = r.faceModel != null;
+    _faceStrength = r.faceStrength;
   }
 
   bool _matches(Recipe r) =>
-      _choice == ScaleChoice.of(r) && _strength == r.strength && _model == r.srModel;
+      _choice == ScaleChoice.of(r) &&
+      _strength == r.strength &&
+      _model == r.srModel &&
+      _faces == (r.faceModel != null) &&
+      (!_faces || _faceStrength == r.faceStrength);
+
+  /// FR-FACE-002/004: restore faces with the face pack, at this strength.
+  bool _faces = false;
+  double _faceStrength = Recipe.defaultFaceStrength;
 
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
   /// What Enhance runs; [_model] is one the device has (installed or bundled).
-  Recipe? get _recipe => switch (_choice) {
-    final c? when ref.read(availableModelsProvider).contains(_model) => Recipe(
+  Recipe? get _recipe {
+    final c = _choice;
+    if (c == null) return null;
+    final r = Recipe(
       scale: c.scale,
       fast2: c.fastPath,
       srModel: _model,
       strength: _strength,
-    ),
-    _ => null,
-  };
+      faceModel: _faces ? defaultFacePack : null,
+      faceStrength: _faceStrength,
+    );
+    return canRun(r, ref.read(availableModelsProvider)) ? r : null;
+  }
+
+  /// Faces (FR-FACE-002..004): a switch and the strength once the face pack is installed; else
+  /// what is needed and the way to the Models screen (FR-FACE-003).
+  Widget _facesControls(AppLocalizations l10n) {
+    final available = ref.watch(availableModelsProvider);
+    if (!available.contains(bundledDetector)) return const SizedBox.shrink();
+    if (!available.contains(defaultFacePack)) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.face_retouching_natural),
+        title: Text(l10n.faces),
+        subtitle: Text(l10n.facesNeedPack),
+        trailing: TextButton(
+          onPressed: () => context.push('/models'),
+          child: Text(l10n.facesGetPack),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.face_retouching_natural),
+          title: Text(l10n.faces),
+          subtitle: Text(l10n.facesHint),
+          value: _faces,
+          onChanged: (v) async {
+            if (v && !await _faceNotice(l10n)) return;
+            setState(() => _faces = v);
+          },
+        ),
+        if (_faces)
+          Row(
+            children: [
+              Text(l10n.facesStrength),
+              Expanded(
+                child: Slider(
+                  value: _faceStrength,
+                  divisions: 20,
+                  label: l10n.strengthValue((_faceStrength * 100).round()),
+                  semanticFormatterCallback: (v) => l10n.strengthValue((v * 100).round()),
+                  onChanged: (v) => setState(() => _faceStrength = v),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// ADR-0022: the first time faces are turned on, what face restoration does.
+  Future<bool> _faceNotice(AppLocalizations l10n) async {
+    final settings = await ref.read(settingsProvider.future);
+    if (settings.faceNoticeSeen || !mounted) return true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.facesNoticeTitle),
+        content: Text(l10n.facesNoticeBody),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.facesNoticeOk),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return false;
+    try {
+      await ref.read(settingsProvider.notifier).change((s) => s.copyWith(faceNoticeSeen: true));
+    } on Exception catch (e) {
+      AppLog.warn('face notice: ${e.runtimeType}'); // shown again next time
+    }
+    return true;
+  }
 
   /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one.
   Widget? _denoise(AppLocalizations l10n) {
@@ -201,7 +295,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       label: Text(label),
       selected: _matches(r),
       onSelected: (_) {
-        if (!available.contains(r.srModel)) {
+        if (!canRun(r, available)) {
           messenger.showSnackBar(SnackBar(content: Text(l10n.presetModelMissing)));
           return;
         }
@@ -229,6 +323,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         const SizedBox(height: 12),
         _presets(l10n),
         ?_denoise(l10n),
+        _facesControls(l10n),
         const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
           segments: [
@@ -278,6 +373,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final label = switch (s.stage) {
       JobStage.queued => l10n.stageWaiting,
       JobStage.decode => l10n.stageReading,
+      JobStage.faces => l10n.stageFaces(percent),
       JobStage.upscale =>
         eta == null
             ? l10n.stageEnhancing(percent)
@@ -300,7 +396,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LinearProgressIndicator(value: s.stage == JobStage.upscale ? s.progress : null),
+                LinearProgressIndicator(
+                  value: s.stage == JobStage.upscale || s.stage == JobStage.faces
+                      ? s.progress
+                      : null,
+                ),
                 const SizedBox(height: 8),
                 Text(label, textAlign: TextAlign.center),
               ],

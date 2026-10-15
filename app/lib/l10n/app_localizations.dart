@@ -1550,6 +1550,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Strong'**
   String get denoiseStrong;
+
+  /// No description provided for @presetPortrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Portrait'**
+  String get presetPortrait;
+
+  /// No description provided for @presetOldPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Old photo'**
+  String get presetOldPhoto;
+
+  /// No description provided for @recipeFaces.
+  ///
+  /// In en, this message translates to:
+  /// **'faces {percent}%'**
+  String recipeFaces(int percent);
+
+  /// No description provided for @faces.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore faces'**
+  String get faces;
+
+  /// No description provided for @facesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the face model on each face, then blends it with the enhanced photo.'**
+  String get facesHint;
+
+  /// No description provided for @facesStrength.
+  ///
+  /// In en, this message translates to:
+  /// **'Face strength'**
+  String get facesStrength;
+
+  /// No description provided for @facesNeedPack.
+  ///
+  /// In en, this message translates to:
+  /// **'Face restoration needs the face model (about 177 MB, non-commercial license).'**
+  String get facesNeedPack;
+
+  /// No description provided for @facesGetPack.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get facesGetPack;
+
+  /// No description provided for @facesNoticeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About face restoration'**
+  String get facesNoticeTitle;
+
+  /// No description provided for @facesNoticeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The face model redraws faces from what it has learned. Faces can look sharper but also different from the real person, especially in old or small photos. Refocal blends the result with the original (50% by default) and marks saved photos as AI-edited.'**
+  String get facesNoticeBody;
+
+  /// No description provided for @facesNoticeOk.
+  ///
+  /// In en, this message translates to:
+  /// **'I understand'**
+  String get facesNoticeOk;
+
+  /// No description provided for @stageFaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring faces… {percent}%'**
+  String stageFaces(int percent);
+
+  /// No description provided for @noteFacesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Faces found: {count}'**
+  String noteFacesFound(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

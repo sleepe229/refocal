@@ -22,6 +22,21 @@ void main() {
     expect((r.id, r.input, r.scale, r.fast2, r.srModel), ('job-1', '/in/a.jpg', 2, false, 'sr.m'));
   });
 
+  test('faces go to the core and come back; the core writes "" for none', () {
+    final r = Recipe(scale: 4, srModel: 'sr.m', faceModel: 'face.g', faceStrength: 0.3);
+    final q = JobRequest.of(r, '/in/a.jpg', id: 'job-f');
+    expect(q.toJson(), containsPair('face_model', 'face.g'));
+    expect(q.toJson(), containsPair('face_strength', 0.3));
+    expect(JobRequest.fromJson(q.toJson()).recipe(), r);
+    final none = JobRequest.fromJson({
+      ...JobRequest(id: 'job-n', input: '/a', scale: 4, srModel: 'm').toJson(),
+      'face_model': '',
+      'det_model': 'det.yunet-2023mar',
+      'face_strength': 0.5,
+    });
+    expect(none.faceModel, isNull);
+  });
+
   test('rejects what the core would not run or this version did not write', () {
     final ok = JobRequest(id: 'job-1', input: '/a', scale: 4, srModel: 'm').toJson();
     expect(() => JobRequest(id: '../x', input: '/a', scale: 4, srModel: 'm'), throwsArgumentError);
