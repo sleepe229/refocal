@@ -189,6 +189,7 @@ set(ENH_SOURCES
   core/src/enh.cpp
   core/src/probe.cpp
   core/src/util/fs.cpp
+  core/src/util/integrity.cpp
   core/src/util/log.cpp
   core/src/image/decode.cpp
   core/src/image/jpeg.cpp
@@ -212,10 +213,17 @@ set(ENH_SOURCES
 # Dart API DL (BSD-3-Clause, from the Dart SDK; copied to third_party/dart_api_dl) — event ports.
 set(DART_DL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/dart_api_dl)
 list(APPEND ENH_SOURCES ${DART_DL_DIR}/dart_api_dl.c)
+# ---- Monocypher (git submodule, BSD-2-Clause OR CC0-1.0): Ed25519 + BLAKE2b (ADR-0021) ----
+set(MONOCYPHER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/monocypher/src)
+if(NOT EXISTS "${MONOCYPHER_DIR}/monocypher.c")
+  message(FATAL_ERROR "monocypher submodule missing: git submodule update --init --recursive")
+endif()
+list(APPEND ENH_SOURCES ${MONOCYPHER_DIR}/monocypher.c ${MONOCYPHER_DIR}/optional/monocypher-ed25519.c)
 
 add_library(enh_core STATIC ${ENH_SOURCES})
 target_include_directories(enh_core PUBLIC include core/src
-  PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include)
+  PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include
+  ${MONOCYPHER_DIR} ${MONOCYPHER_DIR}/optional)
 target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux libwebpmux ZLIB::ZLIB
   Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
@@ -269,6 +277,10 @@ if(ENH_BUILD_TESTS)
   target_link_libraries(test_golden PRIVATE enh_core)
   add_test(NAME golden COMMAND test_golden ${ENH_GOLDEN_DIR})
   set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
+  add_executable(test_integrity tests/test_integrity.cpp)
+  target_link_libraries(test_integrity PRIVATE enh_core)
+  add_test(NAME integrity COMMAND test_integrity ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/minisign
+    ${CMAKE_CURRENT_BINARY_DIR}/test-work-integrity)
   foreach(t blocklist sentinel log)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)
