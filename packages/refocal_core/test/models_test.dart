@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:refocal_core/refocal_core.dart';
 import 'package:test/test.dart';
@@ -74,6 +75,20 @@ void main() {
       expect(p.filesFor('android', 'ncnn').first.urls, hasLength(2));
       expect(p.filesFor('ios', 'coreml'), hasLength(1));
       expect(m.pack('face.gfpgan-1.4')!.license.requiresAcceptance, isTrue);
+    });
+
+    test('the published manifest (tools/models/manifest.json) is one the app reads', () {
+      final m = Manifest.parse(File('../../tools/models/manifest.json').readAsStringSync());
+      expect(
+        m.packs.map((p) => p.id),
+        containsAll(['sr.general-x4v3-dn0', 'sr.general-x4v3-dn100']),
+      );
+      for (final p in m.packs) {
+        expect(p.filesFor('android', 'ncnn').map((f) => f.path).toSet(), {
+          'model.ncnn.param',
+          'model.ncnn.bin',
+        }, reason: p.id);
+      }
     });
 
     test('rejects what the schema does not allow', () {

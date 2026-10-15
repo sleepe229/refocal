@@ -8,6 +8,7 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/files.dart';
+import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../l10n/app_localizations.dart';
@@ -138,32 +139,69 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   void _apply(Recipe r) {
     _choice = ScaleChoice.of(r);
     _strength = r.strength;
+    _model = r.srModel;
   }
 
-  bool _matches(Recipe r) => _choice == ScaleChoice.of(r) && _strength == r.strength;
+  bool _matches(Recipe r) =>
+      _choice == ScaleChoice.of(r) && _strength == r.strength && _model == r.srModel;
 
-  /// What Enhance runs. Only the bundled model exists until the model manager (0.2); presets
-  /// of other models are refused in [_presets].
+  /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
+  String _model = bundledSrModel;
+
+  /// What Enhance runs; [_model] is one the device has (installed or bundled).
   Recipe? get _recipe => switch (_choice) {
-    final c? => Recipe(
+    final c? when ref.read(availableModelsProvider).contains(_model) => Recipe(
       scale: c.scale,
       fast2: c.fastPath,
-      srModel: bundledSrModel,
+      srModel: _model,
       strength: _strength,
     ),
-    null => null,
+    _ => null,
   };
 
-  /// Presets apply before Enhance (FR-PRE-001/002). Only the bundled model exists until the
-  /// model manager (0.2): a preset of another model cannot run.
+  /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one.
+  Widget? _denoise(AppLocalizations l10n) {
+    final available = ref.watch(availableModelsProvider);
+    final levels = [
+      for (final d in DenoiseLevel.values)
+        if (available.contains(d.model)) d,
+    ];
+    if (levels.length < 2) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        Text(l10n.denoise, textAlign: TextAlign.center),
+        SegmentedButton<DenoiseLevel>(
+          segments: [
+            for (final d in levels)
+              ButtonSegment(
+                value: d,
+                label: Text(switch (d) {
+                  DenoiseLevel.none => l10n.denoiseNone,
+                  DenoiseLevel.standard => l10n.denoiseStandard,
+                  DenoiseLevel.strong => l10n.denoiseStrong,
+                }),
+              ),
+          ],
+          selected: {?DenoiseLevel.of(_model)},
+          onSelectionChanged: (s) => setState(() => _model = s.first.model),
+        ),
+      ],
+    );
+  }
+
+  /// Presets apply before Enhance (FR-PRE-001/002); one of a model the device does not have
+  /// (a pack not installed) cannot run.
   Widget _presets(AppLocalizations l10n) {
     final user = ref.watch(presetsProvider).value ?? const <Preset>[];
+    final available = ref.watch(availableModelsProvider);
     final messenger = ScaffoldMessenger.of(context);
     Widget chip(String label, Recipe r) => ChoiceChip(
       label: Text(label),
       selected: _matches(r),
       onSelected: (_) {
-        if (r.srModel != bundledSrModel) {
+        if (!available.contains(r.srModel)) {
           messenger.showSnackBar(SnackBar(content: Text(l10n.presetModelMissing)));
           return;
         }
@@ -190,6 +228,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           Text(l10n.sizePx(size.width.toInt(), size.height.toInt()), textAlign: TextAlign.center),
         const SizedBox(height: 12),
         _presets(l10n),
+        ?_denoise(l10n),
         const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
           segments: [
