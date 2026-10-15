@@ -323,3 +323,74 @@ final installedPacksProvider = StreamProvider<List<InstalledPack>>((ref) async* 
   final repo = (await ref.watch(modelManagerProvider.future)).repo;
   yield* repo.watchInstalled();
 });
+
+/// SR models the editor can run now: the bundled one and installed SR packs (FR-PRE-*).
+final availableModelsProvider = Provider<Set<String>>((ref) {
+  final installed = ref.watch(installedPacksProvider).value ?? const <InstalledPack>[];
+  return {bundledSrModel, for (final p in installed) p.id};
+});
+
+/// The Models screen's state: the manifest shown (the last verified one until the user asks
+/// for a newer), and downloads in progress (they go on while the app runs).
+class ModelsState {
+  const ModelsState({this.manifest, this.downloads = const {}, this.checking = false});
+  final Manifest? manifest;
+  final Map<String, PackProgress> downloads;
+  final bool checking;
+
+  ModelsState copyWith({
+    Manifest? manifest,
+    Map<String, PackProgress>? downloads,
+    bool? checking,
+  }) => ModelsState(
+    manifest: manifest ?? this.manifest,
+    downloads: downloads ?? this.downloads,
+    checking: checking ?? this.checking,
+  );
+}
+
+class ModelsController extends AsyncNotifier<ModelsState> {
+  final _cancelled = <String>{};
+
+  @override
+  Future<ModelsState> build() async {
+    final manager = await ref.watch(modelManagerProvider.future);
+    return ModelsState(manifest: await manager.repo.current());
+  }
+
+  ModelsState get _s => state.value ?? const ModelsState();
+
+  /// Fetches the manifest (the user's action, ADR-0020). Throws [ModelError].
+  Future<void> refresh() async {
+    final manager = await ref.read(modelManagerProvider.future);
+    state = AsyncData(_s.copyWith(checking: true));
+    try {
+      state = AsyncData(_s.copyWith(manifest: await manager.refresh(), checking: false));
+    } finally {
+      if (_s.checking) state = AsyncData(_s.copyWith(checking: false));
+    }
+  }
+
+  /// Throws [ModelError] (not on cancel).
+  Future<void> install(PackInfo pack) async {
+    final manager = await ref.read(modelManagerProvider.future);
+    _cancelled.remove(pack.id);
+    void progress(PackProgress p) =>
+        state = AsyncData(_s.copyWith(downloads: {..._s.downloads, pack.id: p}));
+    progress(const PackProgress(0, 0));
+    try {
+      await manager.install(pack, onProgress: progress, cancel: () => _cancelled.contains(pack.id));
+    } on DownloadCancelled {
+      AppLog.info('pack ${pack.id}: download cancelled');
+    } finally {
+      state = AsyncData(_s.copyWith(downloads: {..._s.downloads}..remove(pack.id)));
+    }
+  }
+
+  void cancel(String packId) => _cancelled.add(packId);
+
+  Future<void> remove(String packId) async =>
+      (await ref.read(modelManagerProvider.future)).remove(packId);
+}
+
+final modelsProvider = AsyncNotifierProvider<ModelsController, ModelsState>(ModelsController.new);

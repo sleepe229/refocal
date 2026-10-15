@@ -771,4 +771,85 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultAlt(int width, int height) {
     return 'Result, $width×$height, enhanced by AI';
   }
+
+  @override
+  String get modelsTitle => 'Models';
+
+  @override
+  String get settingsModels => 'Models';
+
+  @override
+  String get modelsBuiltIn => 'Built in: Real-ESRGAN general (denoise 0.5)';
+
+  @override
+  String get modelsBuiltInHint => 'Always available, works offline.';
+
+  @override
+  String get modelsCheck => 'Check for models';
+
+  @override
+  String get modelsNotChecked => 'Tap \"Check for models\" to see what can be downloaded.';
+
+  @override
+  String get modelsPrivacy =>
+      'Refocal connects to the internet only when you check for models or download one. Files are verified with a signature and a checksum before use.';
+
+  @override
+  String get modelsNonCommercial => 'non-commercial';
+
+  @override
+  String get modelsInstalled => 'installed';
+
+  @override
+  String modelsUpdate(String installedVersion, String availableVersion) {
+    return 'installed $installedVersion, available $availableVersion';
+  }
+
+  @override
+  String get modelsUpdateAction => 'Update';
+
+  @override
+  String get modelsDownload => 'Download';
+
+  @override
+  String get modelsDelete => 'Delete';
+
+  @override
+  String modelsDownloading(int percent) {
+    return 'Downloading… $percent%';
+  }
+
+  @override
+  String get modelsErrorNetwork =>
+      'Could not reach the model server. Check the connection and try again.';
+
+  @override
+  String get modelsErrorIntegrity => 'The download did not pass verification and was not used.';
+
+  @override
+  String get modelsErrorRollback => 'The server offered an older model list; it was not used.';
+
+  @override
+  String modelsLicenseTitle(String name) {
+    return 'License: $name';
+  }
+
+  @override
+  String get modelsLicenseIntro =>
+      'This model is not free for every use. Read its license; download it only if you accept it.';
+
+  @override
+  String get modelsLicenseAccept => 'Accept and download';
+
+  @override
+  String get denoise => 'Denoise';
+
+  @override
+  String get denoiseNone => 'Off';
+
+  @override
+  String get denoiseStandard => 'Standard';
+
+  @override
+  String get denoiseStrong => 'Strong';
 }
