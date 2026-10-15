@@ -4,3 +4,7 @@
 # converted by spikes/_shared/convert_sr.py (S1/S2).
 sr.general-x4v3 model.ncnn.param a950267ad1e89cb6d5e5e890fe4cf55a5e3526c532a656b9704ce1438455e5fe https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/model.ncnn.param
 sr.general-x4v3 model.ncnn.bin   8fe24682c8f4440f1ed66d2c8a90dc7bd745b203212c31fe69c18032c39645aa https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/model.ncnn.bin
+# det.yunet-2023mar = YuNet 2023mar (MIT, opencv/opencv_zoo), converted to ncnn by pnnx (ADR-0011:
+# the detector is bundled; face restoration models are packs).
+det.yunet-2023mar model.ncnn.param b5b3d417feee8493f735eb95b82cca07a6ddf2652c7c6e9171b69506d57b1700 https://github.com/sleepe229/refocal/releases/download/model-det.yunet-2023mar-v1/model.ncnn.param
+det.yunet-2023mar model.ncnn.bin   8faa696d61ad6bf5c13ed5d6c8ae35e376c660968db53d723a329020856ca5c9 https://github.com/sleepe229/refocal/releases/download/model-det.yunet-2023mar-v1/model.ncnn.bin
