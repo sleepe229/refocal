@@ -22,6 +22,7 @@ struct JobRequest {
   std::string face_model;
   std::string det_model = "det.yunet-2023mar";
   double face_strength = 0.5;
+  bool face_color_match = true;  // FR-FACE-008: on by default
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)
