@@ -4,7 +4,8 @@
 # Native: test_abi, test_pipeline, test_job (end-to-end job ABI on synthetic ncnn models:
 # exact nearest x4, tiled == whole, cancel, pause/resume, NEEDS_USER, fallback ladder, PNG
 # input, export metadata), test_codecs (PNG/WebP, metaio EXIF rewrite + mutation fuzz).
-# TODO(0.1): clang-format/clang-tidy, fuzzing, refocal-cli golden on the real compact model
+# clang-format check; libFuzzer targets 5 min (fuzz job, 1 h in nightly.yml).
+# TODO(0.1): clang-tidy, refocal-cli golden on the real compact model
 # (needs model hosting), license check, size gate,
 # iOS build without signing (needs enh.xcframework, see packages/refocal_ffi/ios).
 name: pr
@@ -40,7 +41,7 @@ jobs:
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then echo "native=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
           echo "$files"
-          if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|\.github/workflows/pr\.yml|\.gitmodules)'; then
+          if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|tools/fuzz/|\.clang-format|\.github/workflows/pr\.yml|\.gitmodules)'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
@@ -162,6 +163,13 @@ jobs:
           echo "::error::TSan does not detect races on this runner (kernel $(uname -r))"
           cat race.err
           exit 1
+      - name: clang-format (.clang-format)
+        if: matrix.sanitize == ''
+        run: |
+          pip install --user --quiet clang-format==18.1.8
+          git ls-files 'native/core/*.cpp' 'native/core/*.hpp' 'native/include/*.h' \
+            'native/tests/*.cpp' 'native/tests/*.hpp' 'tools/refocal-cli/*.cpp' \
+            | xargs ~/.local/bin/clang-format --dry-run --Werror
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
@@ -178,6 +186,29 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache >/dev/null
           cmake --build spikes/s6-ffi/native/build-ci -j"$(nproc)"
           spikes/s6-ffi/native/build-ci/stress 1000
+
+
+  # libFuzzer on the decoders and metaio (11 §1: 5 min per PR). The corpus grows across runs.
+  fuzz:
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/build-fuzz/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Fuzz 150 s per target
+        run: tools/fuzz/run.sh 150
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: fuzz-findings
+          path: native/build-fuzz/findings
 
   android:
     runs-on: ubuntu-24.04
