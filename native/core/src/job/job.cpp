@@ -256,8 +256,8 @@ struct enh_job {
 
   // DetectFaces + RestoreFaces (ADR-0012, ADR-0022): YuNet on CPU (tiny), the face model on
   // the backend ladder; each model is freed before the next stage. Faces smaller than
-  // kMinFacePx are left alone; a face whose restored crop would be enlarged past 512 px in the
-  // output is weakened in proportion (the model works at 512).
+  // kMinFacePx are left alone; a face larger than 512 px in the input gets half the strength
+  // (FR-FACE-009).
   std::vector<RestoredFace> restore_faces(const JobRequest& req, const Rgb8& img);
 
   void run();
@@ -396,10 +396,10 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
         load();
       }
     }
-    // Side of the 512 crop in the output: 512 / alignment scale x SR scale.
-    const double k = std::hypot(align.a, align.c);
-    const double side_out = kFaceSide / k * req.scale;
-    const float weight = float(std::min(1.0, double(kFaceSide) / side_out));
+    // FR-FACE-009: a face whose 512 crop covers more than 512 input pixels (the model would
+    // lose detail the photo has) gets half the strength.
+    const double crop_side_in = kFaceSide / std::hypot(align.a, align.c);
+    const float weight = crop_side_in > kFaceSide ? 0.5f : 1.f;
     out.push_back(prepare_paste(align, std::move(restored), req.scale,
                                 float(req.face_strength) * weight, img.w * req.scale,
                                 img.h * req.scale));
