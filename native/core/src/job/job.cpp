@@ -60,6 +60,7 @@ JobRequest parse_job_request(const std::string& text) {
     r.face_model = j.value("face_model", r.face_model);
     r.det_model = j.value("det_model", r.det_model);
     r.face_strength = j.value("face_strength", r.face_strength);
+    r.face_color_match = j.value("face_color_match", r.face_color_match);
   } catch (const nlohmann::json::exception& e) {
     fail(ENH_E_INVALID, std::string("bad request: ") + e.what());
   }
@@ -90,7 +91,8 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
           {"max_output_mp", r.max_output_mp},
           {"face_model", r.face_model},
           {"det_model", r.det_model},
-          {"face_strength", r.face_strength}};
+          {"face_strength", r.face_strength},
+          {"face_color_match", r.face_color_match}};
 }
 
 namespace {
@@ -388,6 +390,10 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     for (;;) {
       try {
         restored = restore_face(*be, aligned);
+        if (req.face_color_match) {
+          const double de = match_face_color(restored, aligned);
+          ENH_LOGD("face %zu: colour shift dE %.1f", i, de);
+        }
         break;
       } catch (const Error& e) {
         const bool recoverable = e.status() == ENH_E_BACKEND || e.status() == ENH_E_NUMERIC;

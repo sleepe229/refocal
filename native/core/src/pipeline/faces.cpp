@@ -221,6 +221,79 @@ Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned) {
   return face;
 }
 
+namespace {
+
+double srgb_to_linear(double c) {
+  c /= 255.0;
+  return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
+}
+double linear_to_srgb(double c) {
+  c = std::clamp(c, 0.0, 1.0);
+  return 255.0 * (c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1 / 2.4) - 0.055);
+}
+double lab_f(double t) { return t > 216.0 / 24389 ? std::cbrt(t) : (24389.0 / 27 * t + 16) / 116; }
+double lab_finv(double t) {
+  return t * t * t > 216.0 / 24389 ? t * t * t : (116 * t - 16) * 27 / 24389;
+}
+constexpr double kXn = 0.95047, kYn = 1.0, kZn = 1.08883;  // D65
+
+void rgb_to_lab(const uint8_t* p, double lab[3]) {
+  const double r = srgb_to_linear(p[0]), g = srgb_to_linear(p[1]), b = srgb_to_linear(p[2]);
+  const double x = (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / kXn;
+  const double y = (0.2126729 * r + 0.7151522 * g + 0.0721750 * b) / kYn;
+  const double z = (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / kZn;
+  const double fx = lab_f(x), fy = lab_f(y), fz = lab_f(z);
+  lab[0] = 116 * fy - 16;
+  lab[1] = 500 * (fx - fy);
+  lab[2] = 200 * (fy - fz);
+}
+
+void lab_to_rgb(const double lab[3], uint8_t* p) {
+  const double fy = (lab[0] + 16) / 116, fx = fy + lab[1] / 500, fz = fy - lab[2] / 200;
+  const double x = lab_finv(fx) * kXn, y = lab_finv(fy) * kYn, z = lab_finv(fz) * kZn;
+  const double r = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
+  const double g = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
+  const double b = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
+  p[0] = uint8_t(linear_to_srgb(r) + 0.5);
+  p[1] = uint8_t(linear_to_srgb(g) + 0.5);
+  p[2] = uint8_t(linear_to_srgb(b) + 0.5);
+}
+
+}  // namespace
+
+void masked_mean_lab(const Rgb8& img, double lab[3]) {
+  double sum[3] = {0, 0, 0}, w = 0;
+  for (int y = 0; y < img.h; ++y)
+    for (int x = 0; x < img.w; ++x) {
+      const float m = feather(x, y);
+      if (m <= 0) continue;
+      double l[3];
+      rgb_to_lab(img.row(y) + 3 * x, l);
+      for (int c = 0; c < 3; ++c) sum[c] += m * l[c];
+      w += m;
+    }
+  for (int c = 0; c < 3; ++c) lab[c] = w > 0 ? sum[c] / w : 0;
+}
+
+double match_face_color(Rgb8& restored, const Rgb8& aligned) {
+  double want[3], have[3];
+  masked_mean_lab(aligned, want);
+  masked_mean_lab(restored, have);
+  const double shift[3] = {want[0] - have[0], want[1] - have[1], want[2] - have[2]};
+  const double de = std::sqrt(shift[0] * shift[0] + shift[1] * shift[1] + shift[2] * shift[2]);
+  for (int y = 0; y < restored.h; ++y) {
+    uint8_t* p = restored.row(y);
+    for (int x = 0; x < restored.w; ++x, p += 3) {
+      double l[3];
+      rgb_to_lab(p, l);
+      for (int c = 0; c < 3; ++c) l[c] += shift[c];
+      l[0] = std::clamp(l[0], 0.0, 100.0);
+      lab_to_rgb(l, p);
+    }
+  }
+  return de;
+}
+
 RestoredFace prepare_paste(const Affine& align, Rgb8 restored, int scale, float strength, int out_w,
                            int out_h) {
   RestoredFace r;
