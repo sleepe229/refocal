@@ -55,6 +55,14 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h);
 // Runs the face model on an aligned 512x512 face (GFPGAN io: RGB in [-1, 1] both ways).
 Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned);
 
+// FR-FACE-008: shifts the restored face so its mean CIELAB colour under the paste mask equals
+// the original crop's (face models drift in colour, e.g. warm a sepia print). Returns the mean
+// colour difference (CIE76 dE) before the shift.
+double match_face_color(Rgb8& restored, const Rgb8& aligned);
+
+// Mean CIELAB colour (D65) of [img] weighted by the paste mask; for tests.
+void masked_mean_lab(const Rgb8& img, double lab[3]);
+
 // A restored face ready to paste: [to_face] maps SR-output coordinates to the 512 face.
 struct RestoredFace {
   Affine to_face;
