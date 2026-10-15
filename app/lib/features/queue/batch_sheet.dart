@@ -38,15 +38,16 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
     final available = ref.watch(availableModelsProvider);
     final user = [
       for (final p in ref.watch(presetsProvider).value ?? const <Preset>[])
-        if (available.contains(p.recipe.srModel)) p,
+        if (canRun(p.recipe, available)) p,
     ];
     Widget chip(String label, Recipe r) => ChoiceChip(
       label: Text(label),
       selected: _recipe == r,
       onSelected: (_) => setState(() => _recipe = r),
     );
+    // Scrolls: with large text (A11Y-GEN-004) the sheet is taller than the screen allows.
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -60,7 +61,8 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                for (final b in BuiltinPreset.values) chip(builtinPresetLabel(l10n, b), b.recipe),
+                for (final b in BuiltinPreset.values)
+                  if (canRun(b.recipe, available)) chip(builtinPresetLabel(l10n, b), b.recipe),
                 for (final p in user) chip(p.name, p.recipe),
               ],
             ),

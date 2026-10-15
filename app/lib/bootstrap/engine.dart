@@ -12,19 +12,30 @@ import 'processing.dart';
 /// Model bundled with the app (04-ml-models: sr.general-x4v3, denoise 0.5). The weights are not
 /// in git; tools/models/fetch.sh puts them into assets/models before a build.
 const bundledSrModel = 'sr.general-x4v3';
-const _modelFiles = ['model.ncnn.param', 'model.ncnn.bin', 'model.json'];
+
+/// Face detector bundled with the app (ADR-0011: YuNet, MIT); face restoration comes in packs.
+const bundledDetector = 'det.yunet-2023mar';
+
+/// Files of the bundled models in `assets/models/<id>/` (tools/models/fetch.sh, models.lock).
+const _bundled = {
+  bundledSrModel: ['model.ncnn.param', 'model.ncnn.bin', 'model.json'],
+  bundledDetector: ['model.ncnn.param', 'model.ncnn.bin'],
+};
 
 final platformApiProvider = Provider((_) => RefocalPlatformApi());
 
 final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiProvider).getDirs());
 
 class Engine {
-  Engine(this.native, this.session, this.dirs, this.modelReady);
+  Engine(this.native, this.session, this.dirs, this.modelReady, {this.detectorReady = false});
 
   final RefocalNative native;
   final RefocalSession session;
   final AppDirs dirs;
   final bool modelReady;
+
+  /// The face detector is installed: face restoration can run once a face pack is.
+  final bool detectorReady;
 
   /// The app version: `version:` of app/pubspec.yaml without `+build`, compiled into the core
   /// by native/CMakeLists.txt (the only copy).
@@ -39,7 +50,8 @@ class Engine {
 final engineProvider = FutureProvider<Engine>((ref) async {
   final dirs = await ref.watch(appDirsProvider.future);
   final models = '${dirs.support}/models';
-  final ready = await _installBundledModel(models);
+  final ready = await _installBundledModel(models, bundledSrModel);
+  final detector = await _installBundledModel(models, bundledDetector);
   final native = RefocalNative.open();
   try {
     final logs = await Directory('${dirs.support}/logs').create(recursive: true);
@@ -72,17 +84,18 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   } on PlatformException catch (e) {
     AppLog.warn('thermal level: ${e.code}'); // nominal until the first change
   }
-  return Engine(native, session, dirs, ready);
+  return Engine(native, session, dirs, ready, detectorReady: detector);
 });
 
-Future<bool> _installBundledModel(String modelsDir) async {
-  final dir = Directory('$modelsDir/$bundledSrModel');
-  final present = await Future.wait(_modelFiles.map((f) => File('${dir.path}/$f').exists()));
+Future<bool> _installBundledModel(String modelsDir, String id) async {
+  final files = _bundled[id]!;
+  final dir = Directory('$modelsDir/$id');
+  final present = await Future.wait(files.map((f) => File('${dir.path}/$f').exists()));
   if (present.every((p) => p)) return true;
   try {
     await dir.create(recursive: true);
-    for (final f in _modelFiles) {
-      final data = await rootBundle.load('assets/models/$bundledSrModel/$f');
+    for (final f in files) {
+      final data = await rootBundle.load('assets/models/$id/$f');
       final tmp = File('${dir.path}/$f.part');
       await tmp.writeAsBytes(
         data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),

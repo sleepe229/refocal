@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:refocal/bootstrap/engine.dart';
 import 'package:refocal/bootstrap/history.dart';
 import 'package:refocal/bootstrap/job_store.dart';
+import 'package:refocal/bootstrap/models.dart';
 import 'package:refocal/bootstrap/presets.dart';
 import 'package:refocal/features/editor/enhance_controller.dart';
 import 'package:refocal_core/refocal_core.dart';
@@ -117,13 +118,24 @@ void main() {
     expect(part.existsSync(), isFalse);
   });
 
-  test('built-in presets run on the bundled model and map to scale choices', () {
+  test('built-in presets: which models they need, and their scale choices (FR-PRE-001)', () {
     expect(ScaleChoice.of(BuiltinPreset.fast.recipe), ScaleChoice.fast2);
     expect(ScaleChoice.of(BuiltinPreset.quality.recipe), ScaleChoice.x4);
+    const bundled = {bundledSrModel, bundledDetector};
+    final withPacks = {...bundled, defaultFacePack, DenoiseLevel.strong.model};
     for (final b in BuiltinPreset.values) {
-      expect(b.recipe.srModel, bundledSrModel);
       expect(b.recipe.output, isNull);
+      expect(canRun(b.recipe, withPacks), isTrue, reason: b.name);
     }
+    expect(canRun(BuiltinPreset.fast.recipe, bundled), isTrue);
+    expect(canRun(BuiltinPreset.quality.recipe, bundled), isTrue);
+    expect(canRun(BuiltinPreset.portrait.recipe, bundled), isFalse, reason: 'needs the face pack');
+    expect(
+      canRun(BuiltinPreset.portrait.recipe, {bundledSrModel, defaultFacePack}),
+      isFalse,
+      reason: 'and the detector',
+    );
+    expect(canRun(BuiltinPreset.oldPhoto.recipe, {...bundled, defaultFacePack}), isFalse);
     for (final c in ScaleChoice.values) {
       expect(ScaleChoice.of(Recipe(scale: c.scale, fast2: c.fastPath, srModel: 'm')), c);
     }

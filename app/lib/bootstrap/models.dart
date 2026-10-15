@@ -324,11 +324,22 @@ final installedPacksProvider = StreamProvider<List<InstalledPack>>((ref) async* 
   yield* repo.watchInstalled();
 });
 
-/// SR models the editor can run now: the bundled one and installed SR packs (FR-PRE-*).
+/// Models the device has now: the bundled SR model, the bundled face detector once installed,
+/// and installed packs.
 final availableModelsProvider = Provider<Set<String>>((ref) {
   final installed = ref.watch(installedPacksProvider).value ?? const <InstalledPack>[];
-  return {bundledSrModel, for (final p in installed) p.id};
+  final detector = ref.watch(engineProvider).value?.detectorReady ?? false;
+  return {bundledSrModel, if (detector) bundledDetector, for (final p in installed) p.id};
 });
+
+/// The face pack the app uses (FR-FACE-002: GFPGAN 1.4 by default).
+const defaultFacePack = 'face.gfpgan-1.4';
+
+/// Whether [r] can run with [available] models (faces need the detector as well).
+bool canRun(Recipe r, Set<String> available) =>
+    available.contains(r.srModel) &&
+    (r.faceModel == null ||
+        (available.contains(r.faceModel) && available.contains(bundledDetector)));
 
 /// The Models screen's state: the manifest shown (the last verified one until the user asks
 /// for a newer), and downloads in progress (they go on while the app runs).

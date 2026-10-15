@@ -27,10 +27,29 @@ void main() {
     expect(() => OutputSpec(ExportFormat.jpeg, quality: 59), throwsArgumentError);
   });
 
+  test('faces round-trip; schema 1 recipes (0.0.4 history) read as without faces', () {
+    final r = Recipe(scale: 2, srModel: 'm', faceModel: 'face.gfpgan-1.4', faceStrength: 0.3);
+    expect(Recipe.fromJson(jsonDecode(jsonEncode(r.toJson())) as Map<String, Object?>), r);
+    final old = Recipe.fromJson(const {
+      'schema': 1,
+      'scale': 4,
+      'fast2': false,
+      'sr_model': 'm',
+      'strength': 0.8,
+    });
+    expect((old.faceModel, old.faceStrength), (null, Recipe.defaultFaceStrength));
+    expect(Recipe(scale: 4, srModel: 'm').toJson().containsKey('face_model'), isFalse);
+    expect(() => Recipe(scale: 4, srModel: 'm', faceStrength: 2), throwsArgumentError);
+  });
+
   test('anything else is a FormatException', () {
     final good = Recipe(scale: 4, srModel: 'm').toJson();
     for (final bad in <Map<String, Object?>>[
-      {...good, 'schema': 2},
+      {...good, 'schema': Recipe.schemaVersion + 1}, // a newer app wrote it
+      {...good, 'schema': 1, 'face_model': 'face.x'}, // schema 1 has no faces
+      {...good, 'face_model': ''},
+      {...good, 'face_model': 'face.x', 'face_strength': 1.5},
+      {...good, 'face_model': 'face.x', 'face_strength': '0.5'},
       {...good}..remove('schema'),
       {...good, 'scale': '4'},
       {...good, 'scale': 8},
