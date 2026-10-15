@@ -16,15 +16,15 @@ enum class BackendKind { cpu, vulkan };
 
 struct BackendConfig {
   BackendKind kind = BackendKind::cpu;
-  int device = 0;     // Vulkan device index
-  bool fp16 = true;   // Vulkan: fp16 storage+arithmetic; false = fp32 (fallback, S3)
-  int threads = 0;    // CPU threads, 0 = big cores
+  int device = 0;    // Vulkan device index
+  bool fp16 = true;  // Vulkan: fp16 storage+arithmetic; false = fp32 (fallback, S3)
+  int threads = 0;   // CPU threads, 0 = big cores
 };
 
 struct ModelInfo {
   std::string id, param_path, bin_path;
-  int scale = 4;      // spatial scale of the network
-  int pad = 16;       // tile pad (S2: 16 for compact)
+  int scale = 4;  // spatial scale of the network
+  int pad = 16;   // tile pad (S2: 16 for compact)
 };
 
 // Resolves models_dir/<id>/model.ncnn.{param,bin} (+ optional model.json {scale, pad}).
@@ -38,6 +38,10 @@ class InferenceBackend {
   // Throws enh::Error: ENH_E_MODEL (load), ENH_E_BACKEND (run), ENH_E_NUMERIC (NaN/Inf output).
   virtual void load(const ModelInfo& m) = 0;
   virtual void run(const ncnn::Mat& in, ncnn::Mat& out) = 0;
+  // CPU threads of the next runs (thermal throttling, NFR-THERM-002); 0: as loaded.
+  virtual void set_threads(int n) = 0;
+  // CPU threads it was loaded with.
+  virtual int threads() const = 0;
 };
 
 std::unique_ptr<InferenceBackend> make_ncnn_backend(const BackendConfig& cfg);

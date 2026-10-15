@@ -69,6 +69,19 @@ void main() {
     expect(File(a).existsSync(), isFalse);
   });
 
+  test('releaseInput keeps a copy the queue needs (one copy per content, FR-IMP-004)', () async {
+    final a = input('a.jpg');
+    final queued = JobStore(
+      jobsDir: store.jobsDir,
+      inboxDir: store.inboxDir,
+      otherInputs: () async => {a},
+    );
+    await queued.releaseInput(a);
+    expect(File(a).existsSync(), isTrue);
+    await store.releaseInput(a);
+    expect(File(a).existsSync(), isFalse);
+  });
+
   test('releaseInput respects screens that hold the file and paths outside the inbox', () async {
     final a = input('a.jpg');
     await store.releaseInput(a, inUse: {a});

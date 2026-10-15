@@ -26,7 +26,8 @@ std::vector<uint8_t> read_file(const std::string& path) {
 
 WebPBitstreamFeatures features(const std::vector<uint8_t>& data) {
   WebPBitstreamFeatures f{};
-  if (WebPGetFeatures(data.data(), data.size(), &f) != VP8_STATUS_OK) fail(ENH_E_INVALID, "WebP header is corrupt");
+  if (WebPGetFeatures(data.data(), data.size(), &f) != VP8_STATUS_OK)
+    fail(ENH_E_INVALID, "WebP header is corrupt");
   return f;
 }
 
@@ -137,7 +138,8 @@ struct WebpWriter::Impl {
 WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
                        const OutputMeta* meta)
     : impl_(std::make_unique<Impl>()) {
-  if (w > kWebpMaxSide || h > kWebpMaxSide) fail(ENH_E_LIMIT, "WebP is limited to 16383 px per side");
+  if (w > kWebpMaxSide || h > kWebpMaxSide)
+    fail(ENH_E_LIMIT, "WebP is limited to 16383 px per side");
   if (double(w) * h > (lossless ? kWebpLosslessMaxPixels : kWebpMaxPixels)) {
     fail(ENH_E_LIMIT, lossless ? "lossless WebP is limited to 24 MP" : "WebP is limited to 50 MP");
   }
@@ -198,8 +200,9 @@ void WebpWriter::finish() {
     }
   } out{&mw};
   if (!ok) {
-    fail(err == VP8_ENC_ERROR_OUT_OF_MEMORY || err == VP8_ENC_ERROR_BITSTREAM_OUT_OF_MEMORY ? ENH_E_OOM
-                                                                                      : ENH_E_INTERNAL,
+    fail(err == VP8_ENC_ERROR_OUT_OF_MEMORY || err == VP8_ENC_ERROR_BITSTREAM_OUT_OF_MEMORY
+             ? ENH_E_OOM
+             : ENH_E_INTERNAL,
          "WebP encode failed: " + std::to_string(int(err)));
   }
 
@@ -213,12 +216,14 @@ void WebpWriter::finish() {
     auto set = [&](const char* fourcc, const void* p, size_t n) {
       if (n == 0) return;
       const WebPData d{static_cast<const uint8_t*>(p), n};
-      if (WebPMuxSetChunk(out.mux, fourcc, &d, 1) != WEBP_MUX_OK) fail(ENH_E_INTERNAL, "WebPMuxSetChunk");
+      if (WebPMuxSetChunk(out.mux, fourcc, &d, 1) != WEBP_MUX_OK)
+        fail(ENH_E_INTERNAL, "WebPMuxSetChunk");
     };
     set("ICCP", md.icc.data(), md.icc.size());
     set("EXIF", md.exif.data(), md.exif.size());
     set("XMP ", md.xmp.data(), md.xmp.size());
-    if (WebPMuxAssemble(out.mux, &out.assembled) != WEBP_MUX_OK) fail(ENH_E_INTERNAL, "WebPMuxAssemble");
+    if (WebPMuxAssemble(out.mux, &out.assembled) != WEBP_MUX_OK)
+      fail(ENH_E_INTERNAL, "WebPMuxAssemble");
     bytes = out.assembled.bytes;
     size = out.assembled.size;
   }

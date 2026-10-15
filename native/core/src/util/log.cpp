@@ -84,7 +84,8 @@ std::string redact(const std::string& in) {
         continue;
       }
     }
-    if (token_start && in[i] == '/' && i + 1 < in.size() && !is_delim(in[i + 1]) && in[i + 1] != '/') {
+    if (token_start && in[i] == '/' && i + 1 < in.size() && !is_delim(in[i + 1]) &&
+        in[i + 1] != '/') {
       size_t e = i + 1;
       const char quote = i > 0 && (in[i - 1] == '"' || in[i - 1] == '\'') ? in[i - 1] : 0;
       if (quote) {  // a quoted path may contain spaces: up to the closing quote
@@ -119,7 +120,8 @@ void log_open(const std::string& path, int64_t max_bytes) {
 static void emit(int level, const char* msg) {
   const std::string line = redact(msg);
 #if defined(__ANDROID__)
-  static const int prio[] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN, ANDROID_LOG_ERROR};
+  static const int prio[] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN,
+                             ANDROID_LOG_ERROR};
   __android_log_write(prio[level], "enh", line.c_str());
 #else
   std::fprintf(stderr, "[enh %s] %s\n", kTag[level], line.c_str());

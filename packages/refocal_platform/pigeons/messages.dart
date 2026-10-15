@@ -111,6 +111,10 @@ abstract class RefocalPlatformApi {
   /// [percent] 0..100, or -1 for indeterminate.
   void updateProcessing(String text, int percent);
 
+  /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
+  /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
+  int thermalLevel();
+
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").
   void stopProcessing(String? finishedText);
@@ -125,4 +129,7 @@ abstract class RefocalPlatformEvents {
 
   /// Images were shared to the running app; fetch them with takeSharedImages().
   void onSharedImage();
+
+  /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
+  void onThermalLevel(int level);
 }

@@ -4,16 +4,16 @@
 #include <cstring>
 #include <string>
 
-#include "json_util.hpp"
 #include "enh.h"
+#include "json_util.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                              \
-  do {                                                        \
-    if (!(c)) {                                               \
+#define CHECK(c)                                                        \
+  do {                                                                  \
+    if (!(c)) {                                                         \
       std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
-      ++fails;                                                \
-    }                                                         \
+      ++fails;                                                          \
+    }                                                                   \
   } while (0)
 
 int main() {
@@ -37,8 +37,12 @@ int main() {
 
   // Strings leaving the core are valid UTF-8 (S6, TEST-FAULT-010).
   std::string out;
-  enh::json_str(out, std::string("a\xff" "b\xc3\xa9\"\n", 7));
-  CHECK(out == "\"a\xEF\xBF\xBD" "b\xc3\xa9\\\"\\n\"");
+  enh::json_str(out, std::string("a\xff"
+                                 "b\xc3\xa9\"\n",
+                                 7));
+  CHECK(out ==
+        "\"a\xEF\xBF\xBD"
+        "b\xc3\xa9\\\"\\n\"");
   out.clear();
   enh::json_str(out, std::string("\xed\xa0\x80", 3));  // UTF-16 surrogate encoded in UTF-8
   CHECK(out == "\"\xEF\xBF\xBD\xEF\xBF\xBD\xEF\xBF\xBD\"");

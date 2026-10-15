@@ -12,30 +12,30 @@
 namespace enh {
 
 struct TierThresholds {
-    // MemTotal / physicalMemory under-report marketing RAM (kernel + carve-outs): a "4 GB" phone
-    // shows ~3.5-3.8 GB, an "8 GB" one ~7.2-7.7 GB. Thresholds sit between the classes.
-    double t0_ram_gb = 3.3;    // "< 4 GB" class -> T0 regardless of speed
-    double t2_ram_gb = 7.0;    // ">= 8 GB" class
-    double t2_tile128_ms = 25;
-    double t1_tile128_ms = 80;
-    double t0_tile128_ms = 280;  // slower than this: T0 with "NFR-PERF-001 not met" warning
-    // 05 §6.3 requires "soc in T2_SOCS" for T2. S3 proposes: SoC table is only a hint before the
-    // first benchmark; with a benchmark, speed + RAM decide (catches Tensor G3, Xclipse, new SoCs).
-    bool require_soc_for_t2 = false;
+  // MemTotal / physicalMemory under-report marketing RAM (kernel + carve-outs): a "4 GB" phone
+  // shows ~3.5-3.8 GB, an "8 GB" one ~7.2-7.7 GB. Thresholds sit between the classes.
+  double t0_ram_gb = 3.3;  // "< 4 GB" class -> T0 regardless of speed
+  double t2_ram_gb = 7.0;  // ">= 8 GB" class
+  double t2_tile128_ms = 25;
+  double t1_tile128_ms = 80;
+  double t0_tile128_ms = 280;  // slower than this: T0 with "NFR-PERF-001 not met" warning
+  // 05 §6.3 requires "soc in T2_SOCS" for T2. S3 proposes: SoC table is only a hint before the
+  // first benchmark; with a benchmark, speed + RAM decide (catches Tensor G3, Xclipse, new SoCs).
+  bool require_soc_for_t2 = false;
 };
 
 struct TierInput {
-    double ram_gb = 0;
-    std::string selected_backend;  // fastest healthy backend for compact SR ("" = none)
-    bool selected_is_gpu = false;
-    double selected_tile128_ms = 0;
-    int soc_t2 = -1;  // 1 in T2 SoC list, 0 not, -1 unknown (bench decides)
+  double ram_gb = 0;
+  std::string selected_backend;  // fastest healthy backend for compact SR ("" = none)
+  bool selected_is_gpu = false;
+  double selected_tile128_ms = 0;
+  int soc_t2 = -1;  // 1 in T2 SoC list, 0 not, -1 unknown (bench decides)
 };
 
 struct TierDecision {
-    std::string tier;
-    std::vector<std::string> reasons;
-    bool below_t0_budget = false;
+  std::string tier;
+  std::vector<std::string> reasons;
+  bool below_t0_budget = false;
 };
 
 TierDecision suggest_tier(const TierInput& in, const TierThresholds& th = {});

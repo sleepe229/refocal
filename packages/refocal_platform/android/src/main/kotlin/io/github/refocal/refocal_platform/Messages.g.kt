@@ -510,6 +510,11 @@ interface RefocalPlatformApi {
   /** [percent] 0..100, or -1 for indeterminate. */
   fun updateProcessing(text: String, percent: Long)
   /**
+   * The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
+   * 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
+   */
+  fun thermalLevel(): Long
+  /**
    * Stops the service. A non-null [finishedText] is left as a tappable notification when the
    * app is not in the foreground (e.g. "Photo ready").
    */
@@ -710,6 +715,21 @@ interface RefocalPlatformApi {
         }
       }
       run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.thermalLevel$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.thermalLevel())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
         val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.stopProcessing$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
@@ -773,6 +793,26 @@ class RefocalPlatformEvents(private val binaryMessenger: BinaryMessenger, privat
       val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onSharedImage$separatedMessageChannelSuffix"
       val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
       channel.send(null) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
+  /** The device's thermal level changed (see RefocalPlatformApi.thermalLevel). */
+  suspend fun onThermalLevel(levelArg: Long)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onThermalLevel$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(levelArg)) {
         if (it is List<*>) {
           if (it.size > 1) {
             continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))

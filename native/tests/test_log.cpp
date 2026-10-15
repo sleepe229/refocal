@@ -14,11 +14,13 @@ using namespace enh;
 TEST("redact: paths and URIs, nothing else") {
   CHECK(redact("cannot open /data/user/0/io.github.refocal.app/files/inbox/in-1.jpg") ==
         "cannot open <path>");
-  CHECK(redact("FileSystemException: Cannot open file, path = '/storage/emulated/0/DCIM/a b.jpg'") ==
-        "FileSystemException: Cannot open file, path = '<path>'");
+  CHECK(
+      redact("FileSystemException: Cannot open file, path = '/storage/emulated/0/DCIM/a b.jpg'") ==
+      "FileSystemException: Cannot open file, path = '<path>'");
   CHECK(redact("uri=content://media/external/images/media/42 ok") == "uri=<uri> ok");
   CHECK(redact("(file:///sdcard/x.png)") == "(<uri>)");
-  CHECK(redact("fetch https://example.org/packs/a.json failed") == "fetch https://example.org/packs/a.json failed");
+  CHECK(redact("fetch https://example.org/packs/a.json failed") ==
+        "fetch https://example.org/packs/a.json failed");
   CHECK(redact("4/5 tiles, 1/2 scale, a/b") == "4/5 tiles, 1/2 scale, a/b");
   CHECK(redact("job job-1791987980200 done in 12 ms") == "job job-1791987980200 done in 12 ms");
   CHECK(redact("at main.dart:12 (package:refocal/main.dart:12:5)") ==

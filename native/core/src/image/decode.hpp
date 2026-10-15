@@ -19,11 +19,11 @@ inline constexpr double kMaxPixels = 200e6;
 inline constexpr int64_t kMaxFileBytes = int64_t(200) << 20;
 
 struct ImageInfo {
-  int w = 0, h = 0;          // as stored (before orientation)
-  int orientation = 1;       // EXIF 1..8; 1 when the decoder already applied it
-  std::string format;        // jpeg | png | webp | heif | avif | gif | bmp | other
-  bool alpha = false;        // had transparency (composited onto white)
-  bool animated = false;     // first frame only
+  int w = 0, h = 0;       // as stored (before orientation)
+  int orientation = 1;    // EXIF 1..8; 1 when the decoder already applied it
+  std::string format;     // jpeg | png | webp | heif | avif | gif | bmp | other
+  bool alpha = false;     // had transparency (composited onto white)
+  bool animated = false;  // first frame only
 };
 
 // Metadata carried to the result (ADR-0018). exif is a bare TIFF block.

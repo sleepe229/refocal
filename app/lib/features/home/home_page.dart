@@ -9,7 +9,6 @@ import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
-import '../../bootstrap/files.dart';
 import '../../bootstrap/job_store.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/queue.dart';
@@ -117,8 +116,14 @@ class _HomePageState extends ConsumerState<HomePage> {
     final recipe = await showBatchSheet(context, paths.length);
     final service = await ref.read(queueServiceProvider.future);
     if (recipe == null) {
+      // Not deleted outright: with FR-IMP-004 a copy may be one a paused job or the queue has.
+      final jobs = await ref.read(jobStoreProvider.future);
       for (final p in paths) {
-        await deleteIfPresent(p);
+        try {
+          await jobs.releaseInput(p);
+        } on FileSystemException catch (e) {
+          AppLog.warn('release copy: ${e.message}'); // the startup sweep removes it
+        }
       }
       return;
     }
@@ -135,9 +140,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _discard(JobEntry j) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
-    final engine = await ref.read(startupProvider.future);
+    await ref.read(startupProvider.future);
+    final jobs = await ref.read(jobStoreProvider.future);
     try {
-      await engine.jobs.discard(j.dir);
+      await jobs.discard(j.dir);
     } on FileSystemException catch (e, stack) {
       showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
     }

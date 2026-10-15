@@ -41,7 +41,10 @@ class SettingsPage extends ConsumerWidget {
             ListTile(title: Text(l10n.settingsSavedPhotos, style: header)),
             ListTile(
               title: Text(l10n.settingsFormat),
-              trailing: DropdownButton<ExportFormat>(
+              // Under the title, full width: at 200% text a trailing menu leaves no room for
+              // the title (A11Y-GEN-004).
+              subtitle: DropdownButton<ExportFormat>(
+                isExpanded: true,
                 value: s.format,
                 onChanged: (f) => f == null ? null : change((c) => c.copyWith(format: f)),
                 items: [
@@ -115,10 +118,12 @@ class SettingsPage extends ConsumerWidget {
             ),
             ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
             ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
+            ListTile(title: Text(l10n.settingsStorage), onTap: () => context.push('/storage')),
             const Divider(),
             ListTile(
               title: Text(l10n.settingsLanguage),
-              trailing: DropdownButton<String?>(
+              subtitle: DropdownButton<String?>(
+                isExpanded: true,
                 value: s.languageCode,
                 onChanged: (code) => change((c) => c.copyWith(languageCode: () => code)),
                 items: [

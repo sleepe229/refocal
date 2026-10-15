@@ -2,15 +2,15 @@
 // marker, PNG/WebP decoding (alpha, 16-bit, animation, eXIf/iCCP/EXIF chunks), format sniffing,
 // SEC-INP-002 limits, and JPEG metadata round trips. Malformed EXIF must never crash (ASan).
 // SPDX-License-Identifier: Apache-2.0
+#include <png.h>
+#include <webp/encode.h>
+
 #include <algorithm>
 #include <csetjmp>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
-
-#include <png.h>
-#include <webp/encode.h>
 
 #include "image/decode.hpp"
 #include "image/encode.hpp"
@@ -20,12 +20,12 @@
 #include "util/fs.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                                          \
-  do {                                                                    \
-    if (!(c)) {                                                           \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c);   \
-      ++fails;                                                            \
-    }                                                                     \
+#define CHECK(c)                                                        \
+  do {                                                                  \
+    if (!(c)) {                                                         \
+      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                          \
+    }                                                                   \
   } while (0)
 
 using namespace enh;
@@ -36,8 +36,8 @@ using Bytes = std::vector<uint8_t>;
 struct TEntry {
   uint16_t tag, type;
   uint32_t count;
-  Bytes data;          // already in the target byte order
-  int sub = -1;        // index of a sub-IFD (pointer entry)
+  Bytes data;    // already in the target byte order
+  int sub = -1;  // index of a sub-IFD (pointer entry)
 };
 
 struct TiffBuilder {
@@ -45,7 +45,9 @@ struct TiffBuilder {
   std::vector<std::vector<TEntry>> ifds;  // ifds[0] = IFD0
   int next_of_ifd0 = -1;                  // IFD1 index (thumbnail)
 
-  Bytes u16(uint32_t v) const { return le ? Bytes{uint8_t(v), uint8_t(v >> 8)} : Bytes{uint8_t(v >> 8), uint8_t(v)}; }
+  Bytes u16(uint32_t v) const {
+    return le ? Bytes{uint8_t(v), uint8_t(v >> 8)} : Bytes{uint8_t(v >> 8), uint8_t(v)};
+  }
   Bytes u32(uint32_t v) const {
     Bytes b = {uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)};
     if (!le) std::reverse(b.begin(), b.end());
@@ -63,7 +65,9 @@ struct TiffBuilder {
 
   Bytes build() const {
     Bytes out = le ? Bytes{'I', 'I', 42, 0} : Bytes{'M', 'M', 0, 42};
-    auto put = [&](size_t pos, const Bytes& b) { std::copy(b.begin(), b.end(), out.begin() + pos); };
+    auto put = [&](size_t pos, const Bytes& b) {
+      std::copy(b.begin(), b.end(), out.begin() + pos);
+    };
     Bytes off = u32(8);
     out.insert(out.end(), off.begin(), off.end());
     std::vector<size_t> ifd_pos(ifds.size());
@@ -78,7 +82,8 @@ struct TiffBuilder {
       Bytes n = u16(uint32_t(es.size()));
       out.insert(out.end(), n.begin(), n.end());
       for (const auto& e : es) {
-        for (const Bytes& b : {u16(e.tag), u16(e.type), u32(e.count)}) out.insert(out.end(), b.begin(), b.end());
+        for (const Bytes& b : {u16(e.tag), u16(e.type), u32(e.count)})
+          out.insert(out.end(), b.begin(), b.end());
         if (e.sub >= 0) {
           fix.push_back({out.size(), e.sub});
           out.insert(out.end(), 4, 0);
@@ -133,16 +138,16 @@ static void test_exif_rewrite() {
 
     const Bytes out = exif_rewrite(src.data(), src.size(), {4000, 3000, false});
     CHECK(!out.empty());
-    CHECK(out[0] == (le ? 'I' : 'M'));                       // source byte order kept
-    CHECK(exif_orientation(out.data(), out.size()) == 1);    // FR-META-001
-    CHECK(exif_get(out, kExifIfd, 0xA002) == 4000);          // FR-META-007
+    CHECK(out[0] == (le ? 'I' : 'M'));                     // source byte order kept
+    CHECK(exif_orientation(out.data(), out.size()) == 1);  // FR-META-001
+    CHECK(exif_get(out, kExifIfd, 0xA002) == 4000);        // FR-META-007
     CHECK(exif_get(out, kExifIfd, 0xA003) == 3000);
-    CHECK(exif_get(out, kIfd0, 0x010F) == 6);                // Make kept ("Canon\0")
+    CHECK(exif_get(out, kIfd0, 0x010F) == 6);                               // Make kept ("Canon\0")
     CHECK(contains(out, "Canon") && contains(out, "2024:05:01 10:20:30"));  // FR-META-002
-    CHECK(exif_get(out, kGpsIfd, 0x0000) == -1);             // PRIV-META-001
-    CHECK(exif_get(out, kExifIfd, 0x927C) == -1);            // MakerNote, PRIV-META-002
+    CHECK(exif_get(out, kGpsIfd, 0x0000) == -1);                            // PRIV-META-001
+    CHECK(exif_get(out, kExifIfd, 0x927C) == -1);  // MakerNote, PRIV-META-002
     CHECK(exif_get(out, kExifIfd, 0xA431) == -1 && !contains(out, "SERIAL123"));
-    CHECK(contains(out, "R98"));                             // interop IFD survives
+    CHECK(contains(out, "R98"));  // interop IFD survives
     CHECK(!contains(out, std::string(40, char(0xAB))));
 
     const Bytes gps = exif_rewrite(src.data(), src.size(), {10, 10, true});
@@ -182,7 +187,8 @@ static void test_xmp() {
 
 // ---- PNG -------------------------------------------------------------------------------------
 
-static void write_png_simple(const std::string& path, int w, int h, uint32_t format, const Bytes& px) {
+static void write_png_simple(const std::string& path, int w, int h, uint32_t format,
+                             const Bytes& px) {
   png_image im{};
   im.version = PNG_IMAGE_VERSION;
   im.width = uint32_t(w);
@@ -192,7 +198,8 @@ static void write_png_simple(const std::string& path, int w, int h, uint32_t for
 }
 
 // Classic API: RGB8 with eXIf and iCCP chunks.
-static void write_png_meta(const std::string& path, int w, int h, const Bytes& exif, const Bytes& icc) {
+static void write_png_meta(const std::string& path, int w, int h, const Bytes& exif,
+                           const Bytes& icc) {
   FILE* f = std::fopen(path.c_str(), "wb");
   png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
   png_infop info = png_create_info_struct(png);
@@ -222,14 +229,27 @@ static Bytes fake_icc() {
   uint32_t r = 7;
   for (size_t i = 132; i < p.size(); ++i) p[i] = uint8_t((r = r * 1103515245u + 12345u) >> 24);
   const uint32_t n = uint32_t(p.size());
-  p[0] = uint8_t(n >> 24); p[1] = uint8_t(n >> 16); p[2] = uint8_t(n >> 8); p[3] = uint8_t(n);
+  p[0] = uint8_t(n >> 24);
+  p[1] = uint8_t(n >> 16);
+  p[2] = uint8_t(n >> 8);
+  p[3] = uint8_t(n);
   std::memcpy(&p[12], "mntr", 4);
   std::memcpy(&p[16], "RGB ", 4);
   std::memcpy(&p[20], "XYZ ", 4);
   std::memcpy(&p[36], "acsp", 4);
-  p[64] = 0; p[68] = 0; p[69] = 0; p[70] = 0xF6; p[71] = 0xD6;  // D50 illuminant
-  p[72] = 0; p[73] = 1; p[74] = 0; p[75] = 0;
-  p[76] = 0; p[77] = 0; p[78] = 0xD3; p[79] = 0x2D;
+  p[64] = 0;
+  p[68] = 0;
+  p[69] = 0;
+  p[70] = 0xF6;
+  p[71] = 0xD6;  // D50 illuminant
+  p[72] = 0;
+  p[73] = 1;
+  p[74] = 0;
+  p[75] = 0;
+  p[76] = 0;
+  p[77] = 0;
+  p[78] = 0xD3;
+  p[79] = 0x2D;
   return p;
 }
 
@@ -243,9 +263,10 @@ static void test_png(const std::string& dir) {
     Rgb8 img = decode_image(p, &i);
     CHECK(i.format == "png" && i.alpha && i.w == 2 && i.h == 2);
     CHECK(img.w == 2 && img.h == 2);
-    CHECK(img.px[0] == 255 && img.px[1] == 0 && img.px[2] == 0);       // opaque red
-    CHECK(img.px[3] == 255 && img.px[4] == 255 && img.px[5] == 255);   // transparent -> white
-    CHECK(img.px[6] > 100 && img.px[6] < 200);  // 50% black on white (libpng blends in linear light)
+    CHECK(img.px[0] == 255 && img.px[1] == 0 && img.px[2] == 0);      // opaque red
+    CHECK(img.px[3] == 255 && img.px[4] == 255 && img.px[5] == 255);  // transparent -> white
+    CHECK(img.px[6] > 100 &&
+          img.px[6] < 200);  // 50% black on white (libpng blends in linear light)
     CHECK(img.px[9] == 10 && img.px[10] == 20 && img.px[11] == 30);
   }
   {  // 16-bit linear gray -> 8-bit sRGB RGB (libpng converts)
@@ -314,10 +335,12 @@ static void chunk(Bytes& out, const char* cc, const Bytes& payload) {
 
 // Simple-format lossless WebP -> extended format with ICCP and EXIF chunks (RIFF by hand,
 // libwebpmux is not built).
-static Bytes extend_webp(const Bytes& simple, int w, int h, bool alpha, const Bytes& icc, const Bytes& exif) {
+static Bytes extend_webp(const Bytes& simple, int w, int h, bool alpha, const Bytes& icc,
+                         const Bytes& exif) {
   Bytes body = {'W', 'E', 'B', 'P'};
   Bytes vp8x;
-  vp8x.push_back(uint8_t((icc.empty() ? 0 : 0x20) | (alpha ? 0x10 : 0) | (exif.empty() ? 0 : 0x08)));
+  vp8x.push_back(
+      uint8_t((icc.empty() ? 0 : 0x20) | (alpha ? 0x10 : 0) | (exif.empty() ? 0 : 0x08)));
   vp8x.insert(vp8x.end(), 3, 0);
   le24(vp8x, uint32_t(w - 1));
   le24(vp8x, uint32_t(h - 1));
@@ -390,9 +413,13 @@ static void test_webp(const std::string& dir) {
 
 static void test_sniff(const std::string& dir) {
   const std::string p = fs::join(dir, "h.heic");
-  fs::write_atomic(p, std::string("\0\0\0\x18" "ftypheic\0\0\0\0mif1heic", 24));
+  fs::write_atomic(p, std::string("\0\0\0\x18"
+                                  "ftypheic\0\0\0\0mif1heic",
+                                  24));
   CHECK(sniff_format(p) == "heif");
-  fs::write_atomic(p, std::string("\0\0\0\x18" "ftypavif\0\0\0\0", 16));
+  fs::write_atomic(p, std::string("\0\0\0\x18"
+                                  "ftypavif\0\0\0\0",
+                                  16));
   CHECK(sniff_format(p) == "avif");
   fs::write_atomic(p, std::string("GIF89a...."));
   CHECK(sniff_format(p) == "gif");
@@ -414,7 +441,8 @@ static Bytes find_app1(const Bytes& jpg, const std::string& prefix) {
     const uint8_t m = jpg[i + 1];
     const size_t len = size_t(jpg[i + 2]) << 8 | jpg[i + 3];
     if (m == 0xDA) break;
-    if (m == 0xE1 && len >= 2 + prefix.size() && std::memcmp(&jpg[i + 4], prefix.data(), prefix.size()) == 0)
+    if (m == 0xE1 && len >= 2 + prefix.size() &&
+        std::memcmp(&jpg[i + 4], prefix.data(), prefix.size()) == 0)
       return Bytes(jpg.begin() + long(i + 4), jpg.begin() + long(i + 2 + len));
     i += 2 + len;
   }

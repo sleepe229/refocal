@@ -18,10 +18,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 #include "enh.h"
 #include "image/decode.hpp"
@@ -47,14 +46,16 @@ struct Args {
 };
 
 int usage() {
-  std::fprintf(stderr,
-               "usage:\n  refocal-cli probe\n"
-               "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg|.png|.webp\n"
-               "              [--model ID] [--scale 4|2|1] [--fast2] [--tile N] [--backend auto|cpu|vulkan]\n"
-               "              [--threads N] [--quality Q] [--lossless] [--strength 0..1]\n"
-               "              [--job-id ID] [--resume] [--json]\n"
-               "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
-               "  refocal-cli compare A B [--min-psnr DB]\n");
+  std::fprintf(
+      stderr,
+      "usage:\n  refocal-cli probe\n"
+      "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg|.png|.webp\n"
+      "              [--model ID] [--scale 4|2|1] [--fast2] [--tile N] [--backend "
+      "auto|cpu|vulkan]\n"
+      "              [--threads N] [--quality Q] [--lossless] [--strength 0..1]\n"
+      "              [--job-id ID] [--resume] [--json]\n"
+      "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
+      "  refocal-cli compare A B [--min-psnr DB]\n");
   return 2;
 }
 
@@ -71,7 +72,10 @@ Sink g_sink;
 void on_event(int64_t, int32_t type, int32_t, int64_t done, int64_t total, char* p) {
   json j = json::parse(p, nullptr, false);
   enh_free(p);
-  if (g_sink.json_out) std::printf("%s\n", json{{"type", type}, {"done", done}, {"total", total}, {"payload", j}}.dump().c_str());
+  if (g_sink.json_out)
+    std::printf(
+        "%s\n",
+        json{{"type", type}, {"done", done}, {"total", total}, {"payload", j}}.dump().c_str());
   std::lock_guard lk(g_sink.mu);
   switch (type) {
     case ENH_EV_STAGE:
@@ -90,7 +94,8 @@ void on_event(int64_t, int32_t type, int32_t, int64_t done, int64_t total, char*
       std::fprintf(stderr, "\nwarning %s\n", j.value("code", "").c_str());
       break;
     case ENH_EV_NEEDS_USER:
-      std::fprintf(stderr, "\nneeds user: %s (rerun with a smaller --scale or --fast2)\n", j.dump().c_str());
+      std::fprintf(stderr, "\nneeds user: %s (rerun with a smaller --scale or --fast2)\n",
+                   j.dump().c_str());
       break;
     case ENH_EV_DONE:
       g_sink.done = true;
@@ -130,7 +135,7 @@ int cmd_run(const Args& a) {
   cfg.models_dir = models.c_str();
   cfg.work_dir = work.c_str();
   std::string backend = a.get("--backend", "auto");
-  cfg.backend_pref = backend == "cpu" ? ENH_BACKEND_NCNN_CPU
+  cfg.backend_pref = backend == "cpu"      ? ENH_BACKEND_NCNN_CPU
                      : backend == "vulkan" ? ENH_BACKEND_NCNN_VULKAN
                                            : ENH_BACKEND_AUTO;
   cfg.cpu_threads = std::atoi(a.get("--threads", "0").c_str());
@@ -190,7 +195,8 @@ int cmd_run(const Args& a) {
                              {"gps", a.has("--keep-gps")},
                              {"ai_marker", !a.has("--no-ai-marker")}}}}
                           .dump();
-    if (enh_export(s, enh::fs::join(work, job_id).c_str(), opt.c_str(), out.c_str(), &ex) != ENH_OK) {
+    if (enh_export(s, enh::fs::join(work, job_id).c_str(), opt.c_str(), out.c_str(), &ex) !=
+        ENH_OK) {
       std::fprintf(stderr, "export failed\n");
       rc = 1;
     }
@@ -222,7 +228,8 @@ int cmd_compare(const Args& a) {
     }
     double mse = se / double(x.px.size());
     double psnr = mse == 0 ? 99.0 : 10 * std::log10(255.0 * 255.0 / mse);
-    std::printf("{\"psnr_db\": %.2f, \"max_abs\": %d, \"width\": %d, \"height\": %d}\n", psnr, maxd, x.w, x.h);
+    std::printf("{\"psnr_db\": %.2f, \"max_abs\": %d, \"width\": %d, \"height\": %d}\n", psnr, maxd,
+                x.w, x.h);
     std::string min = a.get("--min-psnr");
     return !min.empty() && psnr < std::atof(min.c_str()) ? 1 : 0;
   } catch (const std::exception& e) {

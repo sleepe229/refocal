@@ -27,6 +27,15 @@ option(ENH_BUILD_TESTS "native tests (desktop)" OFF)
 # do not need that; CI turns it off (3-4x faster ncnn build). Keep ON for refocal-cli perf runs.
 option(ENH_NCNN_RUNTIME_CPU "ncnn runtime CPU dispatch (x86)" ON)
 set(ENH_SANITIZE "" CACHE STRING "address (ASan+UBSan) | thread | empty")
+# libFuzzer targets (tests/fuzz, 11 §1); clang with ENH_SANITIZE=address. Coverage
+# instrumentation goes into everything, the decoders of the vendored libraries included.
+option(ENH_BUILD_FUZZ "libFuzzer targets (clang, ENH_SANITIZE=address)" OFF)
+if(ENH_BUILD_FUZZ)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR NOT ENH_SANITIZE STREQUAL "address")
+    message(FATAL_ERROR "ENH_BUILD_FUZZ needs clang and ENH_SANITIZE=address")
+  endif()
+  add_compile_options(-fsanitize=fuzzer-no-link)
+endif()
 
 if(ENH_SANITIZE STREQUAL "address")
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
@@ -120,6 +129,9 @@ set(JPEG_LIB ${JPEG_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}jpeg${CMAKE_STATIC
 set(JPEG_C_FLAGS "${CMAKE_C_FLAGS} -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_BINARY_DIR}=build")
 if(ENH_SANITIZE STREQUAL "address")
   string(APPEND JPEG_C_FLAGS " -fsanitize=address,undefined -fno-omit-frame-pointer")
+endif()
+if(ENH_BUILD_FUZZ)
+  string(APPEND JPEG_C_FLAGS " -fsanitize=fuzzer-no-link")
 endif()
 set(JPEG_CMAKE_ARGS
   -DCMAKE_INSTALL_PREFIX=${JPEG_PREFIX}
@@ -254,5 +266,13 @@ if(ENH_BUILD_TESTS)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)
     add_test(NAME ${t} COMMAND test_${t})
+  endforeach()
+endif()
+
+if(ENH_BUILD_FUZZ)
+  foreach(t metaio decode)
+    add_executable(fuzz_${t} tests/fuzz/fuzz_${t}.cpp)
+    target_link_libraries(fuzz_${t} PRIVATE enh_core)
+    target_link_options(fuzz_${t} PRIVATE -fsanitize=fuzzer)
   endforeach()
 endif()
