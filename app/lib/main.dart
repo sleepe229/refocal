@@ -10,6 +10,7 @@ import 'features/editor/editor_page.dart';
 import 'features/history/history_entry_page.dart';
 import 'features/history/history_page.dart';
 import 'features/home/home_page.dart';
+import 'features/models/models_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/presets/presets_page.dart';
 import 'features/queue/queue_page.dart';
@@ -43,6 +44,7 @@ final _router = GoRouter(
     GoRoute(path: '/presets', builder: (_, _) => const PresetsPage()),
     GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
     GoRoute(path: '/storage', builder: (_, _) => const StoragePage()),
+    GoRoute(path: '/models', builder: (_, _) => const ModelsPage()),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),

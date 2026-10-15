@@ -117,6 +117,18 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 - подделка манифеста/файла отклоняется (TEST-SEC-003/004);
 - NFR-PERF-003 выполнен на T1/T2.
 
+**Статус (2026-10-15):**
+
+| Пункт | Состояние |
+|---|---|
+| Golden на настоящей модели в CI (TEST-ML-001) | ✅ `test_golden`: ncnn CPU против PyTorch fp32, 64.6 дБ (порог 40); веса и эталоны — ассеты релиза, `golden.lock` |
+| Криптография ядра (ADR-0021) | ✅ `enh_verify_file` (SHA-256 потоком), `enh_verify_minisign` (ED/Ed + доверенный комментарий), Monocypher 4.0.3, векторы minisign 0.11 |
+| Менеджер моделей (ADR-0011): подписанный манифест, докачка, зеркала, согласия | ✅ манифест в git → `check_manifest.py` → подпись в CI (`models.yml`) → релиз `models`; в приложении — проверка подписи до разбора, защита от отката, Range-докачка, SHA-256, атомарная установка, экран «Модели», согласие на текст лицензии. Скачивание заработает после открытия репозитория |
+| Пак «Compact+» (ADR-0015) | ✅ `sr.general-x4v3-dn0` / `-dn100` опубликованы, выбор денойза в редакторе |
+| `.rfpack` (офлайн-импорт) | ⏳ |
+| Лица (YuNet + GFPGAN-пак, faceStrength) | ⏳ |
+| Тиры + бенчмарк, Auto v1, лестница отказов | ⏳ |
+
 ## 0.3 — Closed beta (GitHub pre-release APK; TestFlight / Play internal — если Q-06)
 
 **Объём:** очередь + фон (Android FGS, iOS пауза/resume), resume после kill, история-рецепты, пресеты, экспорт JPEG/PNG/WebP/HEIC, metaio + AI-маркер + удаление GPS, share intake (Android intent, iOS Share Extension), онбординг и предупреждение об ИИ, a11y, l10n en/ru, `.rfpack`-импорт, хранилище и очистка.

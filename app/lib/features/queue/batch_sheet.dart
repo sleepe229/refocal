@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_core/refocal_core.dart';
 
-import '../../bootstrap/engine.dart';
+import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
@@ -34,10 +34,11 @@ class _BatchSheetState extends ConsumerState<_BatchSheet> {
     final l10n = AppLocalizations.of(context);
     final settings = ref.watch(settingsProvider).value ?? const Settings();
     final autosave = _autosave ?? settings.batchAutosave;
-    // Only the bundled model exists until the model manager (0.2).
+    // Presets of models the device has (bundled or installed packs).
+    final available = ref.watch(availableModelsProvider);
     final user = [
       for (final p in ref.watch(presetsProvider).value ?? const <Preset>[])
-        if (p.recipe.srModel == bundledSrModel) p,
+        if (available.contains(p.recipe.srModel)) p,
     ];
     Widget chip(String label, Recipe r) => ChoiceChip(
       label: Text(label),

@@ -135,3 +135,52 @@ class QueueJobs extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// An installed model pack (ADR-0011, 07 §3): files under `AppSupport/models/<id>/`.
+@DataClassName('ModelPackRow')
+class ModelPacks extends Table {
+  TextColumn get id => text()();
+  TextColumn get version => text()();
+  TextColumn get category => text()();
+
+  /// Directory relative to AppSupport.
+  TextColumn get path => text()();
+
+  /// Bytes of the installed files.
+  IntColumn get size => integer()();
+
+  /// SHA-256 of the manifest entry's files, joined in manifest order (what was verified).
+  TextColumn get sha256 => text()();
+  TextColumn get licenseSpdx => text()();
+  IntColumn get installedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Acceptance of a pack's license (FR-MOD-*, ADR-0022): for that license text.
+@DataClassName('ConsentRow')
+class Consents extends Table {
+  TextColumn get packId => text()();
+  TextColumn get packVersion => text()();
+  TextColumn get licenseSha256 => text()();
+  IntColumn get acceptedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {packId, licenseSha256};
+}
+
+/// The last verified manifest (one row): its serial guards against rollback (ADR-0011).
+@DataClassName('ManifestStateRow')
+class ManifestState extends Table {
+  IntColumn get id => integer()();
+  IntColumn get serial => integer()();
+  IntColumn get fetchedAt => integer()();
+  TextColumn get json => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['CHECK (id = 1)'];
+}

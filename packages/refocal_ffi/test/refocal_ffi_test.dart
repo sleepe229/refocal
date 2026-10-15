@@ -44,6 +44,24 @@ void main() {
     root.deleteSync(recursive: true);
   });
 
+  test('file hash and minisign signature (ADR-0021)', () async {
+    // Vectors made by minisign 0.11 (native/tests/data/minisign).
+    const v = '../../native/tests/data/minisign';
+    String key(String name) => File('$v/$name.pub').readAsLinesSync()[1];
+    final big = File('$v/big.dat');
+    final sha = (Process.runSync('sha256sum', [big.path]).stdout as String).split(' ').first;
+    await native.verifyFile(big.path, sha);
+    await expectLater(
+      native.verifyFile(big.path, '0' * 64),
+      throwsA(isA<EnhException>().having((e) => e.status, 'status', EnhStatus.signature)),
+    );
+    native.verifyMinisign('$v/msg.txt', '$v/msg.txt.minisig', [key('other'), key('test')]);
+    expect(
+      () => native.verifyMinisign('$v/msg.txt', '$v/msg.txt.minisig', [key('other')]),
+      throwsA(isA<EnhException>().having((e) => e.status, 'status', EnhStatus.signature)),
+    );
+  }, skip: skip);
+
   Map<String, Object?> req(String id, {Map<String, Object?> extra = const {}}) => {
     'job_id': id,
     'input': input,
