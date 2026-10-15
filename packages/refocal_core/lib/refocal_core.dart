@@ -8,6 +8,7 @@ export 'src/db/history_repository.dart';
 export 'src/db/preset_repository.dart';
 export 'src/db/queue_repository.dart';
 export 'src/db/settings_store.dart';
+export 'src/auto.dart';
 export 'src/enh_status.dart';
 export 'src/job_event.dart';
 export 'src/job_request.dart';
