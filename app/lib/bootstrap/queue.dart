@@ -25,8 +25,9 @@ class EngineQueueRunner implements QueueJobRunner {
   @override
   Future<QueueOutcome> run(QueueItem item, void Function(double) onProgress) async {
     final engine = await _ref.read(engineProvider.future);
+    final jobs = await _ref.read(jobStoreProvider.future);
     final input = '${engine.dirs.support}/${item.inputPath}';
-    final dir = engine.jobs.dirOf(item.jobId);
+    final dir = jobs.dirOf(item.jobId);
     JobResult result;
     if (await File('$dir/result.json').exists()) {
       // Finished in a process that was killed before the queue recorded it.
@@ -62,7 +63,7 @@ class EngineQueueRunner implements QueueJobRunner {
       return finished;
     }
     try {
-      await engine.jobs.discard(dir);
+      await jobs.discard(dir);
     } on FileSystemException catch (e) {
       AppLog.warn('queue: discard saved job: ${e.message}'); // the startup sweep removes it
     }
@@ -141,10 +142,24 @@ final queueRepositoryProvider = FutureProvider<QueueRepository>(
   (ref) async => QueueRepository(await ref.watch(databaseProvider.future)),
 );
 
+/// Jobs and inbox copies under AppSupport (07 §2); an inbox copy the queue still needs is
+/// never released.
+final jobStoreProvider = FutureProvider<JobStore>((ref) async {
+  final dirs = await ref.watch(appDirsProvider.future);
+  final queue = await ref.watch(queueRepositoryProvider.future);
+  return JobStore(
+    jobsDir: '${dirs.support}/jobs',
+    inboxDir: '${dirs.support}/inbox',
+    otherInputs: () async => {
+      for (final i in (await queue.references()).inputs) '${dirs.support}/$i',
+    },
+  );
+});
+
 /// The batch queue of the app (FR-BATCH-001..008): the orchestrator plus what it needs from
 /// the platform (the foreground service, notification actions) and the files of removed jobs.
 class QueueService {
-  QueueService(this._ref, this.repo, this._engine)
+  QueueService(this._ref, this.repo, this._engine, this._jobs)
     : orchestrator = QueueOrchestrator(
         repo,
         EngineQueueRunner(_ref),
@@ -154,6 +169,7 @@ class QueueService {
   final Ref _ref;
   final QueueRepository repo;
   final Engine _engine;
+  final JobStore _jobs;
   final QueueOrchestrator orchestrator;
 
   /// Adds photos (absolute inbox paths) with one recipe (FR-BATCH-002).
@@ -217,13 +233,13 @@ class QueueService {
   /// A done job whose result the user saved from the editor (its directory is gone then).
   Future<void> refresh(QueueItem item) async {
     if (item.state != QueueState.done) return;
-    if (!await Directory(_engine.jobs.dirOf(item.jobId)).exists()) {
+    if (!await Directory(_jobs.dirOf(item.jobId)).exists()) {
       await repo.setState(item.id, QueueState.saved);
     }
   }
 
   Future<void> _deleteFiles(QueueRemoval r) async {
-    final jobs = _engine.jobs;
+    final jobs = _jobs;
     for (final id in r.jobIds) {
       await _bestEffort(() => jobs.discard(jobs.dirOf(id)));
     }
@@ -246,6 +262,7 @@ final queueServiceProvider = FutureProvider<QueueService>((ref) async {
     ref,
     await ref.watch(queueRepositoryProvider.future),
     await ref.watch(engineProvider.future),
+    await ref.watch(jobStoreProvider.future),
   );
   ref.onDispose(service.orchestrator.dispose);
   return service;
@@ -275,7 +292,7 @@ final startupProvider = FutureProvider<Engine>((ref) async {
   await service._deleteFiles(await repo.removeOlderThan(JobStore.maxAge));
   final refs = await repo.references();
   try {
-    await engine.jobs.sweep(
+    await service._jobs.sweep(
       keepJobs: refs.jobIds,
       keepInputs: {for (final i in refs.inputs) '${engine.dirs.support}/$i'},
     );
@@ -288,10 +305,10 @@ final startupProvider = FutureProvider<Engine>((ref) async {
 /// Unfinished and unsaved jobs of the editor for the home screen (queue jobs are listed in the
 /// queue); invalidate after a change.
 final jobListProvider = FutureProvider<List<JobEntry>>((ref) async {
-  final engine = await ref.watch(startupProvider.future);
+  await ref.watch(startupProvider.future); // after the sweep
   final queued = (await (await ref.watch(queueRepositoryProvider.future)).references()).jobIds;
   return [
-    for (final j in await engine.jobs.list())
+    for (final j in await (await ref.watch(jobStoreProvider.future)).list())
       if (!queued.contains(j.id)) j,
   ];
 });

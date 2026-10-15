@@ -23,6 +23,8 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.io.IOException
+import java.security.DigestInputStream
+import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -296,14 +298,21 @@ class RefocalPlatformPlugin :
       "image/avif" -> "avif"
       else -> "img"
     }
-    // Random, not a timestamp: several images arrive within the same millisecond (multi-pick).
-    val dst = File(inbox, "in-${UUID.randomUUID()}.$ext")
-    val tmp = File(inbox, dst.name + ".part")
+    // FR-IMP-004: the copy is named by the SHA-256 of its bytes (hashed while copying), so the
+    // same photo picked or shared again reuses its copy. The temporary name is random: several
+    // copies run at once (multi-pick).
+    val tmp = File(inbox, "in-${UUID.randomUUID()}.part")
+    val dst: File
     try {
+      val digest = MessageDigest.getInstance("SHA-256")
       (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->
-        tmp.outputStream().use { input.copyTo(it, 1 shl 16) }
+        DigestInputStream(input, digest).use { hashed -> tmp.outputStream().use { hashed.copyTo(it, 1 shl 16) } }
       }
-      if (!tmp.renameTo(dst)) throw IOException("rename failed")
+      val hex = digest.digest().joinToString("") { "%02x".format(it) }
+      dst = File(inbox, "in-$hex.$ext")
+      // An existing copy has the same bytes; renaming over it would also be correct, but keeping
+      // it leaves the file a running job reads untouched.
+      if (!dst.exists() && !tmp.renameTo(dst)) throw IOException("rename failed")
     } finally {
       tmp.delete() // no-op after the rename
     }
@@ -319,6 +328,10 @@ class RefocalPlatformPlugin :
    */
   private fun heicToPng(src: File, name: String?): PickedImage {
     val png = File(src.parentFile, src.nameWithoutExtension + ".png")
+    if (png.exists()) { // the same photo was converted before (the name is its SHA-256)
+      src.delete()
+      return PickedImage(path = png.absolutePath, sizeBytes = png.length(), displayName = name, mimeType = "image/png")
+    }
     val tmp = File(png.path + ".part")
     try {
       val bmp =

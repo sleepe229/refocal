@@ -74,6 +74,15 @@ void main() {
       expect(await db.select(db.recipes).get(), hasLength(2), reason: 'one recipe per batch');
     });
 
+    test('the same copy twice shares one asset; removing one job keeps it (FR-IMP-004)', () async {
+      final items = await repo.enqueue(['inbox/same.jpg', 'inbox/same.jpg'], _recipe);
+      await repo.enqueue(['inbox/same.jpg'], _autosave);
+      expect(await db.select(db.assets).get(), hasLength(1));
+      final r = await repo.remove([items[0].id]);
+      expect(r.inputs, isEmpty, reason: 'two jobs still use it');
+      expect((await repo.references()).inputs, {'inbox/same.jpg'});
+    });
+
     test('move reorders (FR-BATCH-001)', () async {
       final items = await repo.enqueue(inputs(4), _recipe);
       await repo.move(items[3].id, 0);

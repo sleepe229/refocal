@@ -8,7 +8,9 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/foreground.dart';
+import '../../bootstrap/job_store.dart';
 import '../../bootstrap/processing.dart';
+import '../../bootstrap/queue.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
 
@@ -86,7 +88,7 @@ class EnhanceController extends Notifier<EnhanceState> {
   RefocalJob? _job;
   StreamSubscription<JobEvent>? _sub;
   StreamSubscription<String>? _actions;
-  Engine? _engine;
+  JobStore? _jobs;
   String? _input;
   bool _timedOut = false;
 
@@ -108,12 +110,12 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// job refers to it (ADR-0010). Unsaved and paused jobs stay for the home screen list. Runs
   /// after the screen is gone: a failure is logged and the startup sweep catches the rest.
   void _cleanup() {
-    final engine = _engine, input = _input, s = state;
-    if (engine == null) return;
+    final jobs = _jobs, input = _input, s = state;
+    if (jobs == null) return;
     unawaited(() async {
       try {
-        if (s is Finished && s.saved) await engine.jobs.discard(s.result.jobDir);
-        if (input != null) await engine.jobs.releaseInput(input);
+        if (s is Finished && s.saved) await jobs.discard(s.result.jobDir);
+        if (input != null) await jobs.releaseInput(input);
       } on FileSystemException catch (e) {
         AppLog.warn('editor cleanup: ${e.message}');
       }
@@ -139,7 +141,7 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   /// Shows a job that finished earlier but was not saved.
   Future<void> open(String jobDir, String input) async {
-    _engine = await ref.read(engineProvider.future);
+    _jobs = await ref.read(jobStoreProvider.future);
     _input = input;
     try {
       final raw = await File('$jobDir/result.json').readAsString();
@@ -155,7 +157,7 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   Future<void> _run(String input, RefocalJob Function(Engine) create) async {
     final engine = await ref.read(engineProvider.future);
-    _engine = engine;
+    _jobs = await ref.read(jobStoreProvider.future);
     _input = input;
     _timedOut = false;
     final fg = ref.read(foregroundWorkProvider);
@@ -307,7 +309,7 @@ class EnhanceController extends Notifier<EnhanceState> {
     state = const Idle();
     if (s is Finished && s.saved) {
       try {
-        await _engine?.jobs.discard(s.result.jobDir, inUse: {?_input});
+        await _jobs?.discard(s.result.jobDir, inUse: {?_input});
       } on FileSystemException catch (e) {
         AppLog.warn('discard saved job: ${e.message}'); // the startup sweep removes it
       }

@@ -6,6 +6,7 @@ import 'package:refocal_core/refocal_core.dart';
 import 'database.dart';
 import 'engine.dart';
 import 'job_store.dart';
+import 'queue.dart';
 
 /// History entries and their files (FR-HIST-001..005, PRIV-DATA-002/004). Previews live in
 /// AppSupport/history: the system may clear Cache/ while the entry stays (07 §2).
@@ -95,7 +96,11 @@ class HistoryStore {
 final historyStoreProvider = FutureProvider<HistoryStore>((ref) async {
   final db = await ref.watch(databaseProvider.future);
   final dirs = await ref.watch(appDirsProvider.future);
-  final store = HistoryStore(HistoryRepository(db), dirs.support, jobStoreOf(dirs));
+  final store = HistoryStore(
+    HistoryRepository(db),
+    dirs.support,
+    await ref.watch(jobStoreProvider.future),
+  );
   await store.sweep();
   return store;
 });

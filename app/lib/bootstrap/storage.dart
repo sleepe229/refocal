@@ -176,7 +176,7 @@ final storageManagerProvider = FutureProvider.autoDispose<StorageManager>((ref) 
   final queue = await ref.watch(queueRepositoryProvider.future);
   return StorageManager(
     dirs: engine.dirs,
-    jobs: engine.jobs,
+    jobs: await ref.watch(jobStoreProvider.future),
     history: await ref.watch(historyStoreProvider.future),
     queueInputs: () async => {
       for (final i in (await queue.references()).inputs) '${engine.dirs.support}/$i',
