@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup on Android 6-11 (PRIV-DATA-005, COMP-AND-010): only the settings and presets
+     database. With an include rule nothing else is taken; db.sqlite, inbox/, jobs/ and models/
+     are in noBackupFilesDir anyway. -->
+<full-backup-content>
+    <include domain="file" path="prefs.sqlite" />
+</full-backup-content>

@@ -7,9 +7,12 @@ import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/files.dart';
 import '../../bootstrap/presets.dart';
+import '../../bootstrap/result_saver.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
+import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
 import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
@@ -138,6 +141,18 @@ class _EditorPageState extends ConsumerState<EditorPage> {
 
   bool _matches(Recipe r) => _choice == ScaleChoice.of(r) && _strength == r.strength;
 
+  /// What Enhance runs. Only the bundled model exists until the model manager (0.2); presets
+  /// of other models are refused in [_presets].
+  Recipe? get _recipe => switch (_choice) {
+    final c? => Recipe(
+      scale: c.scale,
+      fast2: c.fastPath,
+      srModel: bundledSrModel,
+      strength: _strength,
+    ),
+    null => null,
+  };
+
   /// Presets apply before Enhance (FR-PRE-001/002). Only the bundled model exists until the
   /// model manager (0.2): a preset of another model cannot run.
   Widget _presets(AppLocalizations l10n) {
@@ -200,9 +215,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ],
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: _choice == null
-              ? null
-              : () => ctl.start(widget.input, _choice!, strength: _strength),
+          onPressed: switch (_recipe) {
+            final r? => () => ctl.start(widget.input, r),
+            null => null,
+          },
           icon: const Icon(Icons.auto_fix_high),
           label: Text(l10n.enhance),
         ),
@@ -287,7 +303,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 
   Widget _finished(Finished s, EnhanceController ctl, AppLocalizations l10n) {
-    final hasOriginal = ctl.originalExists;
+    // The input is the blend base below 100% strength.
+    final hasOriginal = ref.watch(fileExistsProvider(widget.input)).value ?? false;
     final busy = s.saving;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -350,8 +367,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       final repo = await ref.read(presetRepositoryProvider.future);
       await repo.add(name, recipe);
       messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaved)));
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaveFailed('$e'))));
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'save preset', e, stack, l10n.presetSaveFailed);
     }
   }
 
@@ -360,18 +377,16 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       if (await save() != null) messenger.showSnackBar(SnackBar(content: Text(done)));
-    } on HistoryNotRecorded catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.historyNotRecorded('${e.cause}'))));
-    } on EnhException catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            e.status == EnhStatus.limit ? l10n.formatWebpTooLarge : l10n.saveFailed(e.toString()),
-          ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.saveFailed('$e'))));
+    } on HistoryNotRecorded catch (e, stack) {
+      showError(messenger, l10n, 'record history', e.cause, stack, l10n.historyNotRecorded);
+    } on EnhException catch (e, stack) {
+      if (e.status == EnhStatus.limit) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.formatWebpTooLarge)));
+      } else {
+        showError(messenger, l10n, 'save', e, stack, l10n.saveFailed);
+      }
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'save', e, stack, l10n.saveFailed);
     }
   }
 
@@ -400,15 +415,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 
   Widget _failed(Failed s, EnhanceController ctl, AppLocalizations l10n) {
-    final text = switch (s.status) {
-      EnhStatus.cancelled => l10n.failCancelled,
-      EnhStatus.paused => l10n.failPaused,
-      EnhStatus.diskFull => l10n.failDiskFull,
-      EnhStatus.invalid => l10n.failInvalid,
-      EnhStatus.limit => l10n.failLimit,
-      EnhStatus.oom => l10n.failOom,
-      _ => l10n.failOther(s.status.name),
-    };
+    final text = statusText(l10n, s.status);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

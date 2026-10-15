@@ -23,6 +23,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,8 @@ import kotlinx.coroutines.withContext
 /**
  * Platform services over Pigeon (ADR-0005). No GMS/androidx dependencies (COMP-FDR-007):
  * the system photo picker (ACTION_PICK_IMAGES) where available, else the document picker;
- * images shared to the app (ACTION_SEND, FR-SHARE-001); saving to a user-chosen document.
+ * images shared to the app (ACTION_SEND/SEND_MULTIPLE, FR-SHARE-001); saving to a user-chosen
+ * document.
  */
 class RefocalPlatformPlugin :
     FlutterPlugin,
@@ -44,9 +46,9 @@ class RefocalPlatformPlugin :
     PluginRegistry.NewIntentListener {
   private lateinit var context: Context
   private var binding: ActivityPluginBinding? = null
-  private var pending: CompletableDeferred<Uri?>? = null
+  private var pending: CompletableDeferred<List<Uri>>? = null
   private var pendingCreate: CompletableDeferred<Uri?>? = null
-  private var shared: Uri? = null
+  private var shared: List<Uri> = emptyList()
   private var pendingPermission: CompletableDeferred<Boolean>? = null
   private var events: RefocalPlatformEvents? = null
 
@@ -83,7 +85,11 @@ class RefocalPlatformPlugin :
   }
 
   override fun getDirs(): AppDirs =
-      AppDirs(support = context.noBackupFilesDir.absolutePath, cache = context.cacheDir.absolutePath)
+      AppDirs(
+          support = context.noBackupFilesDir.absolutePath,
+          // Backup rules (app/android/.../xml/backup_rules.xml) take only prefs.sqlite from here.
+          backedUp = context.filesDir.absolutePath,
+          cache = context.cacheDir.absolutePath)
 
   override fun lastExitReason(): String? {
     if (Build.VERSION.SDK_INT < 30) return null
@@ -100,25 +106,37 @@ class RefocalPlatformPlugin :
     }
   }
 
-  override suspend fun pickImage(inboxDir: String): PickedImage? {
+  override suspend fun pickImages(inboxDir: String, maxCount: Long): PickedImages {
     val activity = binding?.activity ?: throw FlutterError("no_activity", "No foreground activity")
     if (pending != null) throw FlutterError("busy", "A picker is already open")
-    val deferred = CompletableDeferred<Uri?>()
+    val deferred = CompletableDeferred<List<Uri>>()
     pending = deferred
-    activity.startActivityForResult(pickerIntent(), REQUEST_PICK)
-    val uri = deferred.await() ?: return null
-    return withContext(Dispatchers.IO) { copyToInbox(uri, File(inboxDir)) }
+    activity.startActivityForResult(pickerIntent(maxCount.toInt()), REQUEST_PICK)
+    val uris = deferred.await().take(maxCount.toInt())
+    return withContext(Dispatchers.IO) { copyAllToInbox(uris, File(inboxDir)) }
   }
 
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-    val d =
-        when (requestCode) {
-          REQUEST_PICK -> pending.also { pending = null }
-          REQUEST_CREATE -> pendingCreate.also { pendingCreate = null }
-          else -> return false
-        } ?: return true
-    d.complete(if (resultCode == Activity.RESULT_OK) data?.data else null)
+    when (requestCode) {
+      REQUEST_PICK -> {
+        val d = pending ?: return true
+        pending = null
+        d.complete(if (resultCode == Activity.RESULT_OK) selection(data) else emptyList())
+      }
+      REQUEST_CREATE -> {
+        val d = pendingCreate ?: return true
+        pendingCreate = null
+        d.complete(if (resultCode == Activity.RESULT_OK) data?.data else null)
+      }
+      else -> return false
+    }
     return true
+  }
+
+  /** A multiple selection comes as ClipData, a single one as the data URI. */
+  private fun selection(data: Intent?): List<Uri> {
+    val clip = data?.clipData ?: return listOfNotNull(data?.data)
+    return (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
   }
 
   override fun onNewIntent(intent: Intent): Boolean {
@@ -133,14 +151,27 @@ class RefocalPlatformPlugin :
     return true
   }
 
-  /** Remembers an image shared with ACTION_SEND; the intent is consumed so a recreated activity does not repeat it. */
+  /**
+   * Remembers the images of ACTION_SEND / ACTION_SEND_MULTIPLE (added to those not taken yet);
+   * the intent is consumed so a recreated activity does not repeat it.
+   */
   private fun takeShare(intent: Intent?): Boolean {
-    if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("image/") != true) return false
-    val uri =
-        if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
+    if (intent == null || intent.type?.startsWith("image/") != true) return false
+    val uris: List<Uri> =
+        when (intent.action) {
+          Intent.ACTION_SEND ->
+              listOfNotNull(
+                  if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                  else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM))
+          Intent.ACTION_SEND_MULTIPLE ->
+              (if (Build.VERSION.SDK_INT >= 33) intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+              else @Suppress("DEPRECATION") intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM))
+                  .orEmpty()
+          else -> return false
+        }
     intent.action = null
-    shared = uri ?: return false
+    if (uris.isEmpty()) return false
+    shared = shared + uris
     return true
   }
 
@@ -155,10 +186,28 @@ class RefocalPlatformPlugin :
     activity.startActivity(Intent.createChooser(send, chooserTitle))
   }
 
-  override suspend fun takeSharedImage(inboxDir: String): PickedImage? {
-    val uri = shared ?: return null
-    shared = null
-    return withContext(Dispatchers.IO) { copyToInbox(uri, File(inboxDir)) }
+  override suspend fun takeSharedImages(inboxDir: String): PickedImages {
+    val uris = shared
+    shared = emptyList()
+    return withContext(Dispatchers.IO) { copyAllToInbox(uris, File(inboxDir)) }
+  }
+
+  /** Each image on its own: one that cannot be copied does not lose the others. */
+  private fun copyAllToInbox(uris: List<Uri>, inbox: File): PickedImages {
+    val images = mutableListOf<PickedImage>()
+    var failure: String? = null
+    for (uri in uris) {
+      try {
+        images += copyToInbox(uri, inbox)
+      } catch (e: FlutterError) {
+        failure = failure ?: e.code
+      } catch (e: IOException) {
+        failure = failure ?: "io"
+      } catch (e: SecurityException) {
+        failure = failure ?: "io" // the URI grant was revoked
+      }
+    }
+    return PickedImages(images = images, failed = (uris.size - images.size).toLong(), failure = failure)
   }
 
   override suspend fun saveToFile(path: String, displayName: String, mimeType: String): String? {
@@ -181,14 +230,20 @@ class RefocalPlatformPlugin :
     return uri.toString()
   }
 
-  private fun pickerIntent(): Intent {
+  private fun pickerIntent(maxCount: Int): Intent {
     val hasPhotoPicker =
         Build.VERSION.SDK_INT >= 33 ||
             (Build.VERSION.SDK_INT >= 30 && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.R) >= 2)
     return if (hasPhotoPicker) {
-      Intent(MediaStore.ACTION_PICK_IMAGES).setType("image/*")
+      Intent(MediaStore.ACTION_PICK_IMAGES).setType("image/*").apply {
+        // The extra must be > 1 and <= the system limit; without it the selection is single.
+        if (maxCount > 1) putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, maxCount.coerceAtMost(MediaStore.getPickImagesMaxLimit()))
+      }
     } else {
-      Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
+      Intent(Intent.ACTION_OPEN_DOCUMENT)
+          .addCategory(Intent.CATEGORY_OPENABLE)
+          .setType("image/*")
+          .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, maxCount > 1)
     }
   }
 
@@ -241,7 +296,8 @@ class RefocalPlatformPlugin :
       "image/avif" -> "avif"
       else -> "img"
     }
-    val dst = File(inbox, "in-${System.currentTimeMillis()}.$ext")
+    // Random, not a timestamp: several images arrive within the same millisecond (multi-pick).
+    val dst = File(inbox, "in-${UUID.randomUUID()}.$ext")
     val tmp = File(inbox, dst.name + ".part")
     try {
       (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->

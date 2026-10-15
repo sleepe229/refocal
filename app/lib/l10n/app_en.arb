@@ -203,14 +203,6 @@
   },
   "settingsShowIntro": "Show the introduction",
   "aboutTitle": "About",
-  "aboutCore": "Native core {version}",
-  "@aboutCore": {
-    "placeholders": {
-      "version": {
-        "type": "String"
-      }
-    }
-  },
   "aboutAlpha": "Early alpha. Expect rough edges: Android only, one photo at a time.",
   "aboutPrivacy": "All processing happens on this device. Refocal has no accounts, no ads and no telemetry; the network is used only to download optional models when you ask.",
   "aboutAiWarning": "AI enhancement adds plausible detail that was not in the original photo. Do not use results as evidence of what a scene or person looked like.",
@@ -339,5 +331,133 @@
   "reportIntro": "This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.",
   "reportEmpty": "The log is empty.",
   "reportShare": "Share the log",
-  "reportShareTitle": "Share the Refocal log"
+  "reportShareTitle": "Share the Refocal log",
+  "errorStorage": "a file could not be read or written",
+  "@errorStorage": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorSystem": "the system refused the request",
+  "@errorSystem": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorUnexpected": "unexpected error (details are in the log)",
+  "@errorUnexpected": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "homeChooseSeveral": "Process several photos",
+  "homeQueue": "Queue ({count})",
+  "@homeQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pickPartial": "{failed} of the photos could not be opened: {reason}",
+  "@pickPartial": {
+    "placeholders": {
+      "failed": {
+        "type": "int"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "queueTitle": "Queue",
+  "queueEmpty": "The queue is empty. Choose several photos, or share them to Refocal.",
+  "queueStart": "Start",
+  "queuePause": "Pause",
+  "queueClearFinished": "Clear finished",
+  "queueShowErrors": "Only errors",
+  "queueStateQueued": "Waiting",
+  "queueStateRunning": "Processing… {percent}%",
+  "@queueStateRunning": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "queueStatePaused": "Paused at {percent}%",
+  "@queueStatePaused": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "queueStateDone": "Ready, not saved: tap to open",
+  "queueStateSaved": "Saved to the gallery",
+  "queueStateFailed": "Failed: {reason}",
+  "@queueStateFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "queueReport": "Done {done}, failed {failed}",
+  "@queueReport": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "queueReorderHint": "Drag to change the order.",
+  "queueNotifPosition": "Photo {n} of {total}",
+  "@queueNotifPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "queueNotifDone": "Queue finished: done {done}, failed {failed}",
+  "@queueNotifDone": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "batchTitle": "{count} photos",
+  "@batchTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "batchPreset": "Preset",
+  "batchAutosave": "Save each result to the gallery ({format})",
+  "@batchAutosave": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "batchAutosaveOff": "Results wait in the queue until you save them.",
+  "batchAdd": "Add to the queue",
+  "settingsBatchAutosave": "Batch: save results automatically",
+  "settingsBatchAutosaveHint": "Each result of a batch goes to Pictures/Refocal in the default format.",
+  "queueActionFailed": "Could not change the queue: {error}",
+  "@queueActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

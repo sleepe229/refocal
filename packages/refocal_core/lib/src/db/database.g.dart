@@ -3,195 +3,6 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
-class $SettingEntriesTable extends SettingEntries with TableInfo<$SettingEntriesTable, SettingRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $SettingEntriesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _keyMeta = const VerificationMeta('key');
-  @override
-  late final GeneratedColumn<String> key = GeneratedColumn<String>(
-    'key',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _valueMeta = const VerificationMeta('value');
-  @override
-  late final GeneratedColumn<String> value = GeneratedColumn<String>(
-    'value',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [key, value];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'settings';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<SettingRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('key')) {
-      context.handle(_keyMeta, key.isAcceptableOrUnknown(data['key']!, _keyMeta));
-    } else if (isInserting) {
-      context.missing(_keyMeta);
-    }
-    if (data.containsKey('value')) {
-      context.handle(_valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
-    } else if (isInserting) {
-      context.missing(_valueMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {key};
-  @override
-  SettingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SettingRow(
-      key: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}key'])!,
-      value: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}value'],
-      )!,
-    );
-  }
-
-  @override
-  $SettingEntriesTable createAlias(String alias) {
-    return $SettingEntriesTable(attachedDatabase, alias);
-  }
-}
-
-class SettingRow extends DataClass implements Insertable<SettingRow> {
-  final String key;
-  final String value;
-  const SettingRow({required this.key, required this.value});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['key'] = Variable<String>(key);
-    map['value'] = Variable<String>(value);
-    return map;
-  }
-
-  SettingEntriesCompanion toCompanion(bool nullToAbsent) {
-    return SettingEntriesCompanion(key: Value(key), value: Value(value));
-  }
-
-  factory SettingRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SettingRow(
-      key: serializer.fromJson<String>(json['key']),
-      value: serializer.fromJson<String>(json['value']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'key': serializer.toJson<String>(key),
-      'value': serializer.toJson<String>(value),
-    };
-  }
-
-  SettingRow copyWith({String? key, String? value}) =>
-      SettingRow(key: key ?? this.key, value: value ?? this.value);
-  SettingRow copyWithCompanion(SettingEntriesCompanion data) {
-    return SettingRow(
-      key: data.key.present ? data.key.value : this.key,
-      value: data.value.present ? data.value.value : this.value,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SettingRow(')
-          ..write('key: $key, ')
-          ..write('value: $value')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(key, value);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is SettingRow && other.key == this.key && other.value == this.value);
-}
-
-class SettingEntriesCompanion extends UpdateCompanion<SettingRow> {
-  final Value<String> key;
-  final Value<String> value;
-  final Value<int> rowid;
-  const SettingEntriesCompanion({
-    this.key = const Value.absent(),
-    this.value = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  SettingEntriesCompanion.insert({
-    required String key,
-    required String value,
-    this.rowid = const Value.absent(),
-  }) : key = Value(key),
-       value = Value(value);
-  static Insertable<SettingRow> custom({
-    Expression<String>? key,
-    Expression<String>? value,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (key != null) 'key': key,
-      if (value != null) 'value': value,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  SettingEntriesCompanion copyWith({Value<String>? key, Value<String>? value, Value<int>? rowid}) {
-    return SettingEntriesCompanion(
-      key: key ?? this.key,
-      value: value ?? this.value,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (key.present) {
-      map['key'] = Variable<String>(key.value);
-    }
-    if (value.present) {
-      map['value'] = Variable<String>(value.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SettingEntriesCompanion(')
-          ..write('key: $key, ')
-          ..write('value: $value, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -221,18 +32,18 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetRow> {
   late final GeneratedColumn<int> width = GeneratedColumn<int>(
     'width',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _heightMeta = const VerificationMeta('height');
   @override
   late final GeneratedColumn<int> height = GeneratedColumn<int>(
     'height',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
@@ -269,13 +80,9 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetRow> {
     }
     if (data.containsKey('width')) {
       context.handle(_widthMeta, width.isAcceptableOrUnknown(data['width']!, _widthMeta));
-    } else if (isInserting) {
-      context.missing(_widthMeta);
     }
     if (data.containsKey('height')) {
       context.handle(_heightMeta, height.isAcceptableOrUnknown(data['height']!, _heightMeta));
-    } else if (isInserting) {
-      context.missing(_heightMeta);
     }
     if (data.containsKey('created_at')) {
       context.handle(
@@ -299,11 +106,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetRow> {
         DriftSqlType.string,
         data['${effectivePrefix}inbox_path'],
       )!,
-      width: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}width'])!,
-      height: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}height'],
-      )!,
+      width: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}width']),
+      height: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}height']),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
@@ -320,14 +124,14 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetRow> {
 class AssetRow extends DataClass implements Insertable<AssetRow> {
   final String id;
   final String inboxPath;
-  final int width;
-  final int height;
+  final int? width;
+  final int? height;
   final int createdAt;
   const AssetRow({
     required this.id,
     required this.inboxPath,
-    required this.width,
-    required this.height,
+    this.width,
+    this.height,
     required this.createdAt,
   });
   @override
@@ -335,8 +139,12 @@ class AssetRow extends DataClass implements Insertable<AssetRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['inbox_path'] = Variable<String>(inboxPath);
-    map['width'] = Variable<int>(width);
-    map['height'] = Variable<int>(height);
+    if (!nullToAbsent || width != null) {
+      map['width'] = Variable<int>(width);
+    }
+    if (!nullToAbsent || height != null) {
+      map['height'] = Variable<int>(height);
+    }
     map['created_at'] = Variable<int>(createdAt);
     return map;
   }
@@ -345,8 +153,8 @@ class AssetRow extends DataClass implements Insertable<AssetRow> {
     return AssetsCompanion(
       id: Value(id),
       inboxPath: Value(inboxPath),
-      width: Value(width),
-      height: Value(height),
+      width: width == null && nullToAbsent ? const Value.absent() : Value(width),
+      height: height == null && nullToAbsent ? const Value.absent() : Value(height),
       createdAt: Value(createdAt),
     );
   }
@@ -356,8 +164,8 @@ class AssetRow extends DataClass implements Insertable<AssetRow> {
     return AssetRow(
       id: serializer.fromJson<String>(json['id']),
       inboxPath: serializer.fromJson<String>(json['inboxPath']),
-      width: serializer.fromJson<int>(json['width']),
-      height: serializer.fromJson<int>(json['height']),
+      width: serializer.fromJson<int?>(json['width']),
+      height: serializer.fromJson<int?>(json['height']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
     );
   }
@@ -367,20 +175,25 @@ class AssetRow extends DataClass implements Insertable<AssetRow> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'inboxPath': serializer.toJson<String>(inboxPath),
-      'width': serializer.toJson<int>(width),
-      'height': serializer.toJson<int>(height),
+      'width': serializer.toJson<int?>(width),
+      'height': serializer.toJson<int?>(height),
       'createdAt': serializer.toJson<int>(createdAt),
     };
   }
 
-  AssetRow copyWith({String? id, String? inboxPath, int? width, int? height, int? createdAt}) =>
-      AssetRow(
-        id: id ?? this.id,
-        inboxPath: inboxPath ?? this.inboxPath,
-        width: width ?? this.width,
-        height: height ?? this.height,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  AssetRow copyWith({
+    String? id,
+    String? inboxPath,
+    Value<int?> width = const Value.absent(),
+    Value<int?> height = const Value.absent(),
+    int? createdAt,
+  }) => AssetRow(
+    id: id ?? this.id,
+    inboxPath: inboxPath ?? this.inboxPath,
+    width: width.present ? width.value : this.width,
+    height: height.present ? height.value : this.height,
+    createdAt: createdAt ?? this.createdAt,
+  );
   AssetRow copyWithCompanion(AssetsCompanion data) {
     return AssetRow(
       id: data.id.present ? data.id.value : this.id,
@@ -419,8 +232,8 @@ class AssetRow extends DataClass implements Insertable<AssetRow> {
 class AssetsCompanion extends UpdateCompanion<AssetRow> {
   final Value<String> id;
   final Value<String> inboxPath;
-  final Value<int> width;
-  final Value<int> height;
+  final Value<int?> width;
+  final Value<int?> height;
   final Value<int> createdAt;
   final Value<int> rowid;
   const AssetsCompanion({
@@ -434,14 +247,12 @@ class AssetsCompanion extends UpdateCompanion<AssetRow> {
   AssetsCompanion.insert({
     required String id,
     required String inboxPath,
-    required int width,
-    required int height,
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
     required int createdAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        inboxPath = Value(inboxPath),
-       width = Value(width),
-       height = Value(height),
        createdAt = Value(createdAt);
   static Insertable<AssetRow> custom({
     Expression<String>? id,
@@ -464,8 +275,8 @@ class AssetsCompanion extends UpdateCompanion<AssetRow> {
   AssetsCompanion copyWith({
     Value<String>? id,
     Value<String>? inboxPath,
-    Value<int>? width,
-    Value<int>? height,
+    Value<int?>? width,
+    Value<int?>? height,
     Value<int>? createdAt,
     Value<int>? rowid,
   }) {
@@ -1462,11 +1273,11 @@ class HistoryCompanion extends UpdateCompanion<HistoryRow> {
   }
 }
 
-class $PresetsTable extends Presets with TableInfo<$PresetsTable, PresetRow> {
+class $QueueJobsTable extends QueueJobs with TableInfo<$QueueJobsTable, QueueJobRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $PresetsTable(this.attachedDatabase, [this._alias]);
+  $QueueJobsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
@@ -1476,23 +1287,71 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, PresetRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  static const VerificationMeta _assetIdMeta = const VerificationMeta('assetId');
   @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+    'asset_id',
     aliasedName,
     false,
     type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('REFERENCES assets (id)'),
+  );
+  static const VerificationMeta _recipeIdMeta = const VerificationMeta('recipeId');
+  @override
+  late final GeneratedColumn<String> recipeId = GeneratedColumn<String>(
+    'recipe_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('REFERENCES recipes (id)'),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<QueueState, String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<QueueState>($QueueJobsTable.$converterstate);
+  static const VerificationMeta _positionMeta = const VerificationMeta('position');
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _recipeJsonMeta = const VerificationMeta('recipeJson');
+  static const VerificationMeta _jobIdMeta = const VerificationMeta('jobId');
   @override
-  late final GeneratedColumn<String> recipeJson = GeneratedColumn<String>(
-    'recipe_json',
+  late final GeneratedColumn<String> jobId = GeneratedColumn<String>(
+    'job_id',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _progressMeta = const VerificationMeta('progress');
+  @override
+  late final GeneratedColumn<double> progress = GeneratedColumn<double>(
+    'progress',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta('errorCode');
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
@@ -1503,16 +1362,36 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, PresetRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta('updatedAt');
   @override
-  List<GeneratedColumn> get $columns => [id, name, recipeJson, createdAt];
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    assetId,
+    recipeId,
+    state,
+    position,
+    jobId,
+    progress,
+    errorCode,
+    createdAt,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'presets';
+  static const String $name = 'queue_jobs';
   @override
   VerificationContext validateIntegrity(
-    Insertable<PresetRow> instance, {
+    Insertable<QueueJobRow> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -1522,18 +1401,43 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, PresetRow> {
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('name')) {
-      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    if (data.containsKey('asset_id')) {
+      context.handle(_assetIdMeta, assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta));
     } else if (isInserting) {
-      context.missing(_nameMeta);
+      context.missing(_assetIdMeta);
     }
-    if (data.containsKey('recipe_json')) {
+    if (data.containsKey('recipe_id')) {
       context.handle(
-        _recipeJsonMeta,
-        recipeJson.isAcceptableOrUnknown(data['recipe_json']!, _recipeJsonMeta),
+        _recipeIdMeta,
+        recipeId.isAcceptableOrUnknown(data['recipe_id']!, _recipeIdMeta),
       );
     } else if (isInserting) {
-      context.missing(_recipeJsonMeta);
+      context.missing(_recipeIdMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    if (data.containsKey('job_id')) {
+      context.handle(_jobIdMeta, jobId.isAcceptableOrUnknown(data['job_id']!, _jobIdMeta));
+    } else if (isInserting) {
+      context.missing(_jobIdMeta);
+    }
+    if (data.containsKey('progress')) {
+      context.handle(
+        _progressMeta,
+        progress.isAcceptableOrUnknown(data['progress']!, _progressMeta),
+      );
+    }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
     }
     if (data.containsKey('created_at')) {
       context.handle(
@@ -1543,71 +1447,150 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, PresetRow> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
     return context;
   }
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  PresetRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  QueueJobRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return PresetRow(
+    return QueueJobRow(
       id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
-      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name'])!,
-      recipeJson: attachedDatabase.typeMapping.read(
+      assetId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}recipe_json'],
+        data['${effectivePrefix}asset_id'],
       )!,
+      recipeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipe_id'],
+      )!,
+      state: $QueueJobsTable.$converterstate.fromSql(
+        attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}state'])!,
+      ),
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      jobId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}job_id'],
+      )!,
+      progress: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}progress'],
+      )!,
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
       )!,
     );
   }
 
   @override
-  $PresetsTable createAlias(String alias) {
-    return $PresetsTable(attachedDatabase, alias);
+  $QueueJobsTable createAlias(String alias) {
+    return $QueueJobsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<QueueState, String, String> $converterstate =
+      const EnumNameConverter<QueueState>(QueueState.values);
 }
 
-class PresetRow extends DataClass implements Insertable<PresetRow> {
+class QueueJobRow extends DataClass implements Insertable<QueueJobRow> {
   final String id;
-  final String name;
-  final String recipeJson;
+  final String assetId;
+  final String recipeId;
+  final QueueState state;
+
+  /// Processing order, ascending; gaps are allowed.
+  final int position;
+
+  /// Job directory name under AppSupport/jobs (exists once the job started).
+  final String jobId;
+
+  /// Committed bands / all bands.
+  final double progress;
+
+  /// `EnhStatus` name of a failure, or "cancelled".
+  final String? errorCode;
   final int createdAt;
-  const PresetRow({
+  final int updatedAt;
+  const QueueJobRow({
     required this.id,
-    required this.name,
-    required this.recipeJson,
+    required this.assetId,
+    required this.recipeId,
+    required this.state,
+    required this.position,
+    required this.jobId,
+    required this.progress,
+    this.errorCode,
     required this.createdAt,
+    required this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    map['recipe_json'] = Variable<String>(recipeJson);
+    map['asset_id'] = Variable<String>(assetId);
+    map['recipe_id'] = Variable<String>(recipeId);
+    {
+      map['state'] = Variable<String>($QueueJobsTable.$converterstate.toSql(state));
+    }
+    map['position'] = Variable<int>(position);
+    map['job_id'] = Variable<String>(jobId);
+    map['progress'] = Variable<double>(progress);
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
     map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
     return map;
   }
 
-  PresetsCompanion toCompanion(bool nullToAbsent) {
-    return PresetsCompanion(
+  QueueJobsCompanion toCompanion(bool nullToAbsent) {
+    return QueueJobsCompanion(
       id: Value(id),
-      name: Value(name),
-      recipeJson: Value(recipeJson),
+      assetId: Value(assetId),
+      recipeId: Value(recipeId),
+      state: Value(state),
+      position: Value(position),
+      jobId: Value(jobId),
+      progress: Value(progress),
+      errorCode: errorCode == null && nullToAbsent ? const Value.absent() : Value(errorCode),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
     );
   }
 
-  factory PresetRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+  factory QueueJobRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return PresetRow(
+    return QueueJobRow(
       id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      recipeJson: serializer.fromJson<String>(json['recipeJson']),
+      assetId: serializer.fromJson<String>(json['assetId']),
+      recipeId: serializer.fromJson<String>(json['recipeId']),
+      state: $QueueJobsTable.$converterstate.fromJson(serializer.fromJson<String>(json['state'])),
+      position: serializer.fromJson<int>(json['position']),
+      jobId: serializer.fromJson<String>(json['jobId']),
+      progress: serializer.fromJson<double>(json['progress']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
     );
   }
   @override
@@ -1615,101 +1598,199 @@ class PresetRow extends DataClass implements Insertable<PresetRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'recipeJson': serializer.toJson<String>(recipeJson),
+      'assetId': serializer.toJson<String>(assetId),
+      'recipeId': serializer.toJson<String>(recipeId),
+      'state': serializer.toJson<String>($QueueJobsTable.$converterstate.toJson(state)),
+      'position': serializer.toJson<int>(position),
+      'jobId': serializer.toJson<String>(jobId),
+      'progress': serializer.toJson<double>(progress),
+      'errorCode': serializer.toJson<String?>(errorCode),
       'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
     };
   }
 
-  PresetRow copyWith({String? id, String? name, String? recipeJson, int? createdAt}) => PresetRow(
+  QueueJobRow copyWith({
+    String? id,
+    String? assetId,
+    String? recipeId,
+    QueueState? state,
+    int? position,
+    String? jobId,
+    double? progress,
+    Value<String?> errorCode = const Value.absent(),
+    int? createdAt,
+    int? updatedAt,
+  }) => QueueJobRow(
     id: id ?? this.id,
-    name: name ?? this.name,
-    recipeJson: recipeJson ?? this.recipeJson,
+    assetId: assetId ?? this.assetId,
+    recipeId: recipeId ?? this.recipeId,
+    state: state ?? this.state,
+    position: position ?? this.position,
+    jobId: jobId ?? this.jobId,
+    progress: progress ?? this.progress,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
   );
-  PresetRow copyWithCompanion(PresetsCompanion data) {
-    return PresetRow(
+  QueueJobRow copyWithCompanion(QueueJobsCompanion data) {
+    return QueueJobRow(
       id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      recipeJson: data.recipeJson.present ? data.recipeJson.value : this.recipeJson,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      recipeId: data.recipeId.present ? data.recipeId.value : this.recipeId,
+      state: data.state.present ? data.state.value : this.state,
+      position: data.position.present ? data.position.value : this.position,
+      jobId: data.jobId.present ? data.jobId.value : this.jobId,
+      progress: data.progress.present ? data.progress.value : this.progress,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('PresetRow(')
+    return (StringBuffer('QueueJobRow(')
           ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('recipeJson: $recipeJson, ')
-          ..write('createdAt: $createdAt')
+          ..write('assetId: $assetId, ')
+          ..write('recipeId: $recipeId, ')
+          ..write('state: $state, ')
+          ..write('position: $position, ')
+          ..write('jobId: $jobId, ')
+          ..write('progress: $progress, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, recipeJson, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    assetId,
+    recipeId,
+    state,
+    position,
+    jobId,
+    progress,
+    errorCode,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is PresetRow &&
+      (other is QueueJobRow &&
           other.id == this.id &&
-          other.name == this.name &&
-          other.recipeJson == this.recipeJson &&
-          other.createdAt == this.createdAt);
+          other.assetId == this.assetId &&
+          other.recipeId == this.recipeId &&
+          other.state == this.state &&
+          other.position == this.position &&
+          other.jobId == this.jobId &&
+          other.progress == this.progress &&
+          other.errorCode == this.errorCode &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
-class PresetsCompanion extends UpdateCompanion<PresetRow> {
+class QueueJobsCompanion extends UpdateCompanion<QueueJobRow> {
   final Value<String> id;
-  final Value<String> name;
-  final Value<String> recipeJson;
+  final Value<String> assetId;
+  final Value<String> recipeId;
+  final Value<QueueState> state;
+  final Value<int> position;
+  final Value<String> jobId;
+  final Value<double> progress;
+  final Value<String?> errorCode;
   final Value<int> createdAt;
+  final Value<int> updatedAt;
   final Value<int> rowid;
-  const PresetsCompanion({
+  const QueueJobsCompanion({
     this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.recipeJson = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.recipeId = const Value.absent(),
+    this.state = const Value.absent(),
+    this.position = const Value.absent(),
+    this.jobId = const Value.absent(),
+    this.progress = const Value.absent(),
+    this.errorCode = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  PresetsCompanion.insert({
+  QueueJobsCompanion.insert({
     required String id,
-    required String name,
-    required String recipeJson,
+    required String assetId,
+    required String recipeId,
+    required QueueState state,
+    required int position,
+    required String jobId,
+    this.progress = const Value.absent(),
+    this.errorCode = const Value.absent(),
     required int createdAt,
+    required int updatedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       name = Value(name),
-       recipeJson = Value(recipeJson),
-       createdAt = Value(createdAt);
-  static Insertable<PresetRow> custom({
+       assetId = Value(assetId),
+       recipeId = Value(recipeId),
+       state = Value(state),
+       position = Value(position),
+       jobId = Value(jobId),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<QueueJobRow> custom({
     Expression<String>? id,
-    Expression<String>? name,
-    Expression<String>? recipeJson,
+    Expression<String>? assetId,
+    Expression<String>? recipeId,
+    Expression<String>? state,
+    Expression<int>? position,
+    Expression<String>? jobId,
+    Expression<double>? progress,
+    Expression<String>? errorCode,
     Expression<int>? createdAt,
+    Expression<int>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (recipeJson != null) 'recipe_json': recipeJson,
+      if (assetId != null) 'asset_id': assetId,
+      if (recipeId != null) 'recipe_id': recipeId,
+      if (state != null) 'state': state,
+      if (position != null) 'position': position,
+      if (jobId != null) 'job_id': jobId,
+      if (progress != null) 'progress': progress,
+      if (errorCode != null) 'error_code': errorCode,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
-  PresetsCompanion copyWith({
+  QueueJobsCompanion copyWith({
     Value<String>? id,
-    Value<String>? name,
-    Value<String>? recipeJson,
+    Value<String>? assetId,
+    Value<String>? recipeId,
+    Value<QueueState>? state,
+    Value<int>? position,
+    Value<String>? jobId,
+    Value<double>? progress,
+    Value<String?>? errorCode,
     Value<int>? createdAt,
+    Value<int>? updatedAt,
     Value<int>? rowid,
   }) {
-    return PresetsCompanion(
+    return QueueJobsCompanion(
       id: id ?? this.id,
-      name: name ?? this.name,
-      recipeJson: recipeJson ?? this.recipeJson,
+      assetId: assetId ?? this.assetId,
+      recipeId: recipeId ?? this.recipeId,
+      state: state ?? this.state,
+      position: position ?? this.position,
+      jobId: jobId ?? this.jobId,
+      progress: progress ?? this.progress,
+      errorCode: errorCode ?? this.errorCode,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1720,14 +1801,32 @@ class PresetsCompanion extends UpdateCompanion<PresetRow> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
     }
-    if (recipeJson.present) {
-      map['recipe_json'] = Variable<String>(recipeJson.value);
+    if (recipeId.present) {
+      map['recipe_id'] = Variable<String>(recipeId.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>($QueueJobsTable.$converterstate.toSql(state.value));
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (jobId.present) {
+      map['job_id'] = Variable<String>(jobId.value);
+    }
+    if (progress.present) {
+      map['progress'] = Variable<double>(progress.value);
+    }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1737,11 +1836,17 @@ class PresetsCompanion extends UpdateCompanion<PresetRow> {
 
   @override
   String toString() {
-    return (StringBuffer('PresetsCompanion(')
+    return (StringBuffer('QueueJobsCompanion(')
           ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('recipeJson: $recipeJson, ')
+          ..write('assetId: $assetId, ')
+          ..write('recipeId: $recipeId, ')
+          ..write('state: $state, ')
+          ..write('position: $position, ')
+          ..write('jobId: $jobId, ')
+          ..write('progress: $progress, ')
+          ..write('errorCode: $errorCode, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1751,164 +1856,45 @@ class PresetsCompanion extends UpdateCompanion<PresetRow> {
 abstract class _$RefocalDatabase extends GeneratedDatabase {
   _$RefocalDatabase(QueryExecutor e) : super(e);
   $RefocalDatabaseManager get managers => $RefocalDatabaseManager(this);
-  late final $SettingEntriesTable settingEntries = $SettingEntriesTable(this);
   late final $AssetsTable assets = $AssetsTable(this);
   late final $RecipesTable recipes = $RecipesTable(this);
   late final $HistoryTable history = $HistoryTable(this);
-  late final $PresetsTable presets = $PresetsTable(this);
+  late final $QueueJobsTable queueJobs = $QueueJobsTable(this);
   late final Index historyCreatedAt = Index(
     'history_created_at',
     'CREATE INDEX history_created_at ON history (created_at)',
+  );
+  late final Index queueJobsPosition = Index(
+    'queue_jobs_position',
+    'CREATE INDEX queue_jobs_position ON queue_jobs (position)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
-    settingEntries,
     assets,
     recipes,
     history,
-    presets,
+    queueJobs,
     historyCreatedAt,
+    queueJobsPosition,
   ];
 }
 
-typedef $$SettingEntriesTableCreateCompanionBuilder = SettingEntriesCompanion Function({
-  required String key,
-  required String value,
-  Value<int> rowid,
-});
-typedef $$SettingEntriesTableUpdateCompanionBuilder = SettingEntriesCompanion Function({
-  Value<String> key,
-  Value<String> value,
-  Value<int> rowid,
-});
-
-class $$SettingEntriesTableFilterComposer
-    extends Composer<_$RefocalDatabase, $SettingEntriesTable> {
-  $$SettingEntriesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get key =>
-      $composableBuilder(column: $table.key, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get value =>
-      $composableBuilder(column: $table.value, builder: (column) => ColumnFilters(column));
-}
-
-class $$SettingEntriesTableOrderingComposer
-    extends Composer<_$RefocalDatabase, $SettingEntriesTable> {
-  $$SettingEntriesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get key =>
-      $composableBuilder(column: $table.key, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get value =>
-      $composableBuilder(column: $table.value, builder: (column) => ColumnOrderings(column));
-}
-
-class $$SettingEntriesTableAnnotationComposer
-    extends Composer<_$RefocalDatabase, $SettingEntriesTable> {
-  $$SettingEntriesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get key =>
-      $composableBuilder(column: $table.key, builder: (column) => column);
-
-  GeneratedColumn<String> get value =>
-      $composableBuilder(column: $table.value, builder: (column) => column);
-}
-
-class $$SettingEntriesTableTableManager
-    extends
-        RootTableManager<
-          _$RefocalDatabase,
-          $SettingEntriesTable,
-          SettingRow,
-          $$SettingEntriesTableFilterComposer,
-          $$SettingEntriesTableOrderingComposer,
-          $$SettingEntriesTableAnnotationComposer,
-          $$SettingEntriesTableCreateCompanionBuilder,
-          $$SettingEntriesTableUpdateCompanionBuilder,
-          (SettingRow, BaseReferences<_$RefocalDatabase, $SettingEntriesTable, SettingRow>),
-          SettingRow,
-          PrefetchHooks Function()
-        > {
-  $$SettingEntriesTableTableManager(_$RefocalDatabase db, $SettingEntriesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$SettingEntriesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$SettingEntriesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$SettingEntriesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<String> key = const Value.absent(),
-            Value<String> value = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) => SettingEntriesCompanion(key: key, value: value, rowid: rowid),
-          createCompanionCallback: ({
-            required String key,
-            required String value,
-            Value<int> rowid = const Value.absent(),
-          }) => SettingEntriesCompanion.insert(key: key, value: value, rowid: rowid),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable<$SettingEntriesTable, SettingRow>(table),
-                  BaseReferences<_$RefocalDatabase, $SettingEntriesTable, SettingRow>(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$SettingEntriesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$RefocalDatabase,
-      $SettingEntriesTable,
-      SettingRow,
-      $$SettingEntriesTableFilterComposer,
-      $$SettingEntriesTableOrderingComposer,
-      $$SettingEntriesTableAnnotationComposer,
-      $$SettingEntriesTableCreateCompanionBuilder,
-      $$SettingEntriesTableUpdateCompanionBuilder,
-      (SettingRow, BaseReferences<_$RefocalDatabase, $SettingEntriesTable, SettingRow>),
-      SettingRow,
-      PrefetchHooks Function()
-    >;
 typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   required String id,
   required String inboxPath,
-  required int width,
-  required int height,
+  Value<int?> width,
+  Value<int?> height,
   required int createdAt,
   Value<int> rowid,
 });
 typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String> id,
   Value<String> inboxPath,
-  Value<int> width,
-  Value<int> height,
+  Value<int?> width,
+  Value<int?> height,
   Value<int> createdAt,
   Value<int> rowid,
 });
@@ -1928,6 +1914,20 @@ final class $$AssetsTableReferences
     ).filter((f) => f.assetId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_historyRefsTable($_db));
+    return ProcessedTableManager(manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$QueueJobsTable, List<QueueJobRow>> _queueJobsRefsTable(
+    _$RefocalDatabase db,
+  ) => MultiTypedResultKey.fromTable(db.queueJobs, aliasName: 'assets__id__queue_jobs__asset_id');
+
+  $$QueueJobsTableProcessedTableManager get queueJobsRefs {
+    final manager = $$QueueJobsTableTableManager(
+      $_db,
+      $_db.queueJobs,
+    ).filter((f) => f.assetId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_queueJobsRefsTable($_db));
     return ProcessedTableManager(manager.$state.copyWith(prefetchedData: cache));
   }
 }
@@ -1965,6 +1965,24 @@ class $$AssetsTableFilterComposer extends Composer<_$RefocalDatabase, $AssetsTab
           $$HistoryTableFilterComposer(
             $db: $db,
             $table: $db.history,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> queueJobsRefs(Expression<bool> Function($$QueueJobsTableFilterComposer f) f) {
+    final $$QueueJobsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.queueJobs,
+      getReferencedColumn: (t) => t.assetId,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$QueueJobsTableFilterComposer(
+            $db: $db,
+            $table: $db.queueJobs,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
@@ -2040,6 +2058,26 @@ class $$AssetsTableAnnotationComposer extends Composer<_$RefocalDatabase, $Asset
     );
     return f(composer);
   }
+
+  Expression<T> queueJobsRefs<T extends Object>(
+    Expression<T> Function($$QueueJobsTableAnnotationComposer a) f,
+  ) {
+    final $$QueueJobsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.queueJobs,
+      getReferencedColumn: (t) => t.assetId,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$QueueJobsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.queueJobs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AssetsTableTableManager
@@ -2055,7 +2093,7 @@ class $$AssetsTableTableManager
           $$AssetsTableUpdateCompanionBuilder,
           (AssetRow, $$AssetsTableReferences),
           AssetRow,
-          PrefetchHooks Function({bool historyRefs})
+          PrefetchHooks Function({bool historyRefs, bool queueJobsRefs})
         > {
   $$AssetsTableTableManager(_$RefocalDatabase db, $AssetsTable table)
     : super(
@@ -2070,8 +2108,8 @@ class $$AssetsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> inboxPath = const Value.absent(),
-                Value<int> width = const Value.absent(),
-                Value<int> height = const Value.absent(),
+                Value<int?> width = const Value.absent(),
+                Value<int?> height = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AssetsCompanion(
@@ -2086,8 +2124,8 @@ class $$AssetsTableTableManager
               ({
                 required String id,
                 required String inboxPath,
-                required int width,
-                required int height,
+                Value<int?> width = const Value.absent(),
+                Value<int?> height = const Value.absent(),
                 required int createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => AssetsCompanion.insert(
@@ -2106,10 +2144,13 @@ class $$AssetsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({historyRefs = false}) {
+          prefetchHooksCallback: ({historyRefs = false, queueJobsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (historyRefs) db.history],
+              explicitlyWatchedTables: [
+                if (historyRefs) db.history,
+                if (queueJobsRefs) db.queueJobs,
+              ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
@@ -2119,6 +2160,16 @@ class $$AssetsTableTableManager
                       referencedTable: $$AssetsTableReferences._historyRefsTable(db),
                       managerFromTypedResult: (p0) =>
                           $$AssetsTableReferences(db, table, p0).historyRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.assetId == item.id),
+                      typedResults: items,
+                    ),
+                  if (queueJobsRefs)
+                    await $_getPrefetchedData<AssetRow, $AssetsTable, QueueJobRow>(
+                      currentTable: table,
+                      referencedTable: $$AssetsTableReferences._queueJobsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$AssetsTableReferences(db, table, p0).queueJobsRefs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
                           referencedItems.where((e) => e.assetId == item.id),
                       typedResults: items,
@@ -2143,7 +2194,7 @@ typedef $$AssetsTableProcessedTableManager =
       $$AssetsTableUpdateCompanionBuilder,
       (AssetRow, $$AssetsTableReferences),
       AssetRow,
-      PrefetchHooks Function({bool historyRefs})
+      PrefetchHooks Function({bool historyRefs, bool queueJobsRefs})
     >;
 typedef $$RecipesTableCreateCompanionBuilder = RecipesCompanion Function({
   required String id,
@@ -2175,6 +2226,20 @@ final class $$RecipesTableReferences
     ).filter((f) => f.recipeId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_historyRefsTable($_db));
+    return ProcessedTableManager(manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$QueueJobsTable, List<QueueJobRow>> _queueJobsRefsTable(
+    _$RefocalDatabase db,
+  ) => MultiTypedResultKey.fromTable(db.queueJobs, aliasName: 'recipes__id__queue_jobs__recipe_id');
+
+  $$QueueJobsTableProcessedTableManager get queueJobsRefs {
+    final manager = $$QueueJobsTableTableManager(
+      $_db,
+      $_db.queueJobs,
+    ).filter((f) => f.recipeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_queueJobsRefsTable($_db));
     return ProcessedTableManager(manager.$state.copyWith(prefetchedData: cache));
   }
 }
@@ -2209,6 +2274,24 @@ class $$RecipesTableFilterComposer extends Composer<_$RefocalDatabase, $RecipesT
           $$HistoryTableFilterComposer(
             $db: $db,
             $table: $db.history,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> queueJobsRefs(Expression<bool> Function($$QueueJobsTableFilterComposer f) f) {
+    final $$QueueJobsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.queueJobs,
+      getReferencedColumn: (t) => t.recipeId,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$QueueJobsTableFilterComposer(
+            $db: $db,
+            $table: $db.queueJobs,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
@@ -2278,6 +2361,26 @@ class $$RecipesTableAnnotationComposer extends Composer<_$RefocalDatabase, $Reci
     );
     return f(composer);
   }
+
+  Expression<T> queueJobsRefs<T extends Object>(
+    Expression<T> Function($$QueueJobsTableAnnotationComposer a) f,
+  ) {
+    final $$QueueJobsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.queueJobs,
+      getReferencedColumn: (t) => t.recipeId,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$QueueJobsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.queueJobs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$RecipesTableTableManager
@@ -2293,7 +2396,7 @@ class $$RecipesTableTableManager
           $$RecipesTableUpdateCompanionBuilder,
           (RecipeRow, $$RecipesTableReferences),
           RecipeRow,
-          PrefetchHooks Function({bool historyRefs})
+          PrefetchHooks Function({bool historyRefs, bool queueJobsRefs})
         > {
   $$RecipesTableTableManager(_$RefocalDatabase db, $RecipesTable table)
     : super(
@@ -2340,10 +2443,13 @@ class $$RecipesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({historyRefs = false}) {
+          prefetchHooksCallback: ({historyRefs = false, queueJobsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (historyRefs) db.history],
+              explicitlyWatchedTables: [
+                if (historyRefs) db.history,
+                if (queueJobsRefs) db.queueJobs,
+              ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
@@ -2353,6 +2459,16 @@ class $$RecipesTableTableManager
                       referencedTable: $$RecipesTableReferences._historyRefsTable(db),
                       managerFromTypedResult: (p0) =>
                           $$RecipesTableReferences(db, table, p0).historyRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.recipeId == item.id),
+                      typedResults: items,
+                    ),
+                  if (queueJobsRefs)
+                    await $_getPrefetchedData<RecipeRow, $RecipesTable, QueueJobRow>(
+                      currentTable: table,
+                      referencedTable: $$RecipesTableReferences._queueJobsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$RecipesTableReferences(db, table, p0).queueJobsRefs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
                           referencedItems.where((e) => e.recipeId == item.id),
                       typedResults: items,
@@ -2377,7 +2493,7 @@ typedef $$RecipesTableProcessedTableManager =
       $$RecipesTableUpdateCompanionBuilder,
       (RecipeRow, $$RecipesTableReferences),
       RecipeRow,
-      PrefetchHooks Function({bool historyRefs})
+      PrefetchHooks Function({bool historyRefs, bool queueJobsRefs})
     >;
 typedef $$HistoryTableCreateCompanionBuilder = HistoryCompanion Function({
   required String id,
@@ -2824,23 +2940,70 @@ typedef $$HistoryTableProcessedTableManager =
       HistoryRow,
       PrefetchHooks Function({bool assetId, bool recipeId})
     >;
-typedef $$PresetsTableCreateCompanionBuilder = PresetsCompanion Function({
+typedef $$QueueJobsTableCreateCompanionBuilder = QueueJobsCompanion Function({
   required String id,
-  required String name,
-  required String recipeJson,
+  required String assetId,
+  required String recipeId,
+  required QueueState state,
+  required int position,
+  required String jobId,
+  Value<double> progress,
+  Value<String?> errorCode,
   required int createdAt,
+  required int updatedAt,
   Value<int> rowid,
 });
-typedef $$PresetsTableUpdateCompanionBuilder = PresetsCompanion Function({
+typedef $$QueueJobsTableUpdateCompanionBuilder = QueueJobsCompanion Function({
   Value<String> id,
-  Value<String> name,
-  Value<String> recipeJson,
+  Value<String> assetId,
+  Value<String> recipeId,
+  Value<QueueState> state,
+  Value<int> position,
+  Value<String> jobId,
+  Value<double> progress,
+  Value<String?> errorCode,
   Value<int> createdAt,
+  Value<int> updatedAt,
   Value<int> rowid,
 });
 
-class $$PresetsTableFilterComposer extends Composer<_$RefocalDatabase, $PresetsTable> {
-  $$PresetsTableFilterComposer({
+final class $$QueueJobsTableReferences
+    extends BaseReferences<_$RefocalDatabase, $QueueJobsTable, QueueJobRow> {
+  $$QueueJobsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $AssetsTable _assetIdTable(_$RefocalDatabase db) =>
+      db.assets.createAlias('queue_jobs__asset_id__assets__id');
+
+  $$AssetsTableProcessedTableManager get assetId {
+    final $_column = $_itemColumn<String>('asset_id')!;
+
+    final manager = $$AssetsTableTableManager(
+      $_db,
+      $_db.assets,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_assetIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(manager.$state.copyWith(prefetchedData: [item]));
+  }
+
+  static $RecipesTable _recipeIdTable(_$RefocalDatabase db) =>
+      db.recipes.createAlias('queue_jobs__recipe_id__recipes__id');
+
+  $$RecipesTableProcessedTableManager get recipeId {
+    final $_column = $_itemColumn<String>('recipe_id')!;
+
+    final manager = $$RecipesTableTableManager(
+      $_db,
+      $_db.recipes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_recipeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$QueueJobsTableFilterComposer extends Composer<_$RefocalDatabase, $QueueJobsTable> {
+  $$QueueJobsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -2850,18 +3013,68 @@ class $$PresetsTableFilterComposer extends Composer<_$RefocalDatabase, $PresetsT
   ColumnFilters<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => ColumnFilters(column));
+  ColumnWithTypeConverterFilters<QueueState, QueueState, String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
-  ColumnFilters<String> get recipeJson =>
-      $composableBuilder(column: $table.recipeJson, builder: (column) => ColumnFilters(column));
+  ColumnFilters<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get jobId =>
+      $composableBuilder(column: $table.jobId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  $$AssetsTableFilterComposer get assetId {
+    final $$AssetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$AssetsTableFilterComposer(
+            $db: $db,
+            $table: $db.assets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableFilterComposer get recipeId {
+    final $$RecipesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$RecipesTableFilterComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
-class $$PresetsTableOrderingComposer extends Composer<_$RefocalDatabase, $PresetsTable> {
-  $$PresetsTableOrderingComposer({
+class $$QueueJobsTableOrderingComposer extends Composer<_$RefocalDatabase, $QueueJobsTable> {
+  $$QueueJobsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -2871,18 +3084,66 @@ class $$PresetsTableOrderingComposer extends Composer<_$RefocalDatabase, $Preset
   ColumnOrderings<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get recipeJson =>
-      $composableBuilder(column: $table.recipeJson, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get jobId =>
+      $composableBuilder(column: $table.jobId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  $$AssetsTableOrderingComposer get assetId {
+    final $$AssetsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$AssetsTableOrderingComposer(
+            $db: $db,
+            $table: $db.assets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableOrderingComposer get recipeId {
+    final $$RecipesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$RecipesTableOrderingComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
-class $$PresetsTableAnnotationComposer extends Composer<_$RefocalDatabase, $PresetsTable> {
-  $$PresetsTableAnnotationComposer({
+class $$QueueJobsTableAnnotationComposer extends Composer<_$RefocalDatabase, $QueueJobsTable> {
+  $$QueueJobsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -2892,103 +3153,216 @@ class $$PresetsTableAnnotationComposer extends Composer<_$RefocalDatabase, $Pres
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
+  GeneratedColumnWithTypeConverter<QueueState, String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
 
-  GeneratedColumn<String> get recipeJson =>
-      $composableBuilder(column: $table.recipeJson, builder: (column) => column);
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get jobId =>
+      $composableBuilder(column: $table.jobId, builder: (column) => column);
+
+  GeneratedColumn<double> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => column);
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$AssetsTableAnnotationComposer get assetId {
+    final $$AssetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$AssetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.assets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecipesTableAnnotationComposer get recipeId {
+    final $$RecipesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recipeId,
+      referencedTable: $db.recipes,
+      getReferencedColumn: (t) => t.id,
+      builder: (joinBuilder, {$addJoinBuilderToRootComposer, $removeJoinBuilderFromRootComposer}) =>
+          $$RecipesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recipes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
-class $$PresetsTableTableManager
+class $$QueueJobsTableTableManager
     extends
         RootTableManager<
           _$RefocalDatabase,
-          $PresetsTable,
-          PresetRow,
-          $$PresetsTableFilterComposer,
-          $$PresetsTableOrderingComposer,
-          $$PresetsTableAnnotationComposer,
-          $$PresetsTableCreateCompanionBuilder,
-          $$PresetsTableUpdateCompanionBuilder,
-          (PresetRow, BaseReferences<_$RefocalDatabase, $PresetsTable, PresetRow>),
-          PresetRow,
-          PrefetchHooks Function()
+          $QueueJobsTable,
+          QueueJobRow,
+          $$QueueJobsTableFilterComposer,
+          $$QueueJobsTableOrderingComposer,
+          $$QueueJobsTableAnnotationComposer,
+          $$QueueJobsTableCreateCompanionBuilder,
+          $$QueueJobsTableUpdateCompanionBuilder,
+          (QueueJobRow, $$QueueJobsTableReferences),
+          QueueJobRow,
+          PrefetchHooks Function({bool assetId, bool recipeId})
         > {
-  $$PresetsTableTableManager(_$RefocalDatabase db, $PresetsTable table)
+  $$QueueJobsTableTableManager(_$RefocalDatabase db, $QueueJobsTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () => $$PresetsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () => $$PresetsTableOrderingComposer($db: db, $table: table),
+          createFilteringComposer: () => $$QueueJobsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$QueueJobsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$PresetsTableAnnotationComposer($db: db, $table: table),
+              $$QueueJobsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String> recipeJson = const Value.absent(),
+                Value<String> assetId = const Value.absent(),
+                Value<String> recipeId = const Value.absent(),
+                Value<QueueState> state = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> jobId = const Value.absent(),
+                Value<double> progress = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => PresetsCompanion(
+              }) => QueueJobsCompanion(
                 id: id,
-                name: name,
-                recipeJson: recipeJson,
+                assetId: assetId,
+                recipeId: recipeId,
+                state: state,
+                position: position,
+                jobId: jobId,
+                progress: progress,
+                errorCode: errorCode,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
-                required String name,
-                required String recipeJson,
+                required String assetId,
+                required String recipeId,
+                required QueueState state,
+                required int position,
+                required String jobId,
+                Value<double> progress = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
                 required int createdAt,
+                required int updatedAt,
                 Value<int> rowid = const Value.absent(),
-              }) => PresetsCompanion.insert(
+              }) => QueueJobsCompanion.insert(
                 id: id,
-                name: name,
-                recipeJson: recipeJson,
+                assetId: assetId,
+                recipeId: recipeId,
+                state: state,
+                position: position,
+                jobId: jobId,
+                progress: progress,
+                errorCode: errorCode,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable<$PresetsTable, PresetRow>(table),
-                  BaseReferences<_$RefocalDatabase, $PresetsTable, PresetRow>(db, table, e),
+                  e.readTable<$QueueJobsTable, QueueJobRow>(table),
+                  $$QueueJobsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({assetId = false, recipeId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (assetId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.assetId,
+                        referencedTable: $$QueueJobsTableReferences._assetIdTable(db),
+                        referencedColumn: $$QueueJobsTableReferences._assetIdTable(db).id,
+                      ) as T;
+                    }
+                    if (recipeId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.recipeId,
+                        referencedTable: $$QueueJobsTableReferences._recipeIdTable(db),
+                        referencedColumn: $$QueueJobsTableReferences._recipeIdTable(db).id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
 
-typedef $$PresetsTableProcessedTableManager =
+typedef $$QueueJobsTableProcessedTableManager =
     ProcessedTableManager<
       _$RefocalDatabase,
-      $PresetsTable,
-      PresetRow,
-      $$PresetsTableFilterComposer,
-      $$PresetsTableOrderingComposer,
-      $$PresetsTableAnnotationComposer,
-      $$PresetsTableCreateCompanionBuilder,
-      $$PresetsTableUpdateCompanionBuilder,
-      (PresetRow, BaseReferences<_$RefocalDatabase, $PresetsTable, PresetRow>),
-      PresetRow,
-      PrefetchHooks Function()
+      $QueueJobsTable,
+      QueueJobRow,
+      $$QueueJobsTableFilterComposer,
+      $$QueueJobsTableOrderingComposer,
+      $$QueueJobsTableAnnotationComposer,
+      $$QueueJobsTableCreateCompanionBuilder,
+      $$QueueJobsTableUpdateCompanionBuilder,
+      (QueueJobRow, $$QueueJobsTableReferences),
+      QueueJobRow,
+      PrefetchHooks Function({bool assetId, bool recipeId})
     >;
 
 class $RefocalDatabaseManager {
   final _$RefocalDatabase _db;
   $RefocalDatabaseManager(this._db);
-  $$SettingEntriesTableTableManager get settingEntries =>
-      $$SettingEntriesTableTableManager(_db, _db.settingEntries);
   $$AssetsTableTableManager get assets => $$AssetsTableTableManager(_db, _db.assets);
   $$RecipesTableTableManager get recipes => $$RecipesTableTableManager(_db, _db.recipes);
   $$HistoryTableTableManager get history => $$HistoryTableTableManager(_db, _db.history);
-  $$PresetsTableTableManager get presets => $$PresetsTableTableManager(_db, _db.presets);
+  $$QueueJobsTableTableManager get queueJobs => $$QueueJobsTableTableManager(_db, _db.queueJobs);
 }

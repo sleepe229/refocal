@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
-import '../version.dart';
 import 'app_log.dart';
 import 'job_store.dart';
 
@@ -31,6 +30,10 @@ class Engine {
   final AppDirs dirs;
   final bool modelReady;
 
+  /// The app version: `version:` of app/pubspec.yaml without `+build`, compiled into the core
+  /// by native/CMakeLists.txt (the only copy).
+  String get version => native.version;
+
   String get inboxDir => '${dirs.support}/inbox';
   String get jobsDir => '${dirs.support}/jobs';
   String get exportDir => '${dirs.cache}/export';
@@ -44,21 +47,19 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final ready = await _installBundledModel(models);
   final native = RefocalNative.open();
   try {
-    AppLog.open(native, '${dirs.support}/logs');
+    final logs = await Directory('${dirs.support}/logs').create(recursive: true);
+    AppLog.open(native, logs.path);
+  } on FileSystemException catch (e) {
+    debugPrint('log file unavailable: ${e.message}'); // the app works without it
   } on EnhException catch (e) {
     debugPrint('log file unavailable: ${e.status.name}'); // the app works without it
   }
   final previousExit = await ref.read(platformApiProvider).lastExitReason();
   AppLog.info(
-    'start: app $appVersion, core ${native.version}, '
+    'start: Refocal ${native.version}, '
     '${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
     'previous exit ${previousExit ?? 'unknown'}, model ${ready ? 'ok' : 'missing'}',
   );
-  try {
-    jobStoreOf(dirs).sweep(); // once per process: no screen holds an input yet
-  } on FileSystemException {
-    // jobs/ or inbox/ could not be listed: the sweep is retried at the next start
-  }
   final session = native.openSession(
     modelsDir: models,
     workDir: '${dirs.support}/jobs',
@@ -72,9 +73,10 @@ final engineProvider = FutureProvider<Engine>((ref) async {
 
 Future<bool> _installBundledModel(String modelsDir) async {
   final dir = Directory('$modelsDir/$bundledSrModel');
-  if (_modelFiles.every((f) => File('${dir.path}/$f').existsSync())) return true;
+  final present = await Future.wait(_modelFiles.map((f) => File('${dir.path}/$f').exists()));
+  if (present.every((p) => p)) return true;
   try {
-    dir.createSync(recursive: true);
+    await dir.create(recursive: true);
     for (final f in _modelFiles) {
       final data = await rootBundle.load('assets/models/$bundledSrModel/$f');
       final tmp = File('${dir.path}/$f.part');
@@ -89,9 +91,3 @@ Future<bool> _installBundledModel(String modelsDir) async {
     return false; // asset missing: built without tools/models/fetch.sh
   }
 }
-
-/// Unfinished and unsaved jobs for the home screen; invalidate after a change.
-final jobListProvider = FutureProvider<List<JobEntry>>((ref) async {
-  final engine = await ref.watch(engineProvider.future);
-  return engine.jobs.list();
-});

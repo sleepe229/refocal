@@ -651,12 +651,6 @@ abstract class AppLocalizations {
   /// **'About'**
   String get aboutTitle;
 
-  /// No description provided for @aboutCore.
-  ///
-  /// In en, this message translates to:
-  /// **'Native core {version}'**
-  String aboutCore(String version);
-
   /// No description provided for @aboutAlpha.
   ///
   /// In en, this message translates to:
@@ -1052,6 +1046,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share the Refocal log'**
   String get reportShareTitle;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'a file could not be read or written'**
+  String get errorStorage;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'the system refused the request'**
+  String get errorSystem;
+
+  /// Reason inserted into an error message ({error}).
+  ///
+  /// In en, this message translates to:
+  /// **'unexpected error (details are in the log)'**
+  String get errorUnexpected;
+
+  /// No description provided for @homeChooseSeveral.
+  ///
+  /// In en, this message translates to:
+  /// **'Process several photos'**
+  String get homeChooseSeveral;
+
+  /// No description provided for @homeQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue ({count})'**
+  String homeQueue(int count);
+
+  /// No description provided for @pickPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{failed} of the photos could not be opened: {reason}'**
+  String pickPartial(int failed, String reason);
+
+  /// No description provided for @queueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue'**
+  String get queueTitle;
+
+  /// No description provided for @queueEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The queue is empty. Choose several photos, or share them to Refocal.'**
+  String get queueEmpty;
+
+  /// No description provided for @queueStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get queueStart;
+
+  /// No description provided for @queuePause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get queuePause;
+
+  /// No description provided for @queueClearFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear finished'**
+  String get queueClearFinished;
+
+  /// No description provided for @queueShowErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Only errors'**
+  String get queueShowErrors;
+
+  /// No description provided for @queueStateQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get queueStateQueued;
+
+  /// No description provided for @queueStateRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing… {percent}%'**
+  String queueStateRunning(int percent);
+
+  /// No description provided for @queueStatePaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused at {percent}%'**
+  String queueStatePaused(int percent);
+
+  /// No description provided for @queueStateDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready, not saved: tap to open'**
+  String get queueStateDone;
+
+  /// No description provided for @queueStateSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to the gallery'**
+  String get queueStateSaved;
+
+  /// No description provided for @queueStateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed: {reason}'**
+  String queueStateFailed(String reason);
+
+  /// No description provided for @queueReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Done {done}, failed {failed}'**
+  String queueReport(int done, int failed);
+
+  /// No description provided for @queueReorderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to change the order.'**
+  String get queueReorderHint;
+
+  /// No description provided for @queueNotifPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo {n} of {total}'**
+  String queueNotifPosition(int n, int total);
+
+  /// No description provided for @queueNotifDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue finished: done {done}, failed {failed}'**
+  String queueNotifDone(int done, int failed);
+
+  /// No description provided for @batchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} photos'**
+  String batchTitle(int count);
+
+  /// No description provided for @batchPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get batchPreset;
+
+  /// No description provided for @batchAutosave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save each result to the gallery ({format})'**
+  String batchAutosave(String format);
+
+  /// No description provided for @batchAutosaveOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Results wait in the queue until you save them.'**
+  String get batchAutosaveOff;
+
+  /// No description provided for @batchAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to the queue'**
+  String get batchAdd;
+
+  /// No description provided for @settingsBatchAutosave.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch: save results automatically'**
+  String get settingsBatchAutosave;
+
+  /// No description provided for @settingsBatchAutosaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Each result of a batch goes to Pictures/Refocal in the default format.'**
+  String get settingsBatchAutosaveHint;
+
+  /// No description provided for @queueActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change the queue: {error}'**
+  String queueActionFailed(String error);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

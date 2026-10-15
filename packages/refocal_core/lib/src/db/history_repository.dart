@@ -78,6 +78,12 @@ class HistoryRepository {
     )..where((a) => a.inboxPath.equals(e.inputPath))).getSingleOrNull();
     final assetId = existing?.id ?? newId();
     final at = e.createdAt.millisecondsSinceEpoch;
+    if (existing != null && existing.width == null) {
+      // Queued before the core read it: the size is known now.
+      await (_db.update(_db.assets)..where((a) => a.id.equals(assetId))).write(
+        AssetsCompanion(width: Value(e.sourceWidth), height: Value(e.sourceHeight)),
+      );
+    }
     if (existing == null) {
       await _db
           .into(_db.assets)
@@ -85,8 +91,8 @@ class HistoryRepository {
             AssetsCompanion.insert(
               id: assetId,
               inboxPath: e.inputPath,
-              width: e.sourceWidth,
-              height: e.sourceHeight,
+              width: Value(e.sourceWidth),
+              height: Value(e.sourceHeight),
               createdAt: at,
             ),
           );
@@ -133,10 +139,12 @@ class HistoryRepository {
         (rows) => [for (final r in rows) _entry(r)],
       );
 
-  Future<HistoryEntry?> get(String id) async {
-    final r = await (_joined()..where(_db.history.id.equals(id))).getSingleOrNull();
-    return r == null ? null : _entry(r);
-  }
+  Future<HistoryEntry?> get(String id) => watch(id).first;
+
+  /// One entry; null once it is deleted.
+  Stream<HistoryEntry?> watch(String id) => (_joined()..where(_db.history.id.equals(id)))
+      .watchSingleOrNull()
+      .map((r) => r == null ? null : _entry(r));
 
   /// Preview paths of all entries (the startup sweep deletes files no entry refers to).
   Future<Set<String>> previewPaths() async {
@@ -158,8 +166,9 @@ class HistoryRepository {
       createdAt: DateTime.fromMillisecondsSinceEpoch(h.createdAt),
       recipe: Recipe.fromJson((jsonDecode(recipe.json) as Map).cast()),
       inputPath: a.inboxPath,
-      sourceWidth: a.width,
-      sourceHeight: a.height,
+      // add() stores the size with the entry.
+      sourceWidth: a.width ?? (throw FormatException('asset ${a.id} has no size')),
+      sourceHeight: a.height ?? (throw FormatException('asset ${a.id} has no size')),
       width: h.width,
       height: h.height,
       previewPath: h.previewPath,
@@ -176,11 +185,10 @@ class HistoryRepository {
     final h = await (_db.select(_db.history)..where((t) => t.id.equals(id))).getSingleOrNull();
     if (h == null) return const HistoryRemoval();
     await (_db.delete(_db.history)..where((t) => t.id.equals(id))).go();
-    final jobInUse = await (_db.select(_db.history)..where((t) => t.jobId.equals(h.jobId))).get();
     return HistoryRemoval(
       previews: [h.previewPath],
-      jobIds: jobInUse.isEmpty ? {h.jobId} : const {},
-      inputs: await _dropUnreferenced(),
+      jobIds: await _unusedJobs({h.jobId}),
+      inputs: await _db.dropUnreferenced(),
     );
   });
 
@@ -190,21 +198,24 @@ class HistoryRepository {
     await _db.delete(_db.history).go();
     return HistoryRemoval(
       previews: [for (final h in rows) h.previewPath],
-      jobIds: {for (final h in rows) h.jobId},
-      inputs: await _dropUnreferenced(),
+      jobIds: await _unusedJobs({for (final h in rows) h.jobId}),
+      inputs: await _db.dropUnreferenced(),
     );
   });
 
-  /// Deletes recipes and assets no entry refers to; returns the inbox paths of those assets.
-  /// Queue jobs (07 §3 `queue_jobs`) will refer to them too: add them to both conditions.
-  Future<Set<String>> _dropUnreferenced() async {
-    final usedAssets = _db.selectOnly(_db.history)..addColumns([_db.history.assetId]);
-    final usedRecipes = _db.selectOnly(_db.history)..addColumns([_db.history.recipeId]);
-    final orphans = await (_db.select(
-      _db.assets,
-    )..where((a) => a.id.isNotInQuery(usedAssets))).get();
-    await (_db.delete(_db.assets)..where((a) => a.id.isNotInQuery(usedAssets))).go();
-    await (_db.delete(_db.recipes)..where((r) => r.id.isNotInQuery(usedRecipes))).go();
-    return {for (final a in orphans) a.inboxPath};
+  /// Of [jobIds], those no remaining entry or queue job refers to (a finished queue job keeps
+  /// its directory until it is saved or removed from the queue).
+  Future<Set<String>> _unusedJobs(Set<String> jobIds) async {
+    final h = _db.selectOnly(_db.history)
+      ..addColumns([_db.history.jobId])
+      ..where(_db.history.jobId.isIn(jobIds));
+    final q = _db.selectOnly(_db.queueJobs)
+      ..addColumns([_db.queueJobs.jobId])
+      ..where(_db.queueJobs.jobId.isIn(jobIds));
+    final used = {
+      for (final r in await h.get()) r.read(_db.history.jobId)!,
+      for (final r in await q.get()) r.read(_db.queueJobs.jobId)!,
+    };
+    return jobIds.difference(used);
   }
 }

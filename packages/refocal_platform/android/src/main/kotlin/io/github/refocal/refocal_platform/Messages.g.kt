@@ -205,21 +205,28 @@ class FlutterError (
 
 /** Generated class from Pigeon that represents data sent in messages. */
 data class AppDirs (
-  /** Persistent, not backed up: models/, jobs/, inbox/ live here. */
+  /** Persistent, not backed up: models/, jobs/, inbox/, db.sqlite live here (PRIV-DATA-005). */
   val support: String,
+  /**
+   * Persistent, in the platform backup: prefs.sqlite only (Android: filesDir, restricted to
+   * that file by the app's backup rules; iOS: Application Support).
+   */
+  val backedUp: String,
   val cache: String
 )
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): AppDirs {
       val support = pigeonVar_list[0] as String
-      val cache = pigeonVar_list[1] as String
-      return AppDirs(support, cache)
+      val backedUp = pigeonVar_list[1] as String
+      val cache = pigeonVar_list[2] as String
+      return AppDirs(support, backedUp, cache)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
       support,
+      backedUp,
       cache,
     )
   }
@@ -231,17 +238,68 @@ data class AppDirs (
       return true
     }
     val other = other as AppDirs
-    return MessagesPigeonUtils.deepEquals(this.support, other.support) && MessagesPigeonUtils.deepEquals(this.cache, other.cache)
+    return MessagesPigeonUtils.deepEquals(this.support, other.support) && MessagesPigeonUtils.deepEquals(this.backedUp, other.backedUp) && MessagesPigeonUtils.deepEquals(this.cache, other.cache)
   }
 
   override fun hashCode(): Int {
     var result = javaClass.hashCode()
     result = 31 * result + MessagesPigeonUtils.deepHash(this.support)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.backedUp)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.cache)
     return result
   }
   override fun toString(): String {
-    return "AppDirs(support=$support, cache=$cache)"
+    return "AppDirs(support=$support, backedUp=$backedUp, cache=$cache)"
+  }
+}
+
+/**
+ * Images copied into the inbox, and how many of the selection could not be.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PickedImages (
+  val images: List<PickedImage>,
+  val failed: Long,
+  /** Error code of the first failure ("limit": larger than SEC-INP-002 allows; "io"). */
+  val failure: String? = null
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PickedImages {
+      val images = pigeonVar_list[0] as List<PickedImage>
+      val failed = pigeonVar_list[1] as Long
+      val failure = pigeonVar_list[2] as String?
+      return PickedImages(images, failed, failure)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      images,
+      failed,
+      failure,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PickedImages
+    return MessagesPigeonUtils.deepEquals(this.images, other.images) && MessagesPigeonUtils.deepEquals(this.failed, other.failed) && MessagesPigeonUtils.deepEquals(this.failure, other.failure)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.images)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.failed)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.failure)
+    return result
+  }
+  override fun toString(): String {
+    return "PickedImages(images=$images, failed=$failed, failure=$failure)"
   }
 }
 
@@ -367,10 +425,15 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       130.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PickedImage.fromList(it)
+          PickedImages.fromList(it)
         }
       }
       131.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PickedImage.fromList(it)
+        }
+      }
+      132.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           ProcessingTexts.fromList(it)
         }
@@ -384,12 +447,16 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(129)
         writeValue(stream, value.toList())
       }
-      is PickedImage -> {
+      is PickedImages -> {
         stream.write(130)
         writeValue(stream, value.toList())
       }
-      is ProcessingTexts -> {
+      is PickedImage -> {
         stream.write(131)
+        writeValue(stream, value.toList())
+      }
+      is ProcessingTexts -> {
+        stream.write(132)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -406,8 +473,11 @@ interface RefocalPlatformApi {
    * "os_kill" or null (unknown; Android < 11, iOS).
    */
   fun lastExitReason(): String?
-  /** System photo picker; copies the selection into [inboxDir]. Null when cancelled. */
-  suspend fun pickImage(inboxDir: String): PickedImage?
+  /**
+   * System photo picker, up to [maxCount] images (1: single selection); copies the selection
+   * into [inboxDir] in the order picked. Empty when cancelled.
+   */
+  suspend fun pickImages(inboxDir: String, maxCount: Long): PickedImages
   /** Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI. */
   suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String
   /**
@@ -421,10 +491,11 @@ interface RefocalPlatformApi {
    */
   fun shareFile(path: String, mimeType: String, chooserTitle: String)
   /**
-   * The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
-   * been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
+   * The images shared to the app (Android ACTION_SEND / ACTION_SEND_MULTIPLE of images,
+   * FR-SHARE-001) that have not been taken yet, copied into [inboxDir]; empty if none. Each
+   * share is returned once.
    */
-  suspend fun takeSharedImage(inboxDir: String): PickedImage?
+  suspend fun takeSharedImages(inboxDir: String): PickedImages
   /**
    * Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
    * granted or not needed. Processing works either way; only the notification is hidden.
@@ -484,14 +555,15 @@ interface RefocalPlatformApi {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImage$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImages$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val inboxDirArg = args[0] as String
+            val maxCountArg = args[1] as Long
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
-                listOf(api.pickImage(inboxDirArg))
+                listOf(api.pickImages(inboxDirArg, maxCountArg))
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }
@@ -565,14 +637,14 @@ interface RefocalPlatformApi {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImages$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val inboxDirArg = args[0] as String
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
-                listOf(api.takeSharedImage(inboxDirArg))
+                listOf(api.takeSharedImages(inboxDirArg))
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }
@@ -693,7 +765,7 @@ class RefocalPlatformEvents(private val binaryMessenger: BinaryMessenger, privat
       }
     }
   }
-  /** An image was shared to the running app; fetch it with takeSharedImage(). */
+  /** Images were shared to the running app; fetch them with takeSharedImages(). */
   suspend fun onSharedImage()
 {
     val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""

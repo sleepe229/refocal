@@ -1,10 +1,10 @@
-import 'database.dart';
+import 'prefs_database.dart';
 
 /// The `settings` table as strings (FR-SET-*). The app owns the keys and parses the values.
 class SettingsStore {
   SettingsStore(this._db);
 
-  final RefocalDatabase _db;
+  final PrefsDatabase _db;
 
   Future<Map<String, String>> read() async => {
     for (final r in await _db.select(_db.settingEntries).get()) r.key: r.value,

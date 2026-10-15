@@ -4,12 +4,12 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
-import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
-import '../../bootstrap/history.dart';
+import '../../bootstrap/foreground.dart';
 import '../../bootstrap/processing.dart';
+import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
 
 /// Output scale choices (ADR-0014). Fast 2x runs x4 on a half-size input: 4x cheaper; 1x runs
@@ -82,16 +82,6 @@ class Failed extends EnhanceState {
   final String? message;
 }
 
-/// The result was saved ([uri]) but its history entry could not be written.
-class HistoryNotRecorded implements Exception {
-  const HistoryNotRecorded(this.uri, this.cause);
-  final String uri;
-  final Object cause;
-
-  @override
-  String toString() => '$cause';
-}
-
 class EnhanceController extends Notifier<EnhanceState> {
   RefocalJob? _job;
   StreamSubscription<JobEvent>? _sub;
@@ -115,34 +105,30 @@ class EnhanceController extends Notifier<EnhanceState> {
   }
 
   /// Files this screen leaves behind: a saved result's BandStore, and the inbox copy once no
-  /// job refers to it (ADR-0010). Unsaved and paused jobs stay for the home screen list.
+  /// job refers to it (ADR-0010). Unsaved and paused jobs stay for the home screen list. Runs
+  /// after the screen is gone: a failure is logged and the startup sweep catches the rest.
   void _cleanup() {
-    final engine = _engine, input = _input;
+    final engine = _engine, input = _input, s = state;
     if (engine == null) return;
-    try {
-      final s = state;
-      if (s is Finished && s.saved) engine.jobs.discard(s.result.jobDir);
-      if (input != null) engine.jobs.releaseInput(input);
-    } on FileSystemException {
-      // best effort; the startup sweep catches the rest
-    }
+    unawaited(() async {
+      try {
+        if (s is Finished && s.saved) await engine.jobs.discard(s.result.jobDir);
+        if (input != null) await engine.jobs.releaseInput(input);
+      } on FileSystemException catch (e) {
+        AppLog.warn('editor cleanup: ${e.message}');
+      }
+    }());
   }
 
-  /// [strength]: what the result starts with (from a preset or a history entry).
-  Future<void> start(String input, ScaleChoice choice, {double strength = 1}) async {
-    _strength = strength;
-    final id = 'job-${DateTime.now().millisecondsSinceEpoch}';
-    AppLog.info('job $id: scale ${choice.scale}${choice.fastPath ? ' fast' : ''}');
-    await _run(
-      input,
-      (e) => e.session.start({
-        'job_id': id,
-        'input': input,
-        'sr_model': bundledSrModel,
-        'scale': choice.scale,
-        'fast2': choice.fastPath,
-      }),
+  /// Runs [recipe] on [input]; the result starts at the recipe's strength (a preset's or a
+  /// history entry's, FR-PRE-002, FR-HIST-003).
+  Future<void> start(String input, Recipe recipe) async {
+    _strength = recipe.strength;
+    final request = JobRequest.of(recipe, input);
+    AppLog.info(
+      'job ${request.id}: ${request.srModel} scale ${request.scale}${request.fast2 ? ' fast' : ''}',
     );
+    await _run(input, (e) => e.session.start(request.toJson()));
   }
 
   /// Continues a paused or interrupted job (FR-BATCH-007, TEST-INT-003).
@@ -158,8 +144,12 @@ class EnhanceController extends Notifier<EnhanceState> {
     try {
       final raw = await File('$jobDir/result.json').readAsString();
       state = Finished(JobResult.fromJson(_decode(raw)));
-    } on Object catch (e) {
-      state = Failed(EnhStatus.io, '$e');
+    } on FileSystemException catch (e) {
+      AppLog.warn('open result: ${e.message}');
+      state = const Failed(EnhStatus.io, null);
+    } on FormatException catch (e) {
+      AppLog.warn('open result: ${e.message}');
+      state = const Failed(EnhStatus.invalid, null);
     }
   }
 
@@ -168,22 +158,10 @@ class EnhanceController extends Notifier<EnhanceState> {
     _engine = engine;
     _input = input;
     _timedOut = false;
-    final platform = ref.read(platformApiProvider);
-    state = const Running(JobStage.queued, 0, null);
-    await _guard(platform.requestNotificationPermission);
+    final fg = ref.read(foregroundWorkProvider);
     final l10n = ref.read(l10nProvider);
-    await _guard(
-      () => platform.startProcessing(
-        ProcessingTexts(
-          title: l10n.notifEnhancing,
-          pause: l10n.pause,
-          cancel: l10n.cancel,
-          timedOut: l10n.notifTimedOut,
-          channelName: l10n.notifChannelName,
-          channelDescription: l10n.notifChannelDescription,
-        ),
-      ),
-    );
+    state = const Running(JobStage.queued, 0, null);
+    await fg.acquire(this);
     var lastPercent = -2;
     try {
       final job = _job = create(engine);
@@ -208,7 +186,7 @@ class EnhanceController extends Notifier<EnhanceState> {
             final pct = (progress * 100).floor();
             if (pct != lastPercent) {
               lastPercent = pct;
-              _guard(() => platform.updateProcessing('$pct%', pct));
+              fg.update(this, '$pct%', pct);
             }
           case FallbackEvent():
             AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
@@ -228,7 +206,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         'fallbacks ${result.fallbacks}, timings ${result.raw['timings_ms']}',
       );
       state = Finished(result, strength: _strength);
-      await _guard(() => platform.stopProcessing(l10n.notifReady));
+      await fg.release(this, l10n.notifReady);
     } on JobFailure catch (f) {
       AppLog.info(
         'job ended: ${f.status.name}${f.event.message == null ? '' : ': ${f.event.message}'}',
@@ -244,11 +222,11 @@ class EnhanceController extends Notifier<EnhanceState> {
         EnhStatus.cancelled || EnhStatus.paused => null,
         _ => l10n.notifFailed,
       };
-      await _guard(() => platform.stopProcessing(text));
+      await fg.release(this, text);
     } on EnhException catch (e) {
       AppLog.warn('job not started: $e');
       state = Failed(e.status, e.context);
-      await _guard(() => platform.stopProcessing(null));
+      await fg.release(this, null);
     } finally {
       await _sub?.cancel();
       await _actions?.cancel();
@@ -262,15 +240,6 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   static Map<String, Object?> _decode(String raw) =>
       (jsonDecode(raw) as Map).cast<String, Object?>();
-
-  /// Platform calls are conveniences (notification, FGS): processing never depends on them.
-  static Future<void> _guard(FutureOr<Object?> Function() f) async {
-    try {
-      await f();
-    } on Object {
-      // e.g. ForegroundServiceStartNotAllowedException, no activity for the permission dialog
-    }
-  }
 
   void answer(Map<String, Object?> option) {
     _job?.answer(option);
@@ -286,9 +255,6 @@ class EnhanceController extends Notifier<EnhanceState> {
     if (s is Finished) state = s.copyWith(strength: v.clamp(0.0, 1.0));
   }
 
-  /// The input is needed to export below 100% strength (the blend base).
-  bool get originalExists => _input != null && File(_input!).existsSync();
-
   /// The parameters of the shown result, for "Save as preset" (FR-PRE-002).
   Recipe? get recipe => switch (state) {
     Finished(:final result, :final strength) => Recipe(
@@ -303,124 +269,49 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// Exports in the default format into the app album (FR-EXP-004). Returns the gallery URI.
   Future<String?> saveToGallery() async {
     final settings = await ref.read(settingsProvider.future);
-    return _export(
-      settings.format,
-      (platform, path, name) => platform.saveToGallery(path, name, settings.format.mimeType),
-    );
+    return _save(settings.format, Destination.gallery);
   }
 
   /// Exports in [format] to a document the user picks (FR-EXP-006). Null when cancelled.
-  Future<String?> saveToFile(ExportFormat format) =>
-      _export(format, (platform, path, name) => platform.saveToFile(path, name, format.mimeType));
+  Future<String?> saveToFile(ExportFormat format) => _save(format, Destination.file);
 
-  /// Any number of exports from one result, without processing again (FR-EXP-007). Each one
-  /// that reaches its destination becomes a history entry unless history is off (FR-HIST-001,
-  /// FR-HIST-005); a failure to record it throws [HistoryNotRecorded] after the save.
-  Future<String?> _export(
-    ExportFormat format,
-    Future<String?> Function(RefocalPlatformApi, String path, String name) deliver,
-  ) async {
+  /// Each export that reaches its destination becomes a history entry unless history is off
+  /// (FR-HIST-001, FR-HIST-005); a failure to record it throws [HistoryNotRecorded].
+  Future<String?> _save(ExportFormat format, Destination to) async {
     final s = state;
-    if (s is! Finished || s.saving) return null;
-    final engine = await ref.read(engineProvider.future);
-    final settings = await ref.read(settingsProvider.future);
-    final history = settings.historyEnabled ? await ref.read(historyStoreProvider.future) : null;
-    final entryId = newId();
-    final preview = history?.previewPathFor(entryId);
-    Directory(engine.exportDir).createSync(recursive: true);
-    final name = 'Refocal_${s.result.jobId}.${format.extension}';
-    final tmp = '${engine.exportDir}/$name';
+    final input = _input;
+    if (s is! Finished || s.saving || input == null) return null;
+    final saver = await readResultSaver(ref);
     state = s.copyWith(saving: true);
     String? uri;
     try {
-      await engine.session.export(
-        s.result.jobDir,
-        tmp,
-        format: format.format,
-        quality: settings.quality,
-        lossless: format.lossless,
+      uri = await saver.save(
+        s.result,
+        input: input,
+        output: OutputSpec(format, quality: saver.settings.quality),
         strength: s.strength,
-        keepGps: settings.keepGps,
-        aiMarker: settings.aiMarker,
-        thumbnail: preview,
-        thumbnailMaxSide: HistoryStore.previewMaxSide,
+        to: to,
       );
-      uri = await deliver(ref.read(platformApiProvider), tmp, name);
-      AppLog.info(
-        'export ${format.name} q${settings.quality} strength ${s.strength}: '
-        '${uri == null ? 'cancelled' : 'saved'}',
-      );
-    } catch (e, stack) {
-      AppLog.error('export ${format.name} failed', e, stack);
-      state = s.copyWith(saving: false);
-      _deletePreview(preview);
+    } on HistoryNotRecorded catch (e) {
+      uri = e.uri;
       rethrow;
     } finally {
-      final f = File(tmp);
-      if (f.existsSync()) f.deleteSync();
-    }
-    state = s.copyWith(saved: s.saved || uri != null, saving: false);
-    if (history == null || preview == null) return uri;
-    if (uri == null) {
-      _deletePreview(preview); // cancelled: nothing was saved
-      return null;
-    }
-    final r = s.result;
-    try {
-      await history.repo.add(
-        HistoryEntry(
-          id: entryId,
-          createdAt: DateTime.now(),
-          recipe: Recipe(
-            scale: r.scale,
-            fast2: r.fast2,
-            srModel: r.model,
-            strength: s.strength,
-            output: OutputSpec(format, quality: settings.quality),
-          ),
-          inputPath: history.relative(_input!),
-          sourceWidth: r.inputWidth,
-          sourceHeight: r.inputHeight,
-          width: r.width,
-          height: r.height,
-          previewPath: history.relative(preview),
-          resultUri: uri,
-          modelIds: [r.model],
-          backend: r.backend,
-          duration: r.duration,
-          jobId: r.jobId,
-        ),
-      );
-    } on Object catch (e) {
-      _deletePreview(preview);
-      throw HistoryNotRecorded(uri, e);
+      state = s.copyWith(saved: s.saved || uri != null, saving: false);
     }
     return uri;
   }
 
-  /// A preview without an entry; if it cannot be deleted now, the history sweep removes it at
-  /// the next start.
-  static void _deletePreview(String? path) {
-    if (path == null) return;
-    try {
-      final f = File(path);
-      if (f.existsSync()) f.deleteSync();
-    } on FileSystemException {
-      // see above
-    }
-  }
-
-  void reset() {
+  Future<void> reset() async {
     final s = state;
-    if (s is Finished && s.saved) {
-      try {
-        _engine?.jobs.discard(s.result.jobDir, inUse: {?_input});
-      } on FileSystemException {
-        // best effort
-      }
-    }
     _strength = 1;
     state = const Idle();
+    if (s is Finished && s.saved) {
+      try {
+        await _engine?.jobs.discard(s.result.jobDir, inUse: {?_input});
+      } on FileSystemException catch (e) {
+        AppLog.warn('discard saved job: ${e.message}'); // the startup sweep removes it
+      }
+    }
   }
 }
 
