@@ -661,4 +661,97 @@ class AppLocalizationsRu extends AppLocalizations {
   String queueActionFailed(String error) {
     return 'Не удалось изменить очередь: $error';
   }
+
+  @override
+  String get storageTitle => 'Хранилище';
+
+  @override
+  String get settingsStorage => 'Хранилище';
+
+  @override
+  String storageTotal(String size) {
+    return 'Всего: $size';
+  }
+
+  @override
+  String storageMeasureFailed(String error) {
+    return 'Не удалось посчитать место: $error';
+  }
+
+  @override
+  String get storageClear => 'Очистить';
+
+  @override
+  String storageClearTitle(String category) {
+    return 'Очистить: $category?';
+  }
+
+  @override
+  String storageClearFailed(String error) {
+    return 'Не всё удалось очистить: $error';
+  }
+
+  @override
+  String get storageNoUndo => 'Это нельзя отменить.';
+
+  @override
+  String get storageCopies => 'Копии оригиналов';
+
+  @override
+  String get storageCopiesHint =>
+      'нужны, чтобы обработать запись истории ещё раз; копии для приостановленных фото и очереди не считаются';
+
+  @override
+  String get storageCopiesClear =>
+      'Записи истории больше нельзя будет обработать заново. Приостановленные фото и очередь свои копии сохранят.';
+
+  @override
+  String get storageUnfinished => 'Незавершённые';
+
+  @override
+  String get storageUnfinishedHint => 'приостановленные и несохранённые результаты редактора';
+
+  @override
+  String get storageUnfinishedClear =>
+      'Приостановленные и несохранённые результаты будут удалены. Очередь не затрагивается.';
+
+  @override
+  String get storageHistoryHint => 'превью сохранённых результатов';
+
+  @override
+  String get storageHistoryClear =>
+      'Вся история будет удалена. Сохранённые фото останутся в галерее.';
+
+  @override
+  String get storageCache => 'Кэш';
+
+  @override
+  String get storageCacheHint => 'временные копии для сохранения и отправки';
+
+  @override
+  String get storageLogs => 'Журнал';
+
+  @override
+  String get storageLogsHint => 'для отчётов об ошибках, сам никуда не отправляется';
+
+  @override
+  String get storageModels => 'Модели';
+
+  @override
+  String get storageModelsHint => 'встроены в приложение';
+
+  @override
+  String sizeKb(String n) {
+    return '$n КБ';
+  }
+
+  @override
+  String sizeMb(String n) {
+    return '$n МБ';
+  }
+
+  @override
+  String sizeGb(String n) {
+    return '$n ГБ';
+  }
 }

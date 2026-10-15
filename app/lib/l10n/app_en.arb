@@ -459,5 +459,79 @@
         "type": "String"
       }
     }
+  },
+  "storageTitle": "Storage",
+  "settingsStorage": "Storage",
+  "storageTotal": "Total: {size}",
+  "@storageTotal": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "storageMeasureFailed": "Could not measure the storage: {error}",
+  "@storageMeasureFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageClear": "Clear",
+  "storageClearTitle": "Clear: {category}?",
+  "@storageClearTitle": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "storageClearFailed": "Could not clear everything: {error}",
+  "@storageClearFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageNoUndo": "This cannot be undone.",
+  "storageCopies": "Copies of originals",
+  "storageCopiesHint": "kept to process a history entry again; copies a paused job or the queue needs are not counted",
+  "storageCopiesClear": "History entries can no longer be processed again. Paused jobs and the queue keep their copies.",
+  "storageUnfinished": "Unfinished jobs",
+  "storageUnfinishedHint": "paused or unsaved results of the editor",
+  "storageUnfinishedClear": "Paused and unsaved results are deleted. The queue is not affected.",
+  "storageHistoryHint": "previews of saved results",
+  "storageHistoryClear": "The whole history is deleted. Saved photos stay in the gallery.",
+  "storageCache": "Cache",
+  "storageCacheHint": "temporary copies for saving and sharing",
+  "storageLogs": "Log",
+  "storageLogsHint": "for bug reports, never sent by itself",
+  "storageModels": "Models",
+  "storageModelsHint": "built into the app",
+  "sizeKb": "{n} KB",
+  "@sizeKb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeMb": "{n} MB",
+  "@sizeMb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeGb": "{n} GB",
+  "@sizeGb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
   }
 }
