@@ -2,16 +2,22 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:refocal_platform/refocal_platform.dart';
+
+import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/files.dart';
 import '../../bootstrap/job_store.dart';
 import '../../bootstrap/processing.dart';
+import '../../bootstrap/queue.dart';
 import '../../l10n/app_localizations.dart';
+import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
 import '../editor/editor_page.dart';
+import '../queue/batch_sheet.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -49,53 +55,91 @@ class _HomePageState extends ConsumerState<HomePage> {
     await _openShared(); // shared while the editor was open
   }
 
-  /// A photo shared to the app (FR-SHARE-001). One editor at a time: a share that arrives
-  /// while one is open waits on the platform side until it closes (the queue is 0.0.4).
+  /// Photos shared to the app (FR-SHARE-001): one opens the editor, several the queue. One
+  /// editor at a time: a share that arrives while one is open waits on the platform side.
   Future<void> _openShared() async {
     if (_editorOpen || _picking || !mounted) return;
-    await _open(() async {
-      final engine = await ref.read(engineProvider.future);
+    await _take(() async {
+      final engine = await ref.read(startupProvider.future);
       if (!engine.modelReady) return null;
-      return (await ref.read(platformApiProvider).takeSharedImage(engine.inboxDir))?.path;
+      return ref.read(platformApiProvider).takeSharedImages(engine.inboxDir);
     });
   }
 
-  Future<void> _pick() => _open(() async {
-    final engine = await ref.read(engineProvider.future);
-    return (await ref.read(platformApiProvider).pickImage(engine.inboxDir))?.path;
+  Future<void> _pick({required bool several}) => _take(() async {
+    final engine = await ref.read(startupProvider.future);
+    return ref.read(platformApiProvider).pickImages(engine.inboxDir, several ? maxBatch : 1);
   });
 
-  Future<void> _open(Future<String?> Function() take) async {
+  /// One batch at most (the system picker allows up to 100 on most devices).
+  static const maxBatch = 100;
+
+  /// Copies come from the startup provider's engine: the sweep of inbox/ has run before.
+  Future<void> _take(Future<PickedImages?> Function() take) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     setState(() => _picking = true);
-    String? path;
+    PickedImages? picked;
     try {
-      path = await take();
-    } on PlatformException catch (e) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        final text = e.code == 'limit' ? l10n.failLimit : l10n.homeOpenFailed(e.message ?? e.code);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-      }
-    } on Exception catch (e) {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.homeOpenFailed('$e'))));
-      }
+      picked = await take();
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'open photo', e, stack, l10n.homeOpenFailed);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
-    if (path != null && mounted) await _openEditor(EditorArgs(path));
+    if (picked == null) return;
+    if (picked.failed > 0) {
+      final reason = picked.failure == 'limit' ? l10n.failLimit : l10n.errorStorage;
+      AppLog.warn('pick: ${picked.failed} not copied (${picked.failure})');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            picked.images.isEmpty
+                ? l10n.homeOpenFailed(reason)
+                : l10n.pickPartial(picked.failed, reason),
+          ),
+        ),
+      );
+    }
+    final paths = [for (final i in picked.images) i.path];
+    if (!mounted || paths.isEmpty) return;
+    if (paths.length == 1) {
+      await _openEditor(EditorArgs(paths.single));
+    } else {
+      await _enqueue(paths);
+    }
+  }
+
+  /// Batch sheet → queue (06 §3.4); dismissed: the copies are deleted again.
+  Future<void> _enqueue(List<String> paths) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final recipe = await showBatchSheet(context, paths.length);
+    final service = await ref.read(queueServiceProvider.future);
+    if (recipe == null) {
+      for (final p in paths) {
+        await deleteIfPresent(p);
+      }
+      return;
+    }
+    try {
+      await service.enqueue(paths, recipe);
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'enqueue', e, stack, l10n.queueActionFailed);
+      return;
+    }
+    unawaited(service.start()); // a user action: the foreground service may start (ADR-0019)
+    if (mounted) await context.push('/queue');
   }
 
   Future<void> _discard(JobEntry j) async {
-    final engine = await ref.read(engineProvider.future);
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final engine = await ref.read(startupProvider.future);
     try {
-      engine.jobs.discard(j.dir);
-    } on FileSystemException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      await engine.jobs.discard(j.dir);
+    } on FileSystemException catch (e, stack) {
+      showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
     }
     ref.invalidate(jobListProvider);
   }
@@ -103,8 +147,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final engine = ref.watch(engineProvider);
+    final engine = ref.watch(startupProvider);
     final jobs = ref.watch(jobListProvider).value ?? const <JobEntry>[];
+    final queued = ref.watch(queueItemsProvider).value?.length ?? 0;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.appTitle),
@@ -131,7 +176,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(l10n.homeCoreUnavailable('$e')),
+            child: Text(l10n.homeCoreUnavailable(errorReason(l10n, e))),
           ),
         ),
         data: (e) => ListView(
@@ -155,12 +200,28 @@ class _HomePageState extends ConsumerState<HomePage> {
                 textAlign: TextAlign.center,
               )
             else
-              Center(
-                child: FilledButton.icon(
-                  onPressed: _picking ? null : _pick,
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(l10n.homeChoosePhoto),
-                ),
+              Column(
+                children: [
+                  FilledButton.icon(
+                    onPressed: _picking ? null : () => _pick(several: false),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: Text(l10n.homeChoosePhoto),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _picking ? null : () => _pick(several: true),
+                    icon: const Icon(Icons.burst_mode_outlined),
+                    label: Text(l10n.homeChooseSeveral),
+                  ),
+                  if (queued > 0) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => context.push('/queue'),
+                      icon: const Icon(Icons.queue_outlined),
+                      label: Text(l10n.homeQueue(queued)),
+                    ),
+                  ],
+                ],
               ),
             if (jobs.isNotEmpty) ...[
               const SizedBox(height: 32),
@@ -190,7 +251,7 @@ class _JobTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final scale = scaleLabel(l10n, job.scale, fast2: job.fast2);
+    final scale = scaleLabel(l10n, job.request.scale, fast2: job.request.fast2);
     final subtitle = job.finished
         ? l10n.jobReadyNotSaved(scale)
         : job.inputExists

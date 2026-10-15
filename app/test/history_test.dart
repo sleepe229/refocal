@@ -39,10 +39,10 @@ void main() {
       ..writeAsStringSync('x');
     final job = Directory('${root.path}/jobs/$jobId')..createSync(recursive: true);
     File('${job.path}/request.json').writeAsStringSync(
-      jsonEncode({'schema': 1, 'job_id': jobId, 'input': input.path, 'scale': 4}),
+      jsonEncode(JobRequest(id: jobId, input: input.path, scale: 4, srModel: bundledSrModel)),
     );
     File('${job.path}/result.json').writeAsStringSync('{}');
-    final preview = File(store.previewPathFor(id))..writeAsStringSync('jpeg');
+    final preview = File(await store.previewPathFor(id))..writeAsStringSync('jpeg');
     await store.repo.add(
       HistoryEntry(
         id: id,
@@ -101,7 +101,7 @@ void main() {
     final (input, _, _) = await saved('h1');
     final paused = Directory('${root.path}/jobs/job-paused')..createSync();
     File('${paused.path}/request.json').writeAsStringSync(
-      jsonEncode({'schema': 1, 'job_id': 'job-paused', 'input': input, 'scale': 2}),
+      jsonEncode(JobRequest(id: 'job-paused', input: input, scale: 2, srModel: bundledSrModel)),
     );
     await store.remove('h1');
     expect(File(input).existsSync(), isTrue);
@@ -109,8 +109,8 @@ void main() {
 
   test('the startup sweep deletes previews without an entry', () async {
     final (_, _, preview) = await saved('h1');
-    final orphan = File(store.previewPathFor('crashed'))..writeAsStringSync('x');
-    final part = File('${store.previewPathFor('crashed2')}.part')..writeAsStringSync('x');
+    final orphan = File(await store.previewPathFor('crashed'))..writeAsStringSync('x');
+    final part = File('${await store.previewPathFor('crashed2')}.part')..writeAsStringSync('x');
     await store.sweep();
     expect(File(preview).existsSync(), isTrue);
     expect(orphan.existsSync(), isFalse);

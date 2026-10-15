@@ -17,7 +17,7 @@ enum BuiltinPreset {
 }
 
 final presetRepositoryProvider = FutureProvider<PresetRepository>(
-  (ref) async => PresetRepository(await ref.watch(databaseProvider.future)),
+  (ref) async => PresetRepository(await ref.watch(prefsDatabaseProvider.future)),
 );
 
 /// User presets (FR-PRE-002) in the order they were saved.

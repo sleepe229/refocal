@@ -77,18 +77,29 @@ jobs:
         run: flutter analyze app packages
       - name: enh.h in sync with the spec appendix
         run: diff -u docs/spec/appendix/enh.h native/include/enh.h
-      - name: lib/version.dart in sync with pubspec.yaml
-        run: |
-          pub=$(sed -n 's/^version: \([^+]*\).*/\1/p' app/pubspec.yaml)
-          dart=$(sed -n "s/^const appVersion = '\(.*\)';/\1/p" app/lib/version.dart)
-          echo "pubspec=$pub version.dart=$dart"
-          [ -n "$pub" ] && [ "$pub" = "$dart" ]
       - name: FFI bindings up to date
         run: |
           sudo apt-get install -y --no-install-recommends libclang-18-dev >/dev/null
           cd packages/refocal_ffi
           LIBCLANG_PATH=/usr/lib/llvm-18/lib dart run ffigen --config ffigen.yaml
           git diff --exit-code -- lib/src/enh_bindings.g.dart
+      # Generated code is committed (ADR-0009, ADR-0005): regenerating must change nothing,
+      # else a table, a schema dump or a Pigeon message was edited without its generated part.
+      - name: drift code and schema dumps up to date
+        run: |
+          cd packages/refocal_core
+          dart run build_runner build --delete-conflicting-outputs
+          dart run drift_dev make-migrations
+          dart format .
+          git status --porcelain -- .
+          test -z "$(git status --porcelain -- .)"
+      - name: Pigeon bindings up to date
+        run: |
+          cd packages/refocal_platform
+          dart run pigeon --input pigeons/messages.dart
+          dart format lib
+          git status --porcelain -- .
+          test -z "$(git status --porcelain -- .)"
       - name: refocal_core tests
         run: cd packages/refocal_core && dart test
       - name: app widget tests

@@ -2,9 +2,11 @@
 # End-to-end check on a headless AOSP emulator (no phone needed):
 # pick a photo in the system Photo Picker -> enhance -> save -> verify the gallery entry.
 #   docker build -t refocal-emulator:35 tools/emulator
-#   [SCENARIO=basic|background|pause] tools/emulator/e2e.sh APK [PHOTO.jpg|png|webp] [SCALE_LABEL]
+#   [SCENARIO=basic|background|pause|queue] tools/emulator/e2e.sh APK [PHOTO.jpg|png|webp] [SCALE_LABEL]
 # background: Home during processing -> FGS notification, "Photo ready" -> reopen -> save.
 # pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
+# Every scenario ends with the log check, share intake and a queue of two photos;
+# queue: only share intake and the queue (no 4x run).
 # The APK must contain x86_64 libs (e.g. flutter build apk --profile --target-platform android-x64).
 set -euo pipefail
 APK=$(realpath "${1:?apk}")
@@ -32,11 +34,19 @@ $DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" \
 adb_() { $DOCKER exec "$NAME" adb "$@"; }
 shot() { $DOCKER exec "$NAME" adb exec-out screencap -p > "$OUT/$1.png"; echo "  screenshot $OUT/$1.png"; }
 
-# Taps the centre of the first UI node whose text or content-desc contains $1.
+# The current UI tree in /sdcard/ui.xml; empty when the dump fails (e.g. "could not get idle
+# state" during an animation), never the tree of an earlier screen.
+dump_ui() {
+  adb_ shell rm -f /sdcard/ui.xml
+  adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+}
+
+# Centre of a clickable UI node whose text or content-desc contains $1: printed, and tapped
+# unless NOTAP=1. Waits up to $2 dumps.
 tap_text() {
   local want=$1 tries=${2:-30}
   for _ in $(seq "$tries"); do
-    adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+    dump_ui
     local xy
     xy=$(adb_ shell cat /sdcard/ui.xml 2>/dev/null | python3 -c '
 import re, sys
@@ -49,10 +59,32 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
         b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
         hit = ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
 if hit: print(*hit)' "$want")
-    if [[ -n "$xy" ]]; then adb_ shell input tap $xy; echo "  tap '$want' at $xy"; return 0; fi
+    if [[ -n "$xy" ]]; then
+      if [[ ${NOTAP:-0} = 1 ]]; then echo "  '$want' shown at $xy"; else adb_ shell input tap $xy; echo "  tap '$want' at $xy"; fi
+      return 0
+    fi
     sleep 2
   done
-  echo "  '$want' not found"; return 1
+  echo "  '$want' not found"; debug_dump "notfound-${want// /_}"; return 1
+}
+
+# Waits until some UI node's text or content-desc contains $1 (no tap).
+wait_text() {
+  local want=$1 tries=${2:-30}
+  for _ in $(seq "$tries"); do
+    dump_ui
+    if adb_ shell cat /sdcard/ui.xml 2>/dev/null | grep -qF "$want"; then return 0; fi
+    sleep 2
+  done
+  echo "  '$want' not shown"; debug_dump "missing-${want// /_}"; return 1
+}
+
+# Screenshot, UI tree, activity stack and logcat into $OUT for a failed step.
+debug_dump() {
+  shot "$1"
+  adb_ shell cat /sdcard/ui.xml > "$OUT/$1.xml" 2>/dev/null || true
+  adb_ shell dumpsys activity activities | grep -E "Hist #|ResumedActivity" > "$OUT/$1.activities.txt" || true
+  adb_ logcat -d > "$OUT/$1.logcat.txt" || true
 }
 
 echo "== boot"
@@ -67,6 +99,7 @@ adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
 
 echo "== flow"
 tap_text "Skip" 60  # first run: the introduction (FR-ONB-001)
+if [[ $SCENARIO != queue ]]; then
 tap_text "Choose a photo" 60
 sleep 3
 # Photo Picker: first thumbnail in "Recent".
@@ -126,16 +159,57 @@ if grep -qE "/data/|/storage/|content://" <<<"$log_ui"; then echo "FAIL: a path 
 echo "  log shows the job, no paths"
 adb_ shell input keyevent KEYCODE_BACK
 adb_ shell input keyevent KEYCODE_BACK
+fi
 
 echo "== share intake (FR-SHARE-001)"
 id=$(adb_ shell content query --uri content://media/external/images/media --projection _id \
   --where "_display_name=\'e2e_input.$EXT\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1)
 [[ -n "$id" ]] || { echo "FAIL: input not in MediaStore"; exit 1; }
 mime=image/${EXT/jpg/jpeg}
-adb_ shell am start -a android.intent.action.SEND -t "$mime" --grant-read-uri-permission \
-  --eu android.intent.extra.STREAM "content://media/external/images/media/$id" \
-  -n io.github.refocal.app/.MainActivity >/dev/null
-tap_text "Enhance" 60 || { echo "FAIL: shared photo did not open the editor"; exit 1; }  # starts it
+# A sending app's startActivity() moves EXTRA_STREAM into ClipData, which carries the read grant;
+# `am start` does not, so the URI is also the data (granted; Flutter deep linking is off).
+uri="content://media/external/images/media/$id"
+adb_ shell am start -a android.intent.action.SEND -t "$mime" -d "$uri" --grant-read-uri-permission \
+  --eu android.intent.extra.STREAM "$uri" -n io.github.refocal.app/.MainActivity >/dev/null
+# The button, not the home screen's tagline that has the same word.
+NOTAP=1 tap_text "Enhance" 60 || { echo "FAIL: shared photo did not open the editor"; exit 1; }
 echo "  shared photo opened"
+adb_ shell input keyevent KEYCODE_BACK  # leave the editor of the shared photo
+
+echo "== queue (FR-BATCH-001..008): multi-pick -> batch sheet -> autosave"
+wait_text "Process several photos" 30
+# Two fresh copies: the picker lists the newest first, and the gallery already holds the 4x
+# result of the flow above (20 MP, ~17 min at Fast 2x on the emulator's CPU).
+sleep 1
+adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_q1.$EXT"
+sleep 1
+adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_q2.$EXT"
+adb_ shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null
+before=$(adb_ shell content query --uri content://media/external/images/media \
+  --projection _display_name | grep -c Refocal_ || true)
+tap_text "Process several photos" 60
+sleep 3
+adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null
+adb_ shell cat /sdcard/ui.xml | python3 -c '
+import re, sys
+n = 0
+for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
+    node = m.group(0)
+    if "Photo taken" in node:
+        b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", node).group(1))))
+        print((b[0] + b[2]) // 2, (b[1] + b[3]) // 2); n += 1
+        if n == 2: break' | while read -r x y; do adb_ shell input tap "$x" "$y"; echo "  selected $x $y"; done
+tap_text "Add" 30           # the picker's "Add (2)"
+tap_text "Add to the queue" 30  # batch sheet: Fast 2x, autosave on (defaults)
+t0=$SECONDS
+wait_text "Done 2, failed 0" 300 || { shot queue; echo "FAIL: queue report"; exit 1; }
+shot queue
+echo "  queue of 2 done in ~$((SECONDS - t0)) s"
+after=$(adb_ shell content query --uri content://media/external/images/media \
+  --projection _display_name | grep -c Refocal_ || true)
+[[ $((after - before)) -eq 2 ]] || { echo "FAIL: $((after - before)) results saved, want 2"; exit 1; }
+echo "  both results in the gallery:"
+adb_ shell content query --uri content://media/external/images/media \
+  --projection _display_name:width:height | grep Refocal_ | tail -2
 adb_ logcat -d | grep -E " enh |FATAL|AndroidRuntime" | tail -5 || true
 echo PASS

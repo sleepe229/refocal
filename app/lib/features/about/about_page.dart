@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../bootstrap/engine.dart';
 import '../../l10n/app_localizations.dart';
-import '../../version.dart';
 
 const sourceUrl = 'https://github.com/sleepe229/refocal';
 
@@ -29,7 +28,7 @@ class AboutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final core = ref.watch(engineProvider).value?.native.version ?? '…';
+    final version = ref.watch(engineProvider).value?.version ?? '…';
     final t = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
     return Scaffold(
@@ -37,8 +36,7 @@ class AboutPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Refocal $appVersion', style: t.titleLarge),
-          Text(l10n.aboutCore(core), style: t.bodySmall),
+          Text('Refocal $version', style: t.titleLarge),
           const SizedBox(height: 16),
           Text(l10n.aboutAlpha),
           const SizedBox(height: 16),
@@ -63,7 +61,7 @@ class AboutPage extends ConsumerWidget {
             onPressed: () => showLicensePage(
               context: context,
               applicationName: 'Refocal',
-              applicationVersion: appVersion,
+              applicationVersion: version,
               applicationLegalese: '© 2026 The Refocal Authors · Apache-2.0',
             ),
             child: Text(l10n.aboutLicenses),

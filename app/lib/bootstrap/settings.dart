@@ -10,8 +10,8 @@ import '../l10n/app_localizations.dart';
 import 'database.dart';
 import 'engine.dart';
 
-/// Export and metadata policy, language, history, first-run state (FR-SET-001/002/006,
-/// FR-HIST-005, FR-ONB-001). Stored in the `settings` table (ADR-0009, 07 §3) as strings.
+/// Export and metadata policy, language, history, batch autosave, first-run state
+/// (FR-SET-001/002/006, FR-HIST-005, FR-BATCH-006, FR-ONB-001). Stored in the `settings` table (ADR-0009, 07 §3) as strings.
 class Settings {
   const Settings({
     this.keepGps = false,
@@ -21,6 +21,7 @@ class Settings {
     this.languageCode,
     this.onboardingDone = false,
     this.historyEnabled = true,
+    this.batchAutosave = true,
   });
 
   /// PRIV-META-001: location is removed from results unless the user asks to keep it.
@@ -43,6 +44,9 @@ class Settings {
   /// FR-HIST-005: off records nothing (and the history is cleared when it is turned off).
   final bool historyEnabled;
 
+  /// FR-BATCH-006: a batch saves each result to the app album in [format] when it is done.
+  final bool batchAutosave;
+
   Settings copyWith({
     bool? keepGps,
     bool? aiMarker,
@@ -51,6 +55,7 @@ class Settings {
     String? Function()? languageCode,
     bool? onboardingDone,
     bool? historyEnabled,
+    bool? batchAutosave,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
     aiMarker: aiMarker ?? this.aiMarker,
@@ -59,6 +64,7 @@ class Settings {
     languageCode: languageCode != null ? languageCode() : this.languageCode,
     onboardingDone: onboardingDone ?? this.onboardingDone,
     historyEnabled: historyEnabled ?? this.historyEnabled,
+    batchAutosave: batchAutosave ?? this.batchAutosave,
   );
 
   /// Rows of the `settings` table; null removes the key (the system language).
@@ -70,6 +76,7 @@ class Settings {
     'language': languageCode,
     'onboarding_done': '$onboardingDone',
     'history_enabled': '$historyEnabled',
+    'batch_autosave': '$batchAutosave',
   };
 
   /// The values are validated here, once: anything missing, unknown or out of range is the
@@ -90,6 +97,7 @@ class Settings {
       languageCode: _supported(m['language']),
       onboardingDone: flag('onboarding_done', d.onboardingDone),
       historyEnabled: flag('history_enabled', d.historyEnabled),
+      batchAutosave: flag('batch_autosave', d.batchAutosave),
     );
   }
 
@@ -151,7 +159,7 @@ class SettingsController extends AsyncNotifier<Settings> {
 
   @override
   Future<Settings> build() async {
-    final db = await ref.watch(databaseProvider.future);
+    final db = await ref.watch(prefsDatabaseProvider.future);
     final dirs = await ref.watch(appDirsProvider.future);
     _store = SettingsStore(db);
     await importLegacySettings(_store, dirs.support);

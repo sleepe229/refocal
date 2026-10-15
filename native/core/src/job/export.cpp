@@ -44,9 +44,10 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
   if (!s || !job_dir || !output_json || !dst_path) return ENH_E_INVALID;
   std::string tmp = std::string(dst_path) + ".part";
   std::string thumb_path, thumb_tmp;
+  bool thumb_written = false;  // renamed into place: removed too if the export fails after it
   auto drop_thumbnail = [&] {
     if (!thumb_tmp.empty()) ::unlink(thumb_tmp.c_str());
-    if (!thumb_path.empty()) ::unlink(thumb_path.c_str());
+    if (thumb_written) ::unlink(thumb_path.c_str());
   };
   try {
     auto res = nlohmann::json::parse(fs::read_text(fs::join(job_dir, kResultFile)), nullptr, false);
@@ -76,10 +77,11 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
       thumb_quality = t.value("quality", 80);
       if (thumb_max < 16 || thumb_max > 4096) fail(ENH_E_INVALID, "bad thumbnail max_side");
       if (thumb_quality < 1 || thumb_quality > 100) fail(ENH_E_INVALID, "bad thumbnail quality");
-      thumb_tmp = t["path"].get<std::string>() + ".part";
+      thumb_path = t["path"].get<std::string>();
+      thumb_tmp = thumb_path + ".part";
     }
 
-    JpegMeta meta;
+    OutputMeta meta;
     const std::string exif_path = fs::join(job_dir, kSourceExifFile);
     if (md.value("exif", true) && fs::exists(exif_path)) {
       const auto src = fs::read_all(exif_path);
@@ -140,9 +142,8 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     if (thumb_max) {
       tn = thumb.finish();
       jpeg_encode(thumb_tmp, tn, thumb_quality);
-      thumb_path = thumb_tmp.substr(0, thumb_tmp.size() - 5);
       if (::rename(thumb_tmp.c_str(), thumb_path.c_str()) != 0) fail(ENH_E_IO, "rename failed");
-      thumb_tmp.clear();
+      thumb_written = true;
     }
     if (::rename(tmp.c_str(), dst_path) != 0) fail(ENH_E_IO, "rename failed");
     if (out_json) {

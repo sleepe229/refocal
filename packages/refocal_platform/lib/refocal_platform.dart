@@ -2,4 +2,10 @@
 library;
 
 export 'src/messages.g.dart'
-    show AppDirs, PickedImage, ProcessingTexts, RefocalPlatformApi, RefocalPlatformEvents;
+    show
+        AppDirs,
+        PickedImage,
+        PickedImages,
+        ProcessingTexts,
+        RefocalPlatformApi,
+        RefocalPlatformEvents;

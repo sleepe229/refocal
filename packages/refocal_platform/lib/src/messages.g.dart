@@ -108,15 +108,19 @@ int _deepHash(Object? value) {
 }
 
 class AppDirs {
-  AppDirs({required this.support, required this.cache});
+  AppDirs({required this.support, required this.backedUp, required this.cache});
 
-  /// Persistent, not backed up: models/, jobs/, inbox/ live here.
+  /// Persistent, not backed up: models/, jobs/, inbox/, db.sqlite live here (PRIV-DATA-005).
   String support;
+
+  /// Persistent, in the platform backup: prefs.sqlite only (Android: filesDir, restricted to
+  /// that file by the app's backup rules; iOS: Application Support).
+  String backedUp;
 
   String cache;
 
   List<Object?> _toList() {
-    return <Object?>[support, cache];
+    return <Object?>[support, backedUp, cache];
   }
 
   Object encode() {
@@ -125,7 +129,11 @@ class AppDirs {
 
   static AppDirs decode(Object result) {
     result as List<Object?>;
-    return AppDirs(support: result[0]! as String, cache: result[1]! as String);
+    return AppDirs(
+      support: result[0]! as String,
+      backedUp: result[1]! as String,
+      cache: result[2]! as String,
+    );
   }
 
   @override
@@ -137,7 +145,9 @@ class AppDirs {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(support, other.support) && _deepEquals(cache, other.cache);
+    return _deepEquals(support, other.support) &&
+        _deepEquals(backedUp, other.backedUp) &&
+        _deepEquals(cache, other.cache);
   }
 
   @override
@@ -146,7 +156,59 @@ class AppDirs {
 
   @override
   String toString() {
-    return 'AppDirs(support: $support, cache: $cache)';
+    return 'AppDirs(support: $support, backedUp: $backedUp, cache: $cache)';
+  }
+}
+
+/// Images copied into the inbox, and how many of the selection could not be.
+class PickedImages {
+  PickedImages({required this.images, required this.failed, this.failure});
+
+  List<PickedImage> images;
+
+  int failed;
+
+  /// Error code of the first failure ("limit": larger than SEC-INP-002 allows; "io").
+  String? failure;
+
+  List<Object?> _toList() {
+    return <Object?>[images, failed, failure];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PickedImages decode(Object result) {
+    result as List<Object?>;
+    return PickedImages(
+      images: (result[0]! as List<Object?>).cast<PickedImage>(),
+      failed: result[1]! as int,
+      failure: result[2] as String?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PickedImages || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(images, other.images) &&
+        _deepEquals(failed, other.failed) &&
+        _deepEquals(failure, other.failure);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PickedImages(images: $images, failed: $failed, failure: $failure)';
   }
 }
 
@@ -287,11 +349,14 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is AppDirs) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    } else if (value is PickedImage) {
+    } else if (value is PickedImages) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    } else if (value is ProcessingTexts) {
+    } else if (value is PickedImage) {
       buffer.putUint8(131);
+      writeValue(buffer, value.encode());
+    } else if (value is ProcessingTexts) {
+      buffer.putUint8(132);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -304,8 +369,10 @@ class _PigeonCodec extends StandardMessageCodec {
       case 129:
         return AppDirs.decode(readValue(buffer)!);
       case 130:
-        return PickedImage.decode(readValue(buffer)!);
+        return PickedImages.decode(readValue(buffer)!);
       case 131:
+        return PickedImage.decode(readValue(buffer)!);
+      case 132:
         return ProcessingTexts.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -368,24 +435,28 @@ class RefocalPlatformApi {
     return pigeonVar_replyValue as String?;
   }
 
-  /// System photo picker; copies the selection into [inboxDir]. Null when cancelled.
-  Future<PickedImage?> pickImage(String inboxDir) async {
+  /// System photo picker, up to [maxCount] images (1: single selection); copies the selection
+  /// into [inboxDir] in the order picked. Empty when cancelled.
+  Future<PickedImages> pickImages(String inboxDir, int maxCount) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImage$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickImages$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[inboxDir]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      inboxDir,
+      maxCount,
+    ]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
       pigeonVar_replyList,
       pigeonVar_channelName,
-      isNullValid: true,
+      isNullValid: false,
     );
-    return pigeonVar_replyValue as PickedImage?;
+    return pigeonVar_replyValue! as PickedImages;
   }
 
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
@@ -457,11 +528,12 @@ class RefocalPlatformApi {
     _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 
-  /// The image shared to the app (Android ACTION_SEND of an image, FR-SHARE-001) that has not
-  /// been taken yet, copied into [inboxDir]; null if none. Each share is returned once.
-  Future<PickedImage?> takeSharedImage(String inboxDir) async {
+  /// The images shared to the app (Android ACTION_SEND / ACTION_SEND_MULTIPLE of images,
+  /// FR-SHARE-001) that have not been taken yet, copied into [inboxDir]; empty if none. Each
+  /// share is returned once.
+  Future<PickedImages> takeSharedImages(String inboxDir) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImage$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.takeSharedImages$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -473,9 +545,9 @@ class RefocalPlatformApi {
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
       pigeonVar_replyList,
       pigeonVar_channelName,
-      isNullValid: true,
+      isNullValid: false,
     );
-    return pigeonVar_replyValue as PickedImage?;
+    return pigeonVar_replyValue! as PickedImages;
   }
 
   /// Android 13+: asks for POST_NOTIFICATIONS (progress of background processing). True if
@@ -556,7 +628,7 @@ abstract class RefocalPlatformEvents {
   /// pause and checkpoint now, the user continues later).
   void onProcessingAction(String action);
 
-  /// An image was shared to the running app; fetch it with takeSharedImage().
+  /// Images were shared to the running app; fetch them with takeSharedImages().
   void onSharedImage();
 
   static void setUp(

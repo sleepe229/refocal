@@ -311,7 +311,8 @@ sequenceDiagram
 
 | Путь | Содержимое |
 |---|---|
-| `AppSupport/db.sqlite` | drift: история, очередь, пресеты, паки, согласия, бенчмарк, настройки |
+| `AppSupport/db.sqlite` | drift, без бэкапа: история, очередь, паки, согласия, бенчмарк |
+| `prefs.sqlite` (каталог с бэкапом) | drift: настройки, пользовательские пресеты (PRIV-DATA-005) |
 | `AppSupport/models/<id>@<ver>/` | файлы моделей + `pack.json` |
 | `AppSupport/jobs/<id>/` | `bands/`, `faces/`, `pyramid/`, `checkpoint.json`, `preview.jpg` |
 | `AppSupport/inbox/` | копии входных файлов (квота) |

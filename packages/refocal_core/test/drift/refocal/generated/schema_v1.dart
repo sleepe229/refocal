@@ -4,7 +4,7 @@
 //
 import 'package:drift/drift.dart';
 
-class Settings extends Table with TableInfo {
+class Settings extends Table with TableInfo<Settings, SettingsData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -35,8 +35,18 @@ class Settings extends Table with TableInfo {
   @override
   Set<GeneratedColumn> get $primaryKey => {key};
   @override
-  Never map(Map<String, dynamic> data, {String? tablePrefix}) {
-    throw UnsupportedError('TableInfo.map in schema verification code');
+  SettingsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SettingsData(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+    );
   }
 
   @override
@@ -50,7 +60,135 @@ class Settings extends Table with TableInfo {
   bool get dontWriteConstraints => true;
 }
 
-class Assets extends Table with TableInfo {
+class SettingsData extends DataClass implements Insertable<SettingsData> {
+  final String key;
+  final String value;
+  const SettingsData({required this.key, required this.value});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<String>(value);
+    return map;
+  }
+
+  SettingsCompanion toCompanion(bool nullToAbsent) {
+    return SettingsCompanion(key: Value(key), value: Value(value));
+  }
+
+  factory SettingsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SettingsData(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String>(value),
+    };
+  }
+
+  SettingsData copyWith({String? key, String? value}) =>
+      SettingsData(key: key ?? this.key, value: value ?? this.value);
+  SettingsData copyWithCompanion(SettingsCompanion data) {
+    return SettingsData(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SettingsData(')
+          ..write('key: $key, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SettingsData &&
+          other.key == this.key &&
+          other.value == this.value);
+}
+
+class SettingsCompanion extends UpdateCompanion<SettingsData> {
+  final Value<String> key;
+  final Value<String> value;
+  final Value<int> rowid;
+  const SettingsCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SettingsCompanion.insert({
+    required String key,
+    required String value,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       value = Value(value);
+  static Insertable<SettingsData> custom({
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SettingsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? value,
+    Value<int>? rowid,
+  }) {
+    return SettingsCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SettingsCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class Assets extends Table with TableInfo<Assets, AssetsData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -111,8 +249,30 @@ class Assets extends Table with TableInfo {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Never map(Map<String, dynamic> data, {String? tablePrefix}) {
-    throw UnsupportedError('TableInfo.map in schema verification code');
+  AssetsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AssetsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      inboxPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}inbox_path'],
+      )!,
+      width: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}width'],
+      )!,
+      height: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}height'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
   }
 
   @override
@@ -126,7 +286,215 @@ class Assets extends Table with TableInfo {
   bool get dontWriteConstraints => true;
 }
 
-class Recipes extends Table with TableInfo {
+class AssetsData extends DataClass implements Insertable<AssetsData> {
+  final String id;
+  final String inboxPath;
+  final int width;
+  final int height;
+  final int createdAt;
+  const AssetsData({
+    required this.id,
+    required this.inboxPath,
+    required this.width,
+    required this.height,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['inbox_path'] = Variable<String>(inboxPath);
+    map['width'] = Variable<int>(width);
+    map['height'] = Variable<int>(height);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  AssetsCompanion toCompanion(bool nullToAbsent) {
+    return AssetsCompanion(
+      id: Value(id),
+      inboxPath: Value(inboxPath),
+      width: Value(width),
+      height: Value(height),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AssetsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AssetsData(
+      id: serializer.fromJson<String>(json['id']),
+      inboxPath: serializer.fromJson<String>(json['inboxPath']),
+      width: serializer.fromJson<int>(json['width']),
+      height: serializer.fromJson<int>(json['height']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'inboxPath': serializer.toJson<String>(inboxPath),
+      'width': serializer.toJson<int>(width),
+      'height': serializer.toJson<int>(height),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  AssetsData copyWith({
+    String? id,
+    String? inboxPath,
+    int? width,
+    int? height,
+    int? createdAt,
+  }) => AssetsData(
+    id: id ?? this.id,
+    inboxPath: inboxPath ?? this.inboxPath,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AssetsData copyWithCompanion(AssetsCompanion data) {
+    return AssetsData(
+      id: data.id.present ? data.id.value : this.id,
+      inboxPath: data.inboxPath.present ? data.inboxPath.value : this.inboxPath,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssetsData(')
+          ..write('id: $id, ')
+          ..write('inboxPath: $inboxPath, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, inboxPath, width, height, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AssetsData &&
+          other.id == this.id &&
+          other.inboxPath == this.inboxPath &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.createdAt == this.createdAt);
+}
+
+class AssetsCompanion extends UpdateCompanion<AssetsData> {
+  final Value<String> id;
+  final Value<String> inboxPath;
+  final Value<int> width;
+  final Value<int> height;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const AssetsCompanion({
+    this.id = const Value.absent(),
+    this.inboxPath = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AssetsCompanion.insert({
+    required String id,
+    required String inboxPath,
+    required int width,
+    required int height,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       inboxPath = Value(inboxPath),
+       width = Value(width),
+       height = Value(height),
+       createdAt = Value(createdAt);
+  static Insertable<AssetsData> custom({
+    Expression<String>? id,
+    Expression<String>? inboxPath,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (inboxPath != null) 'inbox_path': inboxPath,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AssetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? inboxPath,
+    Value<int>? width,
+    Value<int>? height,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AssetsCompanion(
+      id: id ?? this.id,
+      inboxPath: inboxPath ?? this.inboxPath,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (inboxPath.present) {
+      map['inbox_path'] = Variable<String>(inboxPath.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssetsCompanion(')
+          ..write('id: $id, ')
+          ..write('inboxPath: $inboxPath, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class Recipes extends Table with TableInfo<Recipes, RecipesData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -173,8 +541,26 @@ class Recipes extends Table with TableInfo {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Never map(Map<String, dynamic> data, {String? tablePrefix}) {
-    throw UnsupportedError('TableInfo.map in schema verification code');
+  RecipesData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecipesData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      schema: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
   }
 
   @override
@@ -188,7 +574,192 @@ class Recipes extends Table with TableInfo {
   bool get dontWriteConstraints => true;
 }
 
-class History extends Table with TableInfo {
+class RecipesData extends DataClass implements Insertable<RecipesData> {
+  final String id;
+  final int schema;
+  final String json;
+  final int createdAt;
+  const RecipesData({
+    required this.id,
+    required this.schema,
+    required this.json,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['schema'] = Variable<int>(schema);
+    map['json'] = Variable<String>(json);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  RecipesCompanion toCompanion(bool nullToAbsent) {
+    return RecipesCompanion(
+      id: Value(id),
+      schema: Value(schema),
+      json: Value(json),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory RecipesData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecipesData(
+      id: serializer.fromJson<String>(json['id']),
+      schema: serializer.fromJson<int>(json['schema']),
+      json: serializer.fromJson<String>(json['json']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'schema': serializer.toJson<int>(schema),
+      'json': serializer.toJson<String>(json),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  RecipesData copyWith({
+    String? id,
+    int? schema,
+    String? json,
+    int? createdAt,
+  }) => RecipesData(
+    id: id ?? this.id,
+    schema: schema ?? this.schema,
+    json: json ?? this.json,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  RecipesData copyWithCompanion(RecipesCompanion data) {
+    return RecipesData(
+      id: data.id.present ? data.id.value : this.id,
+      schema: data.schema.present ? data.schema.value : this.schema,
+      json: data.json.present ? data.json.value : this.json,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecipesData(')
+          ..write('id: $id, ')
+          ..write('schema: $schema, ')
+          ..write('json: $json, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, schema, json, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecipesData &&
+          other.id == this.id &&
+          other.schema == this.schema &&
+          other.json == this.json &&
+          other.createdAt == this.createdAt);
+}
+
+class RecipesCompanion extends UpdateCompanion<RecipesData> {
+  final Value<String> id;
+  final Value<int> schema;
+  final Value<String> json;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const RecipesCompanion({
+    this.id = const Value.absent(),
+    this.schema = const Value.absent(),
+    this.json = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecipesCompanion.insert({
+    required String id,
+    required int schema,
+    required String json,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       schema = Value(schema),
+       json = Value(json),
+       createdAt = Value(createdAt);
+  static Insertable<RecipesData> custom({
+    Expression<String>? id,
+    Expression<int>? schema,
+    Expression<String>? json,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (schema != null) 'schema': schema,
+      if (json != null) 'json': json,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecipesCompanion copyWith({
+    Value<String>? id,
+    Value<int>? schema,
+    Value<String>? json,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return RecipesCompanion(
+      id: id ?? this.id,
+      schema: schema ?? this.schema,
+      json: json ?? this.json,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (schema.present) {
+      map['schema'] = Variable<int>(schema.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecipesCompanion(')
+          ..write('id: $id, ')
+          ..write('schema: $schema, ')
+          ..write('json: $json, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class History extends Table with TableInfo<History, HistoryData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -312,8 +883,58 @@ class History extends Table with TableInfo {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Never map(Map<String, dynamic> data, {String? tablePrefix}) {
-    throw UnsupportedError('TableInfo.map in schema verification code');
+  HistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HistoryData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      assetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_id'],
+      )!,
+      recipeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipe_id'],
+      )!,
+      jobId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}job_id'],
+      )!,
+      resultUri: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}result_uri'],
+      )!,
+      previewPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preview_path'],
+      )!,
+      width: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}width'],
+      )!,
+      height: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}height'],
+      )!,
+      modelIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_ids'],
+      )!,
+      backend: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backend'],
+      )!,
+      durationMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_ms'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
   }
 
   @override
@@ -327,7 +948,396 @@ class History extends Table with TableInfo {
   bool get dontWriteConstraints => true;
 }
 
-class Presets extends Table with TableInfo {
+class HistoryData extends DataClass implements Insertable<HistoryData> {
+  final String id;
+  final String assetId;
+  final String recipeId;
+  final String jobId;
+  final String resultUri;
+  final String previewPath;
+  final int width;
+  final int height;
+  final String modelIds;
+  final String backend;
+  final int? durationMs;
+  final int createdAt;
+  const HistoryData({
+    required this.id,
+    required this.assetId,
+    required this.recipeId,
+    required this.jobId,
+    required this.resultUri,
+    required this.previewPath,
+    required this.width,
+    required this.height,
+    required this.modelIds,
+    required this.backend,
+    this.durationMs,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['asset_id'] = Variable<String>(assetId);
+    map['recipe_id'] = Variable<String>(recipeId);
+    map['job_id'] = Variable<String>(jobId);
+    map['result_uri'] = Variable<String>(resultUri);
+    map['preview_path'] = Variable<String>(previewPath);
+    map['width'] = Variable<int>(width);
+    map['height'] = Variable<int>(height);
+    map['model_ids'] = Variable<String>(modelIds);
+    map['backend'] = Variable<String>(backend);
+    if (!nullToAbsent || durationMs != null) {
+      map['duration_ms'] = Variable<int>(durationMs);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  HistoryCompanion toCompanion(bool nullToAbsent) {
+    return HistoryCompanion(
+      id: Value(id),
+      assetId: Value(assetId),
+      recipeId: Value(recipeId),
+      jobId: Value(jobId),
+      resultUri: Value(resultUri),
+      previewPath: Value(previewPath),
+      width: Value(width),
+      height: Value(height),
+      modelIds: Value(modelIds),
+      backend: Value(backend),
+      durationMs: durationMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(durationMs),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory HistoryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HistoryData(
+      id: serializer.fromJson<String>(json['id']),
+      assetId: serializer.fromJson<String>(json['assetId']),
+      recipeId: serializer.fromJson<String>(json['recipeId']),
+      jobId: serializer.fromJson<String>(json['jobId']),
+      resultUri: serializer.fromJson<String>(json['resultUri']),
+      previewPath: serializer.fromJson<String>(json['previewPath']),
+      width: serializer.fromJson<int>(json['width']),
+      height: serializer.fromJson<int>(json['height']),
+      modelIds: serializer.fromJson<String>(json['modelIds']),
+      backend: serializer.fromJson<String>(json['backend']),
+      durationMs: serializer.fromJson<int?>(json['durationMs']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'assetId': serializer.toJson<String>(assetId),
+      'recipeId': serializer.toJson<String>(recipeId),
+      'jobId': serializer.toJson<String>(jobId),
+      'resultUri': serializer.toJson<String>(resultUri),
+      'previewPath': serializer.toJson<String>(previewPath),
+      'width': serializer.toJson<int>(width),
+      'height': serializer.toJson<int>(height),
+      'modelIds': serializer.toJson<String>(modelIds),
+      'backend': serializer.toJson<String>(backend),
+      'durationMs': serializer.toJson<int?>(durationMs),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  HistoryData copyWith({
+    String? id,
+    String? assetId,
+    String? recipeId,
+    String? jobId,
+    String? resultUri,
+    String? previewPath,
+    int? width,
+    int? height,
+    String? modelIds,
+    String? backend,
+    Value<int?> durationMs = const Value.absent(),
+    int? createdAt,
+  }) => HistoryData(
+    id: id ?? this.id,
+    assetId: assetId ?? this.assetId,
+    recipeId: recipeId ?? this.recipeId,
+    jobId: jobId ?? this.jobId,
+    resultUri: resultUri ?? this.resultUri,
+    previewPath: previewPath ?? this.previewPath,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    modelIds: modelIds ?? this.modelIds,
+    backend: backend ?? this.backend,
+    durationMs: durationMs.present ? durationMs.value : this.durationMs,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  HistoryData copyWithCompanion(HistoryCompanion data) {
+    return HistoryData(
+      id: data.id.present ? data.id.value : this.id,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      recipeId: data.recipeId.present ? data.recipeId.value : this.recipeId,
+      jobId: data.jobId.present ? data.jobId.value : this.jobId,
+      resultUri: data.resultUri.present ? data.resultUri.value : this.resultUri,
+      previewPath: data.previewPath.present
+          ? data.previewPath.value
+          : this.previewPath,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      modelIds: data.modelIds.present ? data.modelIds.value : this.modelIds,
+      backend: data.backend.present ? data.backend.value : this.backend,
+      durationMs: data.durationMs.present
+          ? data.durationMs.value
+          : this.durationMs,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HistoryData(')
+          ..write('id: $id, ')
+          ..write('assetId: $assetId, ')
+          ..write('recipeId: $recipeId, ')
+          ..write('jobId: $jobId, ')
+          ..write('resultUri: $resultUri, ')
+          ..write('previewPath: $previewPath, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('modelIds: $modelIds, ')
+          ..write('backend: $backend, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    assetId,
+    recipeId,
+    jobId,
+    resultUri,
+    previewPath,
+    width,
+    height,
+    modelIds,
+    backend,
+    durationMs,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HistoryData &&
+          other.id == this.id &&
+          other.assetId == this.assetId &&
+          other.recipeId == this.recipeId &&
+          other.jobId == this.jobId &&
+          other.resultUri == this.resultUri &&
+          other.previewPath == this.previewPath &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.modelIds == this.modelIds &&
+          other.backend == this.backend &&
+          other.durationMs == this.durationMs &&
+          other.createdAt == this.createdAt);
+}
+
+class HistoryCompanion extends UpdateCompanion<HistoryData> {
+  final Value<String> id;
+  final Value<String> assetId;
+  final Value<String> recipeId;
+  final Value<String> jobId;
+  final Value<String> resultUri;
+  final Value<String> previewPath;
+  final Value<int> width;
+  final Value<int> height;
+  final Value<String> modelIds;
+  final Value<String> backend;
+  final Value<int?> durationMs;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const HistoryCompanion({
+    this.id = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.recipeId = const Value.absent(),
+    this.jobId = const Value.absent(),
+    this.resultUri = const Value.absent(),
+    this.previewPath = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.modelIds = const Value.absent(),
+    this.backend = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HistoryCompanion.insert({
+    required String id,
+    required String assetId,
+    required String recipeId,
+    required String jobId,
+    required String resultUri,
+    required String previewPath,
+    required int width,
+    required int height,
+    required String modelIds,
+    required String backend,
+    this.durationMs = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       assetId = Value(assetId),
+       recipeId = Value(recipeId),
+       jobId = Value(jobId),
+       resultUri = Value(resultUri),
+       previewPath = Value(previewPath),
+       width = Value(width),
+       height = Value(height),
+       modelIds = Value(modelIds),
+       backend = Value(backend),
+       createdAt = Value(createdAt);
+  static Insertable<HistoryData> custom({
+    Expression<String>? id,
+    Expression<String>? assetId,
+    Expression<String>? recipeId,
+    Expression<String>? jobId,
+    Expression<String>? resultUri,
+    Expression<String>? previewPath,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<String>? modelIds,
+    Expression<String>? backend,
+    Expression<int>? durationMs,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (assetId != null) 'asset_id': assetId,
+      if (recipeId != null) 'recipe_id': recipeId,
+      if (jobId != null) 'job_id': jobId,
+      if (resultUri != null) 'result_uri': resultUri,
+      if (previewPath != null) 'preview_path': previewPath,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (modelIds != null) 'model_ids': modelIds,
+      if (backend != null) 'backend': backend,
+      if (durationMs != null) 'duration_ms': durationMs,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HistoryCompanion copyWith({
+    Value<String>? id,
+    Value<String>? assetId,
+    Value<String>? recipeId,
+    Value<String>? jobId,
+    Value<String>? resultUri,
+    Value<String>? previewPath,
+    Value<int>? width,
+    Value<int>? height,
+    Value<String>? modelIds,
+    Value<String>? backend,
+    Value<int?>? durationMs,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return HistoryCompanion(
+      id: id ?? this.id,
+      assetId: assetId ?? this.assetId,
+      recipeId: recipeId ?? this.recipeId,
+      jobId: jobId ?? this.jobId,
+      resultUri: resultUri ?? this.resultUri,
+      previewPath: previewPath ?? this.previewPath,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      modelIds: modelIds ?? this.modelIds,
+      backend: backend ?? this.backend,
+      durationMs: durationMs ?? this.durationMs,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (recipeId.present) {
+      map['recipe_id'] = Variable<String>(recipeId.value);
+    }
+    if (jobId.present) {
+      map['job_id'] = Variable<String>(jobId.value);
+    }
+    if (resultUri.present) {
+      map['result_uri'] = Variable<String>(resultUri.value);
+    }
+    if (previewPath.present) {
+      map['preview_path'] = Variable<String>(previewPath.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (modelIds.present) {
+      map['model_ids'] = Variable<String>(modelIds.value);
+    }
+    if (backend.present) {
+      map['backend'] = Variable<String>(backend.value);
+    }
+    if (durationMs.present) {
+      map['duration_ms'] = Variable<int>(durationMs.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HistoryCompanion(')
+          ..write('id: $id, ')
+          ..write('assetId: $assetId, ')
+          ..write('recipeId: $recipeId, ')
+          ..write('jobId: $jobId, ')
+          ..write('resultUri: $resultUri, ')
+          ..write('previewPath: $previewPath, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('modelIds: $modelIds, ')
+          ..write('backend: $backend, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class Presets extends Table with TableInfo<Presets, PresetsData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -374,8 +1384,26 @@ class Presets extends Table with TableInfo {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Never map(Map<String, dynamic> data, {String? tablePrefix}) {
-    throw UnsupportedError('TableInfo.map in schema verification code');
+  PresetsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PresetsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      recipeJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipe_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
   }
 
   @override
@@ -387,6 +1415,193 @@ class Presets extends Table with TableInfo {
   List<String> get customConstraints => const ['PRIMARY KEY(id)'];
   @override
   bool get dontWriteConstraints => true;
+}
+
+class PresetsData extends DataClass implements Insertable<PresetsData> {
+  final String id;
+  final String name;
+  final String recipeJson;
+  final int createdAt;
+  const PresetsData({
+    required this.id,
+    required this.name,
+    required this.recipeJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['recipe_json'] = Variable<String>(recipeJson);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  PresetsCompanion toCompanion(bool nullToAbsent) {
+    return PresetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      recipeJson: Value(recipeJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PresetsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PresetsData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      recipeJson: serializer.fromJson<String>(json['recipeJson']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'recipeJson': serializer.toJson<String>(recipeJson),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  PresetsData copyWith({
+    String? id,
+    String? name,
+    String? recipeJson,
+    int? createdAt,
+  }) => PresetsData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    recipeJson: recipeJson ?? this.recipeJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PresetsData copyWithCompanion(PresetsCompanion data) {
+    return PresetsData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      recipeJson: data.recipeJson.present
+          ? data.recipeJson.value
+          : this.recipeJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PresetsData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('recipeJson: $recipeJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, recipeJson, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PresetsData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.recipeJson == this.recipeJson &&
+          other.createdAt == this.createdAt);
+}
+
+class PresetsCompanion extends UpdateCompanion<PresetsData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> recipeJson;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const PresetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.recipeJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PresetsCompanion.insert({
+    required String id,
+    required String name,
+    required String recipeJson,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       recipeJson = Value(recipeJson),
+       createdAt = Value(createdAt);
+  static Insertable<PresetsData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? recipeJson,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (recipeJson != null) 'recipe_json': recipeJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PresetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? recipeJson,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PresetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      recipeJson: recipeJson ?? this.recipeJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (recipeJson.present) {
+      map['recipe_json'] = Variable<String>(recipeJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PresetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('recipeJson: $recipeJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
 }
 
 class DatabaseAtV1 extends GeneratedDatabase {

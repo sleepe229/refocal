@@ -12,6 +12,7 @@ import 'features/history/history_page.dart';
 import 'features/home/home_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/presets/presets_page.dart';
+import 'features/queue/queue_page.dart';
 import 'features/report/report_page.dart';
 import 'features/settings/settings_page.dart';
 import 'l10n/app_localizations.dart';
@@ -39,6 +40,7 @@ final _router = GoRouter(
       builder: (_, s) => HistoryEntryPage(id: s.extra! as String),
     ),
     GoRoute(path: '/presets', builder: (_, _) => const PresetsPage()),
+    GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),

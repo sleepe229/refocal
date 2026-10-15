@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
+import '../../ui_kit/errors.dart';
 
 /// First run (FR-ONB-001): on-device, AI changes details, how to compare. Skippable; also
 /// reachable from Settings.
@@ -29,9 +30,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final l10n = AppLocalizations.of(context);
     try {
       await ref.read(settingsProvider.notifier).change((s) => s.copyWith(onboardingDone: true));
-    } on Exception catch (e) {
+    } on Exception catch (e, stack) {
       // Not stored: the introduction shows again at the next start.
-      messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaveFailed('$e'))));
+      showError(messenger, l10n, 'save setting', e, stack, l10n.settingsSaveFailed);
     }
     if (!mounted) return;
     context.canPop() ? context.pop() : context.go('/');

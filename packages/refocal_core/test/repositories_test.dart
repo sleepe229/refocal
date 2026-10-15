@@ -3,13 +3,20 @@ import 'package:test/test.dart';
 
 void main() {
   late RefocalDatabase db;
+  late PrefsDatabase prefs;
 
-  setUp(() => db = RefocalDatabase.memory());
-  tearDown(() => db.close());
+  setUp(() {
+    db = RefocalDatabase.memory();
+    prefs = PrefsDatabase.memory();
+  });
+  tearDown(() async {
+    await db.close();
+    await prefs.close();
+  });
 
   group('settings store', () {
     test('writes, overwrites and removes keys in one go', () async {
-      final store = SettingsStore(db);
+      final store = SettingsStore(prefs);
       expect(await store.read(), isEmpty);
       await store.write({'a': '1', 'b': '2'});
       await store.write({'a': '3', 'b': null});
@@ -121,7 +128,7 @@ void main() {
     final r = Recipe(scale: 4, srModel: 'sr.general-x4v3', strength: 0.6);
 
     test('add, rename, remove', () async {
-      final repo = PresetRepository(db);
+      final repo = PresetRepository(prefs);
       final a = await repo.add('  Soft ', r, now: DateTime(2026));
       expect(a.name, 'Soft');
       await repo.add('Fast', Recipe(scale: 2, fast2: true, srModel: 'm'), now: DateTime(2027));
@@ -135,7 +142,7 @@ void main() {
     });
 
     test('names are 1..40 characters; presets have no output format', () async {
-      final repo = PresetRepository(db);
+      final repo = PresetRepository(prefs);
       expect(() => repo.add('   ', r), throwsArgumentError);
       expect(() => repo.add('x' * 41, r), throwsArgumentError);
       expect(

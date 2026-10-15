@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
@@ -20,8 +18,8 @@ class AppLog {
     if (_path != null) ...['$_path.1', _path!],
   ];
 
+  /// [logsDir] must exist.
   static void open(RefocalNative native, String logsDir) {
-    Directory(logsDir).createSync(recursive: true);
     final path = '$logsDir/refocal.log';
     native.openLog(path, maxBytes: maxBytes);
     native.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info); // PRIV-LOG-002

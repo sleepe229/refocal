@@ -31,8 +31,8 @@ class HistoryStore {
   }
 
   /// Where the export writes the preview of entry [id].
-  String previewPathFor(String id) {
-    Directory(previewDir).createSync(recursive: true);
+  Future<String> previewPathFor(String id) async {
+    await Directory(previewDir).create(recursive: true);
     return '$previewDir/$id.jpg';
   }
 
@@ -44,27 +44,24 @@ class HistoryStore {
 
   /// Rows go first: a file that cannot be deleted now is an orphan the next [sweep] (previews)
   /// or [JobStore.sweep] (jobs, inbox) removes. Tries every file, then throws the first failure.
-  void _deleteFiles(HistoryRemoval r) {
+  Future<void> _deleteFiles(HistoryRemoval r) async {
     FileSystemException? failure;
-    void attempt(void Function() delete) {
+    Future<void> attempt(Future<void> Function() delete) async {
       try {
-        delete();
+        await delete();
       } on FileSystemException catch (e) {
         failure ??= e;
       }
     }
 
     for (final p in r.previews) {
-      attempt(() {
-        final f = File(absolute(p));
-        if (f.existsSync()) f.deleteSync();
-      });
+      await attempt(() => _deleteIfExists(File(absolute(p))));
     }
     for (final id in r.jobIds) {
-      attempt(() => jobs.discard('${jobs.jobsDir}/$id'));
+      await attempt(() => jobs.discard(jobs.dirOf(id)));
     }
     for (final input in r.inputs) {
-      attempt(() => jobs.releaseInput(absolute(input)));
+      await attempt(() => jobs.releaseInput(absolute(input)));
     }
     if (failure case final e?) throw e;
   }
@@ -73,15 +70,23 @@ class HistoryStore {
   /// insert, or by a failed delete). Runs before any export can write a new one.
   Future<void> sweep() async {
     final dir = Directory(previewDir);
-    if (!dir.existsSync()) return;
+    if (!await dir.exists()) return;
     final known = await repo.previewPaths();
-    for (final f in dir.listSync().whereType<File>()) {
-      if (known.contains(relative(f.path))) continue;
+    await for (final f in dir.list()) {
+      if (f is! File || known.contains(relative(f.path))) continue;
       try {
-        f.deleteSync();
+        await f.delete();
       } on FileSystemException {
         // Retried at the next start.
       }
+    }
+  }
+
+  static Future<void> _deleteIfExists(File f) async {
+    try {
+      await f.delete();
+    } on PathNotFoundException {
+      // already gone
     }
   }
 }
@@ -93,6 +98,12 @@ final historyStoreProvider = FutureProvider<HistoryStore>((ref) async {
   final store = HistoryStore(HistoryRepository(db), dirs.support, jobStoreOf(dirs));
   await store.sweep();
   return store;
+});
+
+/// One entry, null once it is deleted.
+final historyEntryProvider = StreamProvider.family<HistoryEntry?, String>((ref, id) async* {
+  final store = await ref.watch(historyStoreProvider.future);
+  yield* store.repo.watch(id);
 });
 
 /// Newest first.

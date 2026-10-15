@@ -325,11 +325,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutTitle => 'About';
 
   @override
-  String aboutCore(String version) {
-    return 'Native core $version';
-  }
-
-  @override
   String get aboutAlpha => 'Early alpha. Expect rough edges: Android only, one photo at a time.';
 
   @override
@@ -553,4 +548,117 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportShareTitle => 'Share the Refocal log';
+
+  @override
+  String get errorStorage => 'a file could not be read or written';
+
+  @override
+  String get errorSystem => 'the system refused the request';
+
+  @override
+  String get errorUnexpected => 'unexpected error (details are in the log)';
+
+  @override
+  String get homeChooseSeveral => 'Process several photos';
+
+  @override
+  String homeQueue(int count) {
+    return 'Queue ($count)';
+  }
+
+  @override
+  String pickPartial(int failed, String reason) {
+    return '$failed of the photos could not be opened: $reason';
+  }
+
+  @override
+  String get queueTitle => 'Queue';
+
+  @override
+  String get queueEmpty => 'The queue is empty. Choose several photos, or share them to Refocal.';
+
+  @override
+  String get queueStart => 'Start';
+
+  @override
+  String get queuePause => 'Pause';
+
+  @override
+  String get queueClearFinished => 'Clear finished';
+
+  @override
+  String get queueShowErrors => 'Only errors';
+
+  @override
+  String get queueStateQueued => 'Waiting';
+
+  @override
+  String queueStateRunning(int percent) {
+    return 'Processing… $percent%';
+  }
+
+  @override
+  String queueStatePaused(int percent) {
+    return 'Paused at $percent%';
+  }
+
+  @override
+  String get queueStateDone => 'Ready, not saved: tap to open';
+
+  @override
+  String get queueStateSaved => 'Saved to the gallery';
+
+  @override
+  String queueStateFailed(String reason) {
+    return 'Failed: $reason';
+  }
+
+  @override
+  String queueReport(int done, int failed) {
+    return 'Done $done, failed $failed';
+  }
+
+  @override
+  String get queueReorderHint => 'Drag to change the order.';
+
+  @override
+  String queueNotifPosition(int n, int total) {
+    return 'Photo $n of $total';
+  }
+
+  @override
+  String queueNotifDone(int done, int failed) {
+    return 'Queue finished: done $done, failed $failed';
+  }
+
+  @override
+  String batchTitle(int count) {
+    return '$count photos';
+  }
+
+  @override
+  String get batchPreset => 'Preset';
+
+  @override
+  String batchAutosave(String format) {
+    return 'Save each result to the gallery ($format)';
+  }
+
+  @override
+  String get batchAutosaveOff => 'Results wait in the queue until you save them.';
+
+  @override
+  String get batchAdd => 'Add to the queue';
+
+  @override
+  String get settingsBatchAutosave => 'Batch: save results automatically';
+
+  @override
+  String get settingsBatchAutosaveHint =>
+      'Each result of a batch goes to Pictures/Refocal in the default format.';
+
+  @override
+  String queueActionFailed(String error) {
+    return 'Could not change the queue: $error';
+  }
 }

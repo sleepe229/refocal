@@ -325,11 +325,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutTitle => 'О приложении';
 
   @override
-  String aboutCore(String version) {
-    return 'Нативное ядро $version';
-  }
-
-  @override
   String get aboutAlpha => 'Ранняя альфа. Возможны недочёты: только Android, одно фото за раз.';
 
   @override
@@ -553,4 +548,117 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportShareTitle => 'Журнал Refocal';
+
+  @override
+  String get errorStorage => 'не удалось прочитать или записать файл';
+
+  @override
+  String get errorSystem => 'система отклонила запрос';
+
+  @override
+  String get errorUnexpected => 'непредвиденная ошибка (подробности в журнале)';
+
+  @override
+  String get homeChooseSeveral => 'Обработать несколько фото';
+
+  @override
+  String homeQueue(int count) {
+    return 'Очередь ($count)';
+  }
+
+  @override
+  String pickPartial(int failed, String reason) {
+    return 'Не удалось открыть фото: $failed. Причина: $reason';
+  }
+
+  @override
+  String get queueTitle => 'Очередь';
+
+  @override
+  String get queueEmpty => 'Очередь пуста. Выберите несколько фото или поделитесь ими с Refocal.';
+
+  @override
+  String get queueStart => 'Запустить';
+
+  @override
+  String get queuePause => 'Пауза';
+
+  @override
+  String get queueClearFinished => 'Убрать завершённые';
+
+  @override
+  String get queueShowErrors => 'Только ошибки';
+
+  @override
+  String get queueStateQueued => 'Ожидает';
+
+  @override
+  String queueStateRunning(int percent) {
+    return 'Обработка… $percent%';
+  }
+
+  @override
+  String queueStatePaused(int percent) {
+    return 'Пауза на $percent%';
+  }
+
+  @override
+  String get queueStateDone => 'Готово, не сохранено: нажмите, чтобы открыть';
+
+  @override
+  String get queueStateSaved => 'Сохранено в галерею';
+
+  @override
+  String queueStateFailed(String reason) {
+    return 'Ошибка: $reason';
+  }
+
+  @override
+  String queueReport(int done, int failed) {
+    return 'Готово $done, ошибок $failed';
+  }
+
+  @override
+  String get queueReorderHint => 'Перетащите, чтобы изменить порядок.';
+
+  @override
+  String queueNotifPosition(int n, int total) {
+    return 'Фото $n из $total';
+  }
+
+  @override
+  String queueNotifDone(int done, int failed) {
+    return 'Очередь завершена: готово $done, ошибок $failed';
+  }
+
+  @override
+  String batchTitle(int count) {
+    return 'Фото: $count';
+  }
+
+  @override
+  String get batchPreset => 'Пресет';
+
+  @override
+  String batchAutosave(String format) {
+    return 'Сохранять каждый результат в галерею ($format)';
+  }
+
+  @override
+  String get batchAutosaveOff => 'Результаты ждут в очереди, пока вы их не сохраните.';
+
+  @override
+  String get batchAdd => 'Добавить в очередь';
+
+  @override
+  String get settingsBatchAutosave => 'Пакет: сохранять результаты автоматически';
+
+  @override
+  String get settingsBatchAutosaveHint =>
+      'Каждый результат пакета попадает в Pictures/Refocal в формате по умолчанию.';
+
+  @override
+  String queueActionFailed(String error) {
+    return 'Не удалось изменить очередь: $error';
+  }
 }

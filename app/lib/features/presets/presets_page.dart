@@ -5,6 +5,7 @@ import 'package:refocal_core/refocal_core.dart';
 import '../../bootstrap/presets.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
+import '../../ui_kit/errors.dart';
 import 'preset_name_dialog.dart';
 
 /// Built-in and user presets (FR-PRE-001/002): user presets are renamed and deleted here and
@@ -60,8 +61,8 @@ class PresetsPage extends ConsumerWidget {
     if (name == null) return;
     try {
       await (await ref.read(presetRepositoryProvider.future)).rename(p.id, name);
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaveFailed('$e'))));
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'change preset', e, stack, l10n.presetSaveFailed);
     }
   }
 
@@ -69,8 +70,8 @@ class PresetsPage extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await (await ref.read(presetRepositoryProvider.future)).remove(p.id);
-    } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.presetSaveFailed('$e'))));
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'change preset', e, stack, l10n.presetSaveFailed);
     }
   }
 }

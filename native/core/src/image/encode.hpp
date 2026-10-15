@@ -1,5 +1,5 @@
 // Output encoders besides JPEG (FR-EXP-001, ADR-0003, ADR-0018). Same row-push interface as
-// JpegWriter, same metadata (JpegMeta: EXIF TIFF block, XMP packet, ICC profile).
+// JpegWriter, same metadata (OutputMeta: EXIF TIFF block, XMP packet, ICC profile).
 // PNG streams rows to disk; WebP cannot (libwebp encodes a whole picture): WebpWriter collects
 // RGB (3 B/px) plus libwebp's YUV (1.5 B/px) or ARGB (4 B/px) copy, so it is size-limited.
 // SPDX-License-Identifier: Apache-2.0
@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-#include "image/jpeg.hpp"
+#include "image/image.hpp"
 
 namespace enh {
 
@@ -21,7 +21,7 @@ inline constexpr double kWebpLosslessMaxPixels = 24e6;
 
 class PngWriter {
  public:
-  PngWriter(const std::string& path, int w, int h, const JpegMeta* meta = nullptr);
+  PngWriter(const std::string& path, int w, int h, const OutputMeta* meta = nullptr);
   ~PngWriter();
   PngWriter(const PngWriter&) = delete;
   PngWriter& operator=(const PngWriter&) = delete;
@@ -38,7 +38,7 @@ class PngWriter {
 class WebpWriter {
  public:
   WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
-             const JpegMeta* meta = nullptr);
+             const OutputMeta* meta = nullptr);
   ~WebpWriter();
   WebpWriter(const WebpWriter&) = delete;
   WebpWriter& operator=(const WebpWriter&) = delete;
