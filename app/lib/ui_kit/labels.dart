@@ -22,6 +22,8 @@ String formatLabel(AppLocalizations l10n, ExportFormat f) => switch (f) {
 String builtinPresetLabel(AppLocalizations l10n, BuiltinPreset p) => switch (p) {
   BuiltinPreset.fast => l10n.presetFast,
   BuiltinPreset.quality => l10n.presetQuality,
+  BuiltinPreset.portrait => l10n.presetPortrait,
+  BuiltinPreset.oldPhoto => l10n.presetOldPhoto,
 };
 
 /// "Fast 2× · 80%", plus " · JPEG 92" when the recipe was saved.
@@ -29,6 +31,7 @@ String recipeLabel(AppLocalizations l10n, Recipe r) {
   final parts = [
     scaleLabel(l10n, r.scale, fast2: r.fast2),
     l10n.strengthValue((r.strength * 100).round()),
+    if (r.faceModel != null) l10n.recipeFaces((r.faceStrength * 100).round()),
     if (r.output case final o?)
       o.quality == null
           ? formatLabel(l10n, o.format)

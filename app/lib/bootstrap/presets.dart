@@ -4,15 +4,24 @@ import 'package:refocal_core/refocal_core.dart';
 import 'database.dart';
 import 'engine.dart';
 
-/// Built-in presets (FR-PRE-001) that the bundled model can run. "Old photo", "Portrait" and
-/// "Anime" need the face and anime packs and arrive with them (0.2, 0.5).
+/// Built-in presets (FR-PRE-001). "Portrait" and "Old photo" need the face pack (and "Old
+/// photo" the strong denoise pack); "Anime" arrives with the anime pack (0.5).
 enum BuiltinPreset {
   fast,
-  quality;
+  quality,
+  portrait,
+  oldPhoto;
 
   Recipe get recipe => switch (this) {
     fast => Recipe(scale: 2, fast2: true, srModel: bundledSrModel),
     quality => Recipe(scale: 4, srModel: bundledSrModel),
+    portrait => Recipe(scale: 2, srModel: bundledSrModel, faceModel: 'face.gfpgan-1.4'),
+    oldPhoto => Recipe(
+      scale: 2,
+      srModel: DenoiseLevel.strong.model,
+      faceModel: 'face.gfpgan-1.4',
+      faceStrength: 0.7,
+    ),
   };
 }
 

@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <utility>
+#include <vector>
+
+#include "util/error.hpp"
 
 namespace enh {
 
@@ -238,6 +242,52 @@ void LanczosResampler::rows(int y0, int rows, uint8_t* dst) {
 void blend(const uint8_t* base, const uint8_t* sr, size_t n, float strength, uint8_t* out) {
   const int s = int(strength * 256.f + 0.5f), k = 256 - s;
   for (size_t i = 0; i < n; ++i) out[i] = uint8_t((sr[i] * s + base[i] * k + 128) >> 8);
+}
+
+namespace {
+
+// Output pixel i of n over a source of m pixels: contributions (source index, weight).
+std::vector<std::vector<std::pair<int, float>>> area_weights(int m, int n) {
+  std::vector<std::vector<std::pair<int, float>>> w(static_cast<size_t>(n));
+  const double s = double(m) / n;
+  for (int i = 0; i < n; ++i) {
+    const double a = i * s, b = (i + 1) * s;
+    for (int k = int(a); k < m && k < b; ++k) {
+      const double cov = std::min(b, k + 1.0) - std::max(a, double(k));
+      if (cov > 0) w[size_t(i)].push_back({k, float(cov / s)});
+    }
+  }
+  return w;
+}
+
+}  // namespace
+
+Rgb8 resize_area(const Rgb8& src, int w, int h) {
+  if (w <= 0 || h <= 0 || w > src.w || h > src.h) fail(ENH_E_INTERNAL, "resize_area: bad size");
+  const auto wx = area_weights(src.w, w), wy = area_weights(src.h, h);
+  std::vector<float> rows(size_t(w) * src.h * 3, 0.f);  // horizontal pass
+  for (int y = 0; y < src.h; ++y) {
+    const uint8_t* s = src.row(y);
+    float* d = rows.data() + size_t(y) * w * 3;
+    for (int x = 0; x < w; ++x) {
+      for (const auto& [k, wt] : wx[size_t(x)]) {
+        for (int c = 0; c < 3; ++c) d[3 * x + c] += wt * s[3 * k + c];
+      }
+    }
+  }
+  Rgb8 out;
+  out.w = w;
+  out.h = h;
+  out.px.resize(size_t(w) * h * 3);
+  for (int y = 0; y < h; ++y) {
+    uint8_t* o = out.row(y);
+    for (int x = 0; x < w * 3; ++x) {
+      float v = 0;
+      for (const auto& [k, wt] : wy[size_t(y)]) v += wt * rows[size_t(k) * w * 3 + x];
+      o[x] = uint8_t(std::clamp(v + 0.5f, 0.f, 255.f));
+    }
+  }
+  return out;
 }
 
 }  // namespace enh

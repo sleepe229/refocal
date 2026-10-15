@@ -852,4 +852,51 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get denoiseStrong => 'Сильное';
+
+  @override
+  String get presetPortrait => 'Портрет';
+
+  @override
+  String get presetOldPhoto => 'Старое фото';
+
+  @override
+  String recipeFaces(int percent) {
+    return 'лица $percent%';
+  }
+
+  @override
+  String get faces => 'Восстанавливать лица';
+
+  @override
+  String get facesHint => 'Каждое лицо обрабатывается моделью лиц и смешивается с улучшенным фото.';
+
+  @override
+  String get facesStrength => 'Сила для лиц';
+
+  @override
+  String get facesNeedPack =>
+      'Для восстановления лиц нужна модель лиц (около 177 МБ, некоммерческая лицензия).';
+
+  @override
+  String get facesGetPack => 'Модели';
+
+  @override
+  String get facesNoticeTitle => 'О восстановлении лиц';
+
+  @override
+  String get facesNoticeBody =>
+      'Модель лиц перерисовывает лица по тому, чему она научилась. Лица могут стать чётче, но и не совсем похожими на человека — особенно на старых и мелких фото. Refocal смешивает результат с оригиналом (по умолчанию 50%) и помечает сохранённые фото как обработанные ИИ.';
+
+  @override
+  String get facesNoticeOk => 'Понятно';
+
+  @override
+  String stageFaces(int percent) {
+    return 'Восстановление лиц… $percent%';
+  }
+
+  @override
+  String noteFacesFound(int count) {
+    return 'Найдено лиц: $count';
+  }
 }

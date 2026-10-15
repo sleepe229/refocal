@@ -27,6 +27,7 @@
 #include "job/events.hpp"
 #include "job/session.hpp"
 #include "pipeline/bandstore.hpp"
+#include "pipeline/faces.hpp"
 #include "pipeline/geometry.hpp"
 #include "policy/gpu_gate.hpp"
 #include "policy/gpu_identity.hpp"
@@ -56,6 +57,9 @@ JobRequest parse_job_request(const std::string& text) {
     r.backend = j.value("backend", r.backend);
     r.preview_max = j.value("preview_max", r.preview_max);
     r.max_output_mp = j.value("max_output_mp", r.max_output_mp);
+    r.face_model = j.value("face_model", r.face_model);
+    r.det_model = j.value("det_model", r.det_model);
+    r.face_strength = j.value("face_strength", r.face_strength);
   } catch (const nlohmann::json::exception& e) {
     fail(ENH_E_INVALID, std::string("bad request: ") + e.what());
   }
@@ -68,6 +72,8 @@ JobRequest parse_job_request(const std::string& text) {
   if (r.backend != "auto" && r.backend != "cpu" && r.backend != "vulkan")
     fail(ENH_E_INVALID, "bad backend");
   if (r.preview_max < 64 || r.preview_max > 8192) fail(ENH_E_INVALID, "bad preview_max");
+  if (!(r.face_strength >= 0 && r.face_strength <= 1)) fail(ENH_E_INVALID, "bad face_strength");
+  if (!r.face_model.empty() && r.det_model.empty()) fail(ENH_E_INVALID, "faces need det_model");
   return r;
 }
 
@@ -81,7 +87,10 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
           {"tile", r.tile},
           {"backend", r.backend},
           {"preview_max", r.preview_max},
-          {"max_output_mp", r.max_output_mp}};
+          {"max_output_mp", r.max_output_mp},
+          {"face_model", r.face_model},
+          {"det_model", r.det_model},
+          {"face_strength", r.face_strength}};
 }
 
 namespace {
@@ -245,6 +254,12 @@ struct enh_job {
 
   bool throttled = false;  // inference thread only
 
+  // DetectFaces + RestoreFaces (ADR-0012, ADR-0022): YuNet on CPU (tiny), the face model on
+  // the backend ladder; each model is freed before the next stage. Faces smaller than
+  // kMinFacePx are left alone; a face larger than 512 px in the input gets half the strength
+  // (FR-FACE-009).
+  std::vector<RestoredFace> restore_faces(const JobRequest& req, const Rgb8& img);
+
   void run();
   void run_impl(nlohmann::json& result);
 };
@@ -328,6 +343,70 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
 }
 
 }  // namespace
+
+std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rgb8& img) {
+  constexpr int kMaxFaces = 32;
+  constexpr float kMinFacePx = 16;
+  sink.emit(ENH_EV_STAGE, kStageFaces, 0, 0, {{"stage", "restore_faces"}});
+  std::vector<Face> found;
+  {
+    auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s->cpu_threads});
+    det->load(resolve_model(s->models_dir, req.det_model));
+    found = detect_faces(*det, img);
+  }
+  found.erase(std::remove_if(found.begin(), found.end(),
+                             [&](const Face& f) { return std::min(f.w, f.h) < kMinFacePx; }),
+              found.end());
+  if (found.size() > size_t(kMaxFaces)) found.resize(kMaxFaces);
+  sink.emit(ENH_EV_WARNING, kStageFaces, 0, int64_t(found.size()),
+            {{"code", "faces_found"}, {"count", found.size()}});
+  std::vector<RestoredFace> out;
+  if (found.empty()) return out;
+
+  const ModelInfo fm = resolve_model(s->models_dir, req.face_model);
+  Ladder lad = backend_ladder(*s, req, fm.id);
+  size_t rung = 0;
+  std::unique_ptr<InferenceBackend> be;
+  auto load = [&] {
+    for (;;) {
+      try {
+        be = make_ncnn_backend(lad.rungs[rung]);
+        be->load(fm);
+        return;
+      } catch (const Error& e) {
+        if (e.status() == ENH_E_MODEL || rung + 1 >= lad.rungs.size()) throw;
+        ++rung;
+      }
+    }
+  };
+  load();
+  for (size_t i = 0; i < found.size(); ++i) {
+    if (stop()) throw Stopped{};
+    const Affine align = face_alignment(found[i]);
+    const Rgb8 aligned = warp_affine(img, align, kFaceSide, kFaceSide);
+    Rgb8 restored;
+    for (;;) {
+      try {
+        restored = restore_face(*be, aligned);
+        break;
+      } catch (const Error& e) {
+        const bool recoverable = e.status() == ENH_E_BACKEND || e.status() == ENH_E_NUMERIC;
+        if (!recoverable || rung + 1 >= lad.rungs.size()) throw;
+        ++rung;
+        load();
+      }
+    }
+    // FR-FACE-009: a face whose 512 crop covers more than 512 input pixels (the model would
+    // lose detail the photo has) gets half the strength.
+    const double crop_side_in = kFaceSide / std::hypot(align.a, align.c);
+    const float weight = crop_side_in > kFaceSide ? 0.5f : 1.f;
+    out.push_back(prepare_paste(align, std::move(restored), req.scale,
+                                float(req.face_strength) * weight, img.w * req.scale,
+                                img.h * req.scale));
+    sink.progress(kStageFaces, int64_t(i + 1), int64_t(found.size()), -1, true);
+  }
+  return out;
+}
 
 void enh_job::run() {
   nlohmann::json result;
@@ -424,8 +503,15 @@ void enh_job::run_impl(nlohmann::json& result) {
   if (info.animated)
     sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
   const int src_w = img.w, src_h = img.h;
-  if (req.fast2) img = area_down(img, 2);
   if (stop()) throw Stopped{};
+
+  // ---- faces (ADR-0012): before the SR model is loaded, so one heavy model is in memory ----
+  std::vector<RestoredFace> faces;
+  if (!req.face_model.empty() && req.face_strength > 0) {
+    faces = restore_faces(req, img);
+    if (stop()) throw Stopped{};
+  }
+  if (req.fast2) img = area_down(img, 2);
 
   // ---- geometry, backend, store ----
   Ladder lad = backend_ladder(*s, req, model.id);
@@ -664,13 +750,14 @@ void enh_job::run_impl(nlohmann::json& result) {
       }
       const int64_t done = ++done_tiles;
       if (j + 1 == tpb) {
-        const uint8_t* out = band.data();
+        uint8_t* out = band.data();
         const int orows = g.band_out_rows(b);
         if (g.down > 1) {
           down_buf.resize(size_t(orows) * g.out_w * 3);
           area_down(band.data(), g.sr_w, rows, g.down, down_buf.data());
           out = down_buf.data();
         }
+        if (!faces.empty()) paste_faces(out, g.out_w, g.band_out_y0(b), orows, faces);
         preview.add_rows(out, g.band_out_y0(b), orows);
         store.commit(b, out, size_t(orows) * g.out_w * 3, ck);
       }

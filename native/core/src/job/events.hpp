@@ -12,7 +12,13 @@
 
 namespace enh {
 
-enum Stage : int32_t { kStageQueued = 0, kStageDecode = 1, kStageUpscale = 2, kStageFinalize = 3 };
+enum Stage : int32_t {
+  kStageQueued = 0,
+  kStageDecode = 1,
+  kStageUpscale = 2,
+  kStageFinalize = 3,
+  kStageFaces = 4  // DetectFaces + RestoreFaces (ADR-0012)
+};
 const char* stage_name(int32_t stage);
 
 // Dumps JSON with invalid UTF-8 replaced by U+FFFD (the Dart VM rejects invalid strings, S6).

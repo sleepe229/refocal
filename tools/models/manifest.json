@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "serial": 1,
-  "generated_at": "2026-10-15T12:00:00Z",
+  "serial": 2,
+  "generated_at": "2026-10-15T13:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -148,6 +148,99 @@
         "upstream": "xinntao/Real-ESRGAN v0.3.0: realesr-general-x4v3.pth (sha256 8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292) + realesr-general-wdn-x4v3.pth, DNI 1",
         "upstream_sha256": "1641f8c4464b9f097c9fdda5589273713f67cf59f3d909e0bd688f0cee269dca",
         "conversion_commit": "96359e8 (spikes/_shared/convert_sr.py)"
+      }
+    },
+    {
+      "id": "face.gfpgan-1.4",
+      "version": "1.0.0",
+      "category": "face",
+      "title": {
+        "en": "Faces: GFPGAN 1.4",
+        "ru": "Лица: GFPGAN 1.4"
+      },
+      "description": {
+        "en": "Restores faces in old, blurry or small photos. Non-commercial use only.",
+        "ru": "Восстанавливает лица на старых, размытых и мелких фото. Только некоммерческое использование."
+      },
+      "tier_min": "T1",
+      "license": {
+        "spdx": "LicenseRef-GFPGAN-NC",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-face.gfpgan-1.4-v1/LICENSE.txt",
+        "text_sha256": "f66349c991a8fc9910e921ee483336518d3bf002789ce86cc8368a67ee43ebf2",
+        "commercial": false,
+        "requires_acceptance": true
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "shape": [
+              1,
+              3,
+              512,
+              512
+            ],
+            "range": [
+              -1,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "scale": 1
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 49828,
+          "sha256": "484bdd2dc6b167e2d24fa6d1c8640993bfe3f68fafcf63f88941504cd703fae7",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.gfpgan-1.4-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 176792952,
+          "sha256": "060f2ae469435f56bb34351e8061dfad3c42542e3894f8e0d6119efb4ad39040",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.gfpgan-1.4-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 23,
+          "sha256": "c185d99eddbe68790f1a6c4b336a5087395983661ff314fcaa08cd82a975c5e4",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.gfpgan-1.4-v1/model.json"
+          ]
+        }
+      ],
+      "eval": {
+        "psnr_vs_fp32_vulkan_fp16": 51.4,
+        "psnr_vs_fp32_cpu_fp16": 54.8
+      },
+      "provenance": {
+        "upstream": "TencentARC/GFPGAN v1.3.0 release: GFPGANv1.4.pth",
+        "upstream_sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad",
+        "conversion_commit": "2130225 (spikes/s1-gfpgan export_models.py --static-modconv, ADR-0023)"
       }
     }
   ]

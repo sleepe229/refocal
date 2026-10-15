@@ -17,6 +17,11 @@ struct JobRequest {
   std::string backend = "auto";  // auto | cpu | vulkan
   int preview_max = 2048;
   double max_output_mp = 200.0;  // larger outputs raise NEEDS_USER (disk: 3 B/px, S2)
+  // Faces (ADR-0012, ADR-0022): a face pack id ("" = no face restoration), the detector, and
+  // how much of the restored face is blended in (0..1, 0.5 by default).
+  std::string face_model;
+  std::string det_model = "det.yunet-2023mar";
+  double face_strength = 0.5;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)

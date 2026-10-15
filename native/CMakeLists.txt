@@ -199,6 +199,7 @@ set(ENH_SOURCES
   core/src/image/metaio.cpp
   core/src/image/ops.cpp
   core/src/pipeline/bandstore.cpp
+  core/src/pipeline/faces.cpp
   core/src/pipeline/geometry.cpp
   core/src/backend/ncnn_backend.cpp
   core/src/job/events.cpp
@@ -277,6 +278,11 @@ if(ENH_BUILD_TESTS)
   target_link_libraries(test_golden PRIVATE enh_core)
   add_test(NAME golden COMMAND test_golden ${ENH_GOLDEN_DIR})
   set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
+  add_executable(test_faces tests/test_faces.cpp)
+  target_link_libraries(test_faces PRIVATE enh_core)
+  target_include_directories(test_faces PRIVATE third_party/json/single_include)
+  add_test(NAME faces COMMAND test_faces ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/faces
+    ${ENH_GOLDEN_DIR} ${CMAKE_CURRENT_BINARY_DIR}/test-work-faces)
   add_executable(test_integrity tests/test_integrity.cpp)
   target_link_libraries(test_integrity PRIVATE enh_core)
   add_test(NAME integrity COMMAND test_integrity ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/minisign

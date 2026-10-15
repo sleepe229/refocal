@@ -596,5 +596,39 @@
   "denoise": "Denoise",
   "denoiseNone": "Off",
   "denoiseStandard": "Standard",
-  "denoiseStrong": "Strong"
+  "denoiseStrong": "Strong",
+  "presetPortrait": "Portrait",
+  "presetOldPhoto": "Old photo",
+  "recipeFaces": "faces {percent}%",
+  "@recipeFaces": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "faces": "Restore faces",
+  "facesHint": "Uses the face model on each face, then blends it with the enhanced photo.",
+  "facesStrength": "Face strength",
+  "facesNeedPack": "Face restoration needs the face model (about 177 MB, non-commercial license).",
+  "facesGetPack": "Models",
+  "facesNoticeTitle": "About face restoration",
+  "facesNoticeBody": "The face model redraws faces from what it has learned. Faces can look sharper but also different from the real person, especially in old or small photos. Refocal blends the result with the original (50% by default) and marks saved photos as AI-edited.",
+  "facesNoticeOk": "I understand",
+  "stageFaces": "Restoring faces… {percent}%",
+  "@stageFaces": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "noteFacesFound": "Faces found: {count}",
+  "@noteFacesFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

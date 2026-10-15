@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ncnn {
 class Mat;
@@ -38,6 +39,8 @@ class InferenceBackend {
   // Throws enh::Error: ENH_E_MODEL (load), ENH_E_BACKEND (run), ENH_E_NUMERIC (NaN/Inf output).
   virtual void load(const ModelInfo& m) = 0;
   virtual void run(const ncnn::Mat& in, ncnn::Mat& out) = 0;
+  // All outputs in the network's declared order (multi-head models, e.g. YuNet's 12).
+  virtual std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in) = 0;
   // CPU threads of the next runs (thermal throttling, NFR-THERM-002); 0: as loaded.
   virtual void set_threads(int n) = 0;
   // CPU threads it was loaded with.
