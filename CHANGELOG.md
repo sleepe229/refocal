@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.0.4-alpha.1
+
+Fourth developer preview. Still **not tested on a phone**: only on a desktop and a headless
+Android 15 emulator. Please report problems with the device model and Android version.
+
+New:
+- **Queue:** choose several photos ("Process several photos") or share several to Refocal, pick
+  one preset for all of them, and they are enhanced one after another, also with the screen off.
+  Change the order by dragging, remove photos, pause and continue. One photo that fails does not
+  stop the others; at the end you see "Done N, failed M". The queue survives a restart of the
+  app or the phone.
+- Batch results are **saved to the gallery automatically** in your default format (can be
+  turned off in Settings or for one batch; then the results wait in the queue).
+- **History:** every saved result is listed with its preview and settings; process the photo
+  again with other settings while its copy is still there; delete one entry or all. History can
+  be turned off in Settings (this also clears it).
+- **Presets:** "Fast" and "Quality", and your own: save the settings of a result under a name,
+  apply them before enhancing, rename or delete them.
+- **Report a problem** (About): shows the app's log in full and lets you share it. File paths
+  and links are removed from the log before it is written.
+- Settings and your presets are included in your phone's backup (Google); photos, history and
+  the queue are not.
+
+Fixed:
+- Error messages no longer show internal details such as file paths.
+- Two photos picked or shared at the same moment could get the same internal name.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- In a batch, a photo too large for the chosen scale is processed at the largest scale that fits
+  instead of asking.
+- WebP is limited to 50 MP (lossless: 24 MP). HEIC output is not available yet. Transparency is
+  not kept.
+- No face restoration yet. Large photos at 4× can take minutes; the queue does not pause yet
+  when the phone gets hot.
+
+Model: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled.
+
 ## 0.0.3-alpha.1
 
 Third developer preview. Still **not tested on a phone**: only on a desktop and a headless

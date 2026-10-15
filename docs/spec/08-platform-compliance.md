@@ -15,7 +15,7 @@
 | COMP-AND-007 | 16 КБ page size: все native-библиотеки собраны с выравниванием 16 КБ | Must | R0.1 | Требование Play для target 35+ [проверить]; CI-проверка `zipalign -P 16` / `readelf` |
 | COMP-AND-008 | Политика Play по AI-генерируемому контенту: в приложении есть способ сообщить о проблемном результате; приложение не генерирует запрещённый контент | Must | R0.5 | Применимость к «улучшению» не определена [проверить]; FR-REP-001 |
 | COMP-AND-009 | Data Safety: «не собирается / не передаётся» (см. 07 §8) | Must | R0.5 | — |
-| COMP-AND-010 | `android:allowBackup` / `dataExtractionRules` исключают inbox, jobs, models | Should | R0.3 | PRIV-DATA-005 |
+| COMP-AND-010 | `android:allowBackup` / `dataExtractionRules` исключают inbox, jobs, models | Should | R0.3 | PRIV-DATA-005; с 0.0.4 правила включают только `prefs.sqlite` (ADR-0009, поправка 2) |
 | COMP-AND-011 | `cleartextTrafficPermitted=false` в network security config | Must | R0.2 | PRIV-NET-004 |
 | COMP-AND-012 | Ни один флейвор не содержит GMS/Firebase/Sentry и иных SDK отправки данных; флейворы `play` и `fdroid` отличаются только метаданными и подписью | Must | R0.1 | TEST-COMP-004 |
 
