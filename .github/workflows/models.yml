@@ -1,0 +1,49 @@
+# Publishes the signed model manifest (ADR-0011): tools/models/manifest.json, checked against
+# the schema and every file it lists, signed with key A (secret MODELS_MINISIGN_KEY; key B is
+# kept offline for rotation), uploaded to the release `models` as manifest.json +
+# manifest.json.minisig. The app verifies the signature with both public keys
+# (tools/models/keys) before it parses anything.
+name: models
+
+on:
+  push:
+    branches: [main]
+    paths: [tools/models/manifest.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: models
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sudo apt-get install -y --no-install-recommends minisign python3-jsonschema >/dev/null
+      - name: Published manifest (for the serial check)
+        run: gh release download models --pattern manifest.json --output published.json || true
+      - name: Check schema, serial and every file
+        run: tools/models/check_manifest.py --published published.json
+      - name: Sign
+        env:
+          KEY: ${{ secrets.MODELS_MINISIGN_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$KEY" > key.minisign
+          serial=$(python3 -c 'import json; print(json.load(open("tools/models/manifest.json"))["serial"])')
+          cp tools/models/manifest.json manifest.json
+          minisign -S -s key.minisign -m manifest.json -t "refocal manifest serial:$serial"
+          rm -f key.minisign
+          minisign -V -p tools/models/keys/A.pub -m manifest.json
+      - name: Upload to the release `models`
+        run: |
+          gh release view models >/dev/null 2>&1 || gh release create models --title "Model manifest" \
+            --notes "Signed model manifest read by the app (ADR-0011). Do not delete." --latest=false
+          gh release upload models manifest.json manifest.json.minisig --clobber

@@ -36,6 +36,38 @@ class RefocalNative {
 
   String get version => _b.enh_version().cast<Utf8>().toDartString();
 
+  /// Throws [EnhException] (signature: mismatch; io; invalid hex) unless [path] has the
+  /// SHA-256 [sha256Hex]. Streams the file on a helper isolate (packs are up to ~190 MB).
+  Future<void> verifyFile(String path, String sha256Hex) {
+    final libPath = _libPath;
+    return Isolate.run(() {
+      final b = EnhBindings(RefocalNative._open(libPath));
+      final p = path.toNativeUtf8(), h = sha256Hex.toNativeUtf8();
+      try {
+        RefocalNative._check(b.enh_verify_file(p.cast(), h.cast()), 'verify_file');
+      } finally {
+        malloc
+          ..free(p)
+          ..free(h);
+      }
+    });
+  }
+
+  /// Throws [EnhException] unless [sigPath] is a minisign signature of [msgPath] by one of
+  /// [publicKeys] (the key lines of minisign .pub files, ADR-0011).
+  void verifyMinisign(String msgPath, String sigPath, List<String> publicKeys) {
+    final m = msgPath.toNativeUtf8(), s = sigPath.toNativeUtf8();
+    final k = publicKeys.join(',').toNativeUtf8();
+    try {
+      _check(_b.enh_verify_minisign(m.cast(), s.cast(), k.cast()), 'verify_minisign');
+    } finally {
+      malloc
+        ..free(m)
+        ..free(s)
+        ..free(k);
+    }
+  }
+
   /// Starts the rotating log file shared by the core and the app (FR-SET-007, PRIV-LOG-002):
   /// [path] and `$path.1`, each at most [maxBytes].
   void openLog(String path, {int maxBytes = 2 << 20}) {
