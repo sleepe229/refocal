@@ -1388,6 +1388,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The phone is warm: processing more slowly.'**
   String get noteThermalThrottle;
+
+  /// No description provided for @compareShowOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Show original'**
+  String get compareShowOriginal;
+
+  /// No description provided for @compareShowResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Show result'**
+  String get compareShowResult;
+
+  /// No description provided for @resultAlt.
+  ///
+  /// In en, this message translates to:
+  /// **'Result, {width}×{height}, enhanced by AI'**
+  String resultAlt(int width, int height);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
