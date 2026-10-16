@@ -146,6 +146,8 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 - NFR по T1/T2 выполнены на ≥ 80% матрицы;
 - фаззинг 1 ч без падений.
 
+**Сведения о результате (FR-CMP-007):** ✅ под размером в редакторе: модель (уровень денойза), бэкенд, время.
+
 ## 0.5 — Public beta
 
 **Объём:** GitHub APK, F-Droid (+ Play open testing, если Q-06); паки CodeFormer, x4plus, anime_6B; 8×; side-by-side, синхронный зум, лупа; «Сообщить о плохом результате»; Weblate; RTL.
