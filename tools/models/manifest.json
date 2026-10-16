@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "serial": 2,
-  "generated_at": "2026-10-15T13:00:00Z",
+  "serial": 3,
+  "generated_at": "2026-10-16T14:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -241,6 +241,180 @@
         "upstream": "TencentARC/GFPGAN v1.3.0 release: GFPGANv1.4.pth",
         "upstream_sha256": "e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad",
         "conversion_commit": "2130225 (spikes/s1-gfpgan export_models.py --static-modconv, ADR-0023)"
+      }
+    },
+    {
+      "id": "sr.x4plus",
+      "version": "1.0.0",
+      "category": "sr",
+      "title": {
+        "en": "High quality upscaler",
+        "ru": "Апскейл высокого качества"
+      },
+      "description": {
+        "en": "Real-ESRGAN x4plus: sharper detail on photos, several times slower. For fast phones.",
+        "ru": "Real-ESRGAN x4plus: больше деталей на фото, но в несколько раз медленнее. Для быстрых телефонов."
+      },
+      "tier_min": "T2",
+      "license": {
+        "spdx": "BSD-3-Clause",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/LICENSE.txt",
+        "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 4,
+        "pad": 24
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 101667,
+          "sha256": "86de8b20eb53fc1a7b7cd56701c716132370f34a74b347079712fc954d04538f",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 33424520,
+          "sha256": "cae0a5436617d736f3a14d0a816885fddb36d3fad83516cab4008810da9a2159",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 24,
+          "sha256": "a034657c32ef82225f8e05072c98a04c775a03fed5fb0133c69ed51cebb9a2ca",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/model.json"
+          ]
+        }
+      ],
+      "eval": {
+        "psnr_vs_fp32_cpu_fp16": 64.47
+      },
+      "provenance": {
+        "upstream": "xinntao/Real-ESRGAN v0.1.0: RealESRGAN_x4plus.pth (RRDBNet, 23 blocks)",
+        "upstream_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+        "conversion_commit": "tools/models/convert_rrdb.py"
+      }
+    },
+    {
+      "id": "sr.x4plus-anime6b",
+      "version": "1.0.0",
+      "category": "sr",
+      "title": {
+        "en": "Anime and art",
+        "ru": "Аниме и рисунки"
+      },
+      "description": {
+        "en": "Real-ESRGAN x4plus anime 6B: for drawings, anime and illustrations, not photos.",
+        "ru": "Real-ESRGAN x4plus anime 6B: для рисунков, аниме и иллюстраций, не для фото."
+      },
+      "tier_min": "T1",
+      "license": {
+        "spdx": "BSD-3-Clause",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/LICENSE.txt",
+        "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 4,
+        "pad": 16
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 26683,
+          "sha256": "8fb8b2a113e8310988e147fd1d25f4175766ec52a9416eff358b1ba1f1c5f6ed",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 8943500,
+          "sha256": "e8b012c2197c7172970bbd8ac088d9635a063fa622cb9012ca8d691216c62d2c",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 24,
+          "sha256": "1d308df1b1d79f9b6cad72f8a24dee4b397211ebdff13fc78250366bd9f62dfb",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/model.json"
+          ]
+        }
+      ],
+      "eval": {
+        "psnr_vs_fp32_cpu_fp16": 63.91
+      },
+      "provenance": {
+        "upstream": "xinntao/Real-ESRGAN v0.2.2.4: RealESRGAN_x4plus_anime_6B.pth (RRDBNet, 6 blocks)",
+        "upstream_sha256": "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da",
+        "conversion_commit": "tools/models/convert_rrdb.py"
       }
     }
   ]
