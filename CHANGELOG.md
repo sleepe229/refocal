@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.2.0-alpha.1
+
+First alpha. Still **not tested on a phone**: only on a desktop and a headless Android 15
+emulator. Please report problems with the device model and Android version.
+
+New:
+- **Auto** (selected for every new photo): Refocal looks at the photo — its size, noise and
+  faces — and picks the scale, the denoise level and face restoration for this phone. It says
+  what it chose, e.g. "4×, faces: 2, denoise medium". Any other choice is one tap away.
+- **Face restoration** with an optional face model (non-commercial license, about 177 MB):
+  faces are restored and blended with the enhanced photo (50% by default, adjustable), their
+  colours kept. "Only faces" restores the faces and simply enlarges the rest, much faster.
+  Before the first use Refocal explains what face restoration does. New presets "Portrait"
+  and "Old photo".
+- **Models** (Settings → Models): download extra models — denoise levels "none" and "strong",
+  and the face model. Every model is checked against a signed list before it is used; a
+  download continues where it stopped. Without internet, a model can be imported from a
+  `.rfpack` file with the same checks.
+- **Device class:** a few seconds' speed test after the first start picks the tile size and
+  speed settings for the phone; it can be changed in Settings.
+- **Low memory:** when the phone runs short of memory, Refocal processes in smaller pieces (the
+  same result, slower), switches to another processor, or skips a face it cannot restore, and
+  says so. If nothing helps, it asks whether to continue at a smaller size; it never reduces
+  the size by itself. In a batch such a photo fails with "not enough memory" instead.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- Turning off single faces by tapping them comes in 0.3.
+- The face model is for non-commercial use only (its license is shown before download).
+- Stability and speed on a range of real phones (100 jobs without a crash, speed targets on
+  mid-range and high-end phones) have not been measured yet.
+- WebP is limited to 50 MP (lossless: 24 MP). HEIC output is not available yet. Transparency is
+  not kept.
+
+Models: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled, and its denoise 0 and 1.0
+variants (download); YuNet face detector (MIT), bundled; GFPGAN 1.4 (non-commercial, download).
+
 ## 0.0.5-alpha.1
 
 Fifth developer preview. Still **not tested on a phone**: only on a desktop and a headless
