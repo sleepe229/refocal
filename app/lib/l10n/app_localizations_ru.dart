@@ -1088,4 +1088,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportNoBrowser => 'На телефоне нет приложения, открывающего ссылки';
+
+  @override
+  String get presetsImport => 'Импортировать пресеты';
+
+  @override
+  String get presetsExport => 'Экспортировать ваши пресеты';
+
+  @override
+  String get presetsExported => 'Пресеты сохранены';
+
+  @override
+  String presetsImported(int count) {
+    return 'Добавлено пресетов: $count';
+  }
+
+  @override
+  String get presetsNotAFile => 'Это не файл пресетов Refocal или он от более новой версии';
 }

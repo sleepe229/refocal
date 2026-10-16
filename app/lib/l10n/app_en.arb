@@ -755,5 +755,17 @@
   "reportPhotoTitle": "The photo will be public",
   "reportPhotoBody": "GitHub issues can be read by anyone. Share the photo only if you are fine with that, and never photos of other people without their consent.",
   "reportPhotoOk": "Share the photo",
-  "reportNoBrowser": "No app on this phone opens links"
+  "reportNoBrowser": "No app on this phone opens links",
+  "presetsImport": "Import presets",
+  "presetsExport": "Export your presets",
+  "presetsExported": "Presets saved",
+  "presetsImported": "Presets added: {count}",
+  "@presetsImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "presetsNotAFile": "Not a Refocal presets file, or a newer one"
 }
