@@ -72,9 +72,34 @@ void main() {
       'height': 900,
       'megapixels': 0.6075,
       'noise_sigma': 1.87,
-      'faces': {'count': 1, 'largest_px': 431, 'detector': true},
+      'faces': {
+        'count': 1,
+        'largest_px': 431,
+        'detector': true,
+        'boxes': [
+          [120, 88, 431, 402],
+        ],
+      },
     });
     expect((a.faces, a.megapixels), (1, 0.6075));
+    expect(a.boxes, [const FaceBox(120, 88, 431, 402)]);
+    expect(
+      () => PhotoAnalysis.fromJson(const {
+        'schema': 1,
+        'width': 1,
+        'height': 1,
+        'noise_sigma': 0,
+        'faces': {
+          'count': 1,
+          'largest_px': 1,
+          'detector': true,
+          'boxes': [
+            [1, 2, -3, 4],
+          ],
+        },
+      }),
+      throwsFormatException,
+    );
     expect(() => PhotoAnalysis.fromJson(const {'schema': 2}), throwsFormatException);
   });
 }
