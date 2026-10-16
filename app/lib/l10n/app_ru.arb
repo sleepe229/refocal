@@ -284,6 +284,11 @@
   "modelsImported": "Установлено: {name}",
   "modelsErrorNotAPack": "Это не пакет моделей Refocal, или файл повреждён",
   "modelsErrorStorage": "Не удалось прочитать файл",
+  "faceOfferTitle": "Модель лиц для портретов",
+  "faceOfferBody": "Восстанавливает лица на старых и мелких фото. Скачивается отдельно: около 177 МБ, для некоммерческого использования.",
+  "faceOfferOpen": "Модели",
+  "faceOfferLater": "Не сейчас",
   "facesTapHint": "Нажмите на лицо, чтобы оставить его как есть",
-  "faceToggle": "Лицо {number}: восстанавливать"
+  "faceToggle": "Лицо {number}: восстанавливать",
+  "resultSeconds": "{seconds} с"
 }

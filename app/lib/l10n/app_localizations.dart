@@ -1797,6 +1797,30 @@ abstract class AppLocalizations {
   /// **'The file could not be read'**
   String get modelsErrorStorage;
 
+  /// No description provided for @faceOfferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Face model for portraits'**
+  String get faceOfferTitle;
+
+  /// No description provided for @faceOfferBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.'**
+  String get faceOfferBody;
+
+  /// No description provided for @faceOfferOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get faceOfferOpen;
+
+  /// No description provided for @faceOfferLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get faceOfferLater;
+
   /// No description provided for @facesTapHint.
   ///
   /// In en, this message translates to:
@@ -1808,6 +1832,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Face {number}: restore'**
   String faceToggle(int number);
+
+  /// No description provided for @resultSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String resultSeconds(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

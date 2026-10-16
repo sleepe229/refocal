@@ -996,10 +996,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get modelsErrorStorage => 'The file could not be read';
 
   @override
+  String get faceOfferTitle => 'Face model for portraits';
+
+  @override
+  String get faceOfferBody =>
+      'Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.';
+
+  @override
+  String get faceOfferOpen => 'Models';
+
+  @override
+  String get faceOfferLater => 'Not now';
+
+  @override
   String get facesTapHint => 'Tap a face to leave it as it is';
 
   @override
   String faceToggle(int number) {
     return 'Face $number: restore';
+  }
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds s';
   }
 }
