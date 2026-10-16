@@ -5,6 +5,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
+import android.content.ActivityNotFoundException
 import android.content.ComponentCallbacks2
 import android.content.ContentValues
 import android.content.Context
@@ -259,6 +260,17 @@ class RefocalPlatformPlugin :
     if (uris.isEmpty()) return false
     shared = shared + uris
     return true
+  }
+
+  override fun openUrl(url: String) {
+    val uri = Uri.parse(url)
+    if (uri.scheme != "https") throw FlutterError("bad_url", "https only")
+    try {
+      val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      (binding?.activity ?: context).startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+      throw FlutterError("no_browser", "No app opens links")
+    }
   }
 
   override fun shareFile(path: String, mimeType: String, chooserTitle: String) {
