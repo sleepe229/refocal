@@ -93,7 +93,7 @@ class _CompareSliderState extends State<CompareSlider> {
             // Flexible: at 200% text the label wraps instead of overflowing (A11Y-GEN-004).
             Expanded(
               child: Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: _sideBySide
                     ? null
                     : TextButton.icon(
@@ -321,6 +321,8 @@ class _CompareSliderState extends State<CompareSlider> {
                         ),
                       ),
                     ),
+                    // Sides of the photo, not of the text: the original is left of the
+                    // border in right-to-left languages too (the photo is not mirrored).
                     Positioned(
                       left: 8,
                       top: 8,

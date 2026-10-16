@@ -1,5 +1,6 @@
 // TEST-A11Y-001 (labelled tap targets, Android tap target size), TEST-A11Y-004 (contrast) and
-// TEST-A11Y-003 (text at 200% without overflow) on the screens that run without the native core.
+// TEST-A11Y-003 (text at 200% without overflow) on the screens that run without the native core;
+// and NFR-L10N-003: the same screens laid out right to left.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -11,6 +12,7 @@ import 'package:refocal/bootstrap/settings.dart';
 import 'package:refocal/bootstrap/engine.dart';
 import 'package:refocal/bootstrap/queue.dart';
 import 'package:refocal/bootstrap/storage.dart';
+import 'package:refocal/features/onboarding/onboarding_page.dart';
 import 'package:refocal/features/queue/batch_sheet.dart';
 import 'package:refocal/features/queue/queue_page.dart';
 import 'package:refocal/features/settings/settings_page.dart';
@@ -54,6 +56,7 @@ void main() {
   tearDown(() => dir.deleteSync(recursive: true));
 
   final screens = <String, Widget Function()>{
+    'onboarding': () => const OnboardingPage(),
     'settings': () => const SettingsPage(),
     'storage': () => const StoragePage(),
     'queue': () => const QueuePage(),
@@ -74,7 +77,12 @@ void main() {
     ),
   };
 
-  Future<void> pump(WidgetTester tester, Widget screen, double scale) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget screen,
+    double scale, {
+    TextDirection? direction,
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.625;
     addTearDown(tester.view.reset);
@@ -113,7 +121,9 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
+            child: direction == null
+                ? child!
+                : Directionality(textDirection: direction, child: child!),
           ),
           home: screen,
         ),
@@ -140,5 +150,21 @@ void main() {
       await pump(tester, build(), 2);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('$name: right to left, no overflow (NFR-L10N-003)', (tester) async {
+      await pump(tester, build(), 1, direction: TextDirection.rtl);
+      expect(tester.takeException(), isNull);
+      await pump(tester, build(), 2, direction: TextDirection.rtl);
+      expect(tester.takeException(), isNull);
+    });
   }
+
+  testWidgets('right to left: "Skip" sits at the start edge', (tester) async {
+    for (final direction in TextDirection.values) {
+      await pump(tester, const OnboardingPage(), 1, direction: direction);
+      final skip = tester.getCenter(find.byType(TextButton).first).dx;
+      final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      expect(skip > width / 2, direction == TextDirection.ltr, reason: '$direction');
+    }
+  });
 }
