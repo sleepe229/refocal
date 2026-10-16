@@ -348,6 +348,34 @@ TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4
   CHECK(seen.faces == 1);
   enh_job_destroy(j);
 
+  // ADR-0016: a face that runs out of memory on CPU fp16 and fp32 is skipped, the job is done.
+  setenv("ENH_FAULT", "cpu:oom_above:500", 1);  // the 512 px face, not the SR tiles
+  q["job_id"] = "faces_oom";
+  const std::string r1 = q.dump();
+  CHECK(enh_job_create(s, r1.c_str(), &j) == ENH_OK);
+  struct Fallbacks {
+    std::vector<nlohmann::json> evs;
+  } fb;
+  static Fallbacks* gf = nullptr;
+  gf = &fb;
+  CHECK(enh_job_start(
+            j,
+            [](int64_t, int32_t type, int32_t, int64_t, int64_t, char* p) {
+              const auto e = nlohmann::json::parse(p);
+              enh_free(p);
+              if (type == ENH_EV_FALLBACK) gf->evs.push_back(e);
+            },
+            3) == ENH_OK);
+  for (int i = 0; i < 1200 && enh_job_status(j) < 0; ++i) usleep(100000);
+  unsetenv("ENH_FAULT");
+  CHECK(enh_job_status(j) == ENH_OK);
+  enh_job_destroy(j);
+  CHECK(fb.evs.size() == 2);
+  if (fb.evs.size() == 2) {
+    CHECK(fb.evs[0]["kind"] == "backend" && fb.evs[0]["to"] == "cpu_fp32");
+    CHECK(fb.evs[1]["kind"] == "face" && fb.evs[1]["index"] == 0 && fb.evs[1]["reason"] == "oom");
+  }
+
   // Region Faces (FR-FACE-006): the background is a Lanczos upscale, the SR model does not run.
   q["job_id"] = "faces_only";
   q["background"] = "lanczos";

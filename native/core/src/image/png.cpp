@@ -11,6 +11,7 @@
 #include "image/encode.hpp"
 #include "image/metaio.hpp"
 #include "util/error.hpp"
+#include "util/log.hpp"
 
 namespace enh {
 namespace {
@@ -25,12 +26,20 @@ struct File {
 
 void on_warning(png_structp, png_const_charp) {}
 
+// Without an error callback libpng prints every error of a damaged input to stderr; here it
+// goes to the core's log (redacted, PRIV-LOG-001) and the decoder reports the status.
+[[noreturn]] void on_read_error(png_structp png, png_const_charp msg) {
+  ENH_LOGD("png: %s", msg ? msg : "error");
+  png_longjmp(png, 1);
+}
+
 // Header pass: size, alpha, and (optionally) eXIf/iCCP. Results land in heap objects because
 // automatic variables modified after setjmp are indeterminate after longjmp.
 void read_header(const std::string& path, ImageInfo* info, SourceMeta* meta) {
   File f(path);
   if (!f.f) fail(ENH_E_IO, "cannot open input");
-  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, on_warning);
+  png_structp png =
+      png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, on_read_error, on_warning);
   if (!png) fail(ENH_E_OOM, "png_create_read_struct");
   png_infop pi = png_create_info_struct(png);
   auto ok = std::make_unique<bool>(false);

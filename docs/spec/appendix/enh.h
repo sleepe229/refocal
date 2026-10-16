@@ -80,13 +80,21 @@ typedef struct {
 } enh_session_config;
 
 typedef enum {
-  ENH_EV_STAGE = 1,      /* payload: {"stage":"restore_faces"} */
-  ENH_EV_PROGRESS = 2,   /* done/total in tiles; payload: {"eta_ms":1234} */
-  ENH_EV_FALLBACK = 3,   /* payload: {"from":"vulkan","to":"cpu","reason":"device_lost"} */
-  ENH_EV_WARNING = 4,    /* payload: {"code":"face_skipped","face":2} */
-  ENH_EV_NEEDS_USER = 5, /* payload: {"code":"downscale_required","options":["2x","faces_only"]} */
-  ENH_EV_DONE = 6,       /* payload: result bundle JSON */
-  ENH_EV_ERROR = 7       /* payload: {"status":3,"message":"..."} */
+  ENH_EV_STAGE = 1,    /* payload: {"stage":"restore_faces"} */
+  ENH_EV_PROGRESS = 2, /* done/total in tiles; payload: {"eta_ms":1234} */
+  /* A rung of the fallback ladder (ADR-0016); reason: oom | memory_pressure | numeric |
+   * backend_error. kind "tile": {"kind":"tile","from":"256","to":"128",...} (same pixels);
+   * "backend": {"kind":"backend","from":"vulkan_fp16","to":"cpu",...}; "face": one face
+   * (index) or all (no index) left as the SR model makes them: {"kind":"face","to":"skipped",
+   * "index":2,...}. */
+  ENH_EV_FALLBACK = 3,
+  ENH_EV_WARNING = 4, /* payload: {"code":"faces_found","count":2} */
+  /* The job waits for enh_job_answer with one of "options" (FR-ENH-014, FR-IMP-006):
+   * {"code":"downscale_required"|"oom_downscale","options":[{"scale":2,"fast2":true},...]};
+   * oom_downscale may offer {"scale":4,"fast2":false,"background":"lanczos"} (region Faces). */
+  ENH_EV_NEEDS_USER = 5,
+  ENH_EV_DONE = 6, /* payload: result bundle JSON */
+  ENH_EV_ERROR = 7 /* payload: {"status":3,"message":"..."} */
 } enh_event_type;
 
 /*
@@ -128,7 +136,10 @@ enh_status enh_benchmark(enh_session* s, const char* opts_json, char** out_json)
 enh_status enh_analyze(enh_session* s, const char* input_path, char** out_json);
 
 /* Runtime signals from the platform layer */
-void enh_set_memory_pressure(enh_session* s, int32_t level); /* 0 none .. 3 critical */
+/* 0 none .. 3 critical (Android onTrimMemory, iOS memory warning). Each call at 2 or more is
+ * a memory warning: the next tile of a job created before it runs at half the size
+ * (NFR-MEM-004). */
+void enh_set_memory_pressure(enh_session* s, int32_t level);
 /* Device tier (ADR-0017): 0 T0, 1 T1, 2 T2, e.g. from enh_benchmark's result; for later jobs. */
 void enh_set_tier(enh_session* s, int32_t tier);
 void enh_set_gpu_allowed(enh_session* s, int32_t allowed); /* iOS lifecycle gate */

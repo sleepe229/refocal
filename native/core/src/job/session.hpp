@@ -20,6 +20,8 @@ struct enh_session {
 
   // Runtime signals from the platform layer.
   std::atomic<int32_t> memory_pressure{0};
+  // Memory warnings so far: enh_set_memory_pressure calls at level >= 2 (NFR-MEM-004).
+  std::atomic<uint32_t> memory_warnings{0};
   std::atomic<int32_t> thermal{0};
   std::atomic<int32_t> gpu_allowed{1};
   // Device tier (ADR-0017): 0 T0, 1 T1, 2 T2; from the config, then enh_set_tier (benchmark).

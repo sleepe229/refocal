@@ -46,4 +46,28 @@ void main() {
     }) as NeedsUserEvent;
     expect(n.options.single['fast2'], isTrue);
   });
+
+  test('decodes the rungs of the fallback ladder (ADR-0016)', () {
+    final t = JobEvent.fromNative(3, 4, 20, {
+      'kind': 'tile',
+      'from': '256',
+      'to': '128',
+      'reason': 'oom',
+    }) as FallbackEvent;
+    expect((t.kind, t.from, t.to, t.reason), (FallbackKind.tile, '256', '128', 'oom'));
+    final face = JobEvent.fromNative(3, 0, 0, {
+      'kind': 'face',
+      'to': 'skipped',
+      'index': 2,
+      'reason': 'oom',
+    }) as FallbackEvent;
+    expect((face.kind, face.faceIndex, face.from), (FallbackKind.face, 2, ''));
+    // Before the kind field: a backend switch.
+    final old = JobEvent.fromNative(3, 0, 0, {
+      'from': 'vulkan_fp16',
+      'to': 'cpu',
+      'reason': 'numeric',
+    }) as FallbackEvent;
+    expect((old.kind, old.to, old.faceIndex), (FallbackKind.backend, 'cpu', null));
+  });
 }

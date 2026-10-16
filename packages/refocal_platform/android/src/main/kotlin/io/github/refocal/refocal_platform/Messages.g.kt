@@ -902,4 +902,27 @@ class RefocalPlatformEvents(private val binaryMessenger: BinaryMessenger, privat
       }
     }
   }
+  /**
+   * The system is low on memory, as `enh_set_memory_pressure` takes it: 1 moderate, 2 low
+   * (a memory warning: the next tile is half the size, NFR-MEM-004), 3 critical.
+   */
+  suspend fun onMemoryPressure(levelArg: Long)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onMemoryPressure$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(levelArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(MessagesPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
 }

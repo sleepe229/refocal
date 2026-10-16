@@ -94,11 +94,18 @@ class EngineQueueRunner implements QueueJobRunner {
     _job = job;
     AppLog.info('queue job ${item.jobId}: scale ${item.recipe.scale}');
     var progress = item.progress;
+    var outOfMemory = false;
     final events = job.events.listen((e) {
       switch (e) {
         case ProgressEvent():
           progress = e.fraction;
           onProgress(progress);
+        case NeedsUserEvent(code: 'oom_downscale'):
+          // FR-ENH-014: never a smaller scale without the user; the item fails with "out of
+          // memory" and can be retried from the editor.
+          AppLog.warn('queue: out of memory at the smallest tile');
+          outOfMemory = true;
+          job.cancel();
         case NeedsUserEvent(:final code, :final options):
           // Nobody to ask in a batch: the largest scale that fits (the core lists them in
           // descending order, FR-IMP-006).
@@ -109,7 +116,7 @@ class EngineQueueRunner implements QueueJobRunner {
             job.answer(options.first);
           }
         case FallbackEvent():
-          AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
+          AppLog.warn('fallback ${e.kind.name} ${e.from} -> ${e.to} (${e.reason})');
         case WarningEvent(code: final c) when c.startsWith('thermal_'):
           AppLog.info('queue: $c');
         default:
@@ -123,6 +130,7 @@ class EngineQueueRunner implements QueueJobRunner {
         null,
         switch (f.status) {
           EnhStatus.paused => JobPaused(progress),
+          EnhStatus.cancelled when outOfMemory => JobFailed(EnhStatus.oom.name),
           EnhStatus.cancelled => const JobFailed(JobFailed.cancelled),
           final s => JobFailed(s.name),
         },
