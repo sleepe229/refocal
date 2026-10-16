@@ -176,6 +176,14 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _facesOnly = r.facesOnly;
   }
 
+  /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
+  /// it elsewhere: the core then asks for a smaller scale).
+  bool get _x8Allowed {
+    final size = _size;
+    final tier = ref.watch(tierProvider).value?.tier;
+    return tier == DeviceTier.t2 && size != null && size.width * size.height <= Recipe.maxX8InputPx;
+  }
+
   bool _matches(Recipe r) =>
       _choice == ScaleChoice.of(r) &&
       _strength == r.strength &&
@@ -572,10 +580,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         SegmentedButton<ScaleChoice>(
           segments: [
             for (final c in ScaleChoice.values)
-              ButtonSegment(
-                value: c,
-                label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
-              ),
+              if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
+                ButtonSegment(
+                  value: c,
+                  label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
+                ),
           ],
           selected: {?_choice},
           emptySelectionAllowed: true,

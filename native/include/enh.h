@@ -91,7 +91,9 @@ typedef enum {
   ENH_EV_WARNING = 4, /* payload: {"code":"faces_found","count":2} */
   /* The job waits for enh_job_answer with one of "options" (FR-ENH-014, FR-IMP-006):
    * {"code":"downscale_required"|"oom_downscale","options":[{"scale":2,"fast2":true},...]};
-   * oom_downscale may offer {"scale":4,"fast2":false,"background":"lanczos"} (region Faces). */
+   * oom_downscale may offer {"scale":4,"fast2":false,"background":"lanczos"} (region Faces).
+   * downscale_required: the output is above max_output_mp, or 8x on an input above 1.5 MP
+   * (ADR-0014); options largest first. */
   ENH_EV_NEEDS_USER = 5,
   ENH_EV_DONE = 6, /* payload: result bundle JSON */
   ENH_EV_ERROR = 7 /* payload: {"status":3,"message":"..."} */

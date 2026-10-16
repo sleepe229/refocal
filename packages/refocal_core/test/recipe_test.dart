@@ -21,6 +21,8 @@ void main() {
   test('the constructor rejects impossible recipes', () {
     expect(() => Recipe(scale: 3, srModel: 'm'), throwsArgumentError);
     expect(() => Recipe(scale: 4, fast2: true, srModel: 'm'), throwsArgumentError);
+    expect(() => Recipe(scale: 8, fast2: true, srModel: 'm'), throwsArgumentError);
+    expect(Recipe(scale: 8, srModel: 'm').scale, 8); // ADR-0014: x4 twice
     expect(() => Recipe(scale: 4, srModel: ''), throwsArgumentError);
     expect(() => Recipe(scale: 4, srModel: 'm', strength: 1.5), throwsArgumentError);
     expect(() => OutputSpec(ExportFormat.jpeg), throwsArgumentError);
@@ -52,7 +54,7 @@ void main() {
       {...good, 'face_model': 'face.x', 'face_strength': '0.5'},
       {...good}..remove('schema'),
       {...good, 'scale': '4'},
-      {...good, 'scale': 8},
+      {...good, 'scale': 16},
       {...good, 'strength': -0.1},
       {...good, 'sr_model': null},
       {
