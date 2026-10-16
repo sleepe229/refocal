@@ -1,0 +1,17 @@
+name: Feature request
+description: Something Refocal should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do, and why?
+    validations:
+      required: true
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Project policy
+      options:
+        - label: It is not on the not-accepted list in CONTRIBUTING.md and works without sending photos anywhere.
+          required: true

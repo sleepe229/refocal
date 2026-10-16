@@ -1,7 +1,7 @@
 # Release (docs/spec/11-ci-cd-release.md, OPS-REL-001/002): on a tag v*, build the fdroid flavor in
 # the pinned rebuilder image, sign it with the release key (Gradle signingConfig: the only way the
-# signature survives apksigcopier, S8), and publish a DRAFT GitHub release with SHA256SUMS and a
-# provenance attestation. A maintainer reviews and publishes the draft by hand.
+# signature survives apksigcopier, S8), and publish a DRAFT GitHub release with SHA256SUMS, an
+# SPDX SBOM (tools/sbom/make_sbom.py) and provenance and SBOM attestations. A maintainer reviews and publishes the draft by hand.
 #
 # Secrets (Environment "release", required reviewer): ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
 # ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. See docs/ops/release.md.
@@ -69,13 +69,25 @@ jobs:
           size=$(stat -c %s dist/*.apk)
           echo "APK size: $size bytes"
           [ "$size" -le 31457280 ] || { echo "::error::APK over 30 MB (0.1 budget)"; exit 1; }
+      - name: SBOM (OPS-REL-002)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src/app refocal-rebuilder:release bash -euc '
+            git config --global --add safe.directory "*"
+            /src/flutter/bin/flutter --suppress-analytics config --no-analytics >/dev/null
+            /src/flutter/bin/flutter --suppress-analytics pub deps --json' > deps.json
+          tools/sbom/make_sbom.py "${GITHUB_REF_NAME#v}" deps.json "dist/refocal-${GITHUB_REF_NAME}.spdx.json"
       - name: SHA256SUMS
-        run: cd dist && sha256sum *.apk *.tar.gz > SHA256SUMS && cat SHA256SUMS
+        run: cd dist && sha256sum *.apk *.tar.gz *.spdx.json > SHA256SUMS && cat SHA256SUMS
       # Not available for user-owned private repositories; runs once the repo is public.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: ${{ !github.event.repository.private }}
         with:
           subject-path: dist/*.apk
+      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        if: ${{ !github.event.repository.private }}
+        with:
+          subject-path: dist/*.apk
+          sbom-path: dist/refocal-${{ github.ref_name }}.spdx.json
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -83,4 +95,4 @@ jobs:
           pre=""; case "$GITHUB_REF_NAME" in *-*) pre="--prerelease";; esac
           notes=$(awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## " v {f=1; next} /^## / {f=0} f' CHANGELOG.md)
           gh release create "$GITHUB_REF_NAME" --draft $pre --title "Refocal ${GITHUB_REF_NAME}" \
-            --notes "$notes" dist/*.apk dist/*.tar.gz dist/SHA256SUMS
+            --notes "$notes" dist/*.apk dist/*.tar.gz dist/*.spdx.json dist/SHA256SUMS

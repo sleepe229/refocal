@@ -1,0 +1,16 @@
+name: Translation
+description: A wrong or missing translation, or a new language.
+labels: [translation]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+    validations:
+      required: true
+  - type: textarea
+    id: text
+    attributes:
+      label: Which text, and what it should say
+    validations:
+      required: true
