@@ -4,6 +4,9 @@
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
+
+#include "pipeline/faces.hpp"
 
 namespace enh {
 
@@ -26,6 +29,9 @@ struct JobRequest {
   // FR-FACE-006 region: "sr" (the SR model, regions All/Background) or "lanczos" (region Faces:
   // only faces are restored, the rest is a Lanczos-3 upscale and the SR model is not run).
   std::string background = "sr";
+  // FR-FACE-007: faces the user turned off, as enh_analyze listed them (input pixels after
+  // EXIF orientation). A detected face matching one of them is not restored.
+  std::vector<FaceBox> faces_off;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)
