@@ -300,6 +300,7 @@ TEST("analyze: size, faces with the detector, noise") {
     std::printf("  %s\n", a.dump().c_str());
     CHECK(a["width"] == 675 && a["height"] == 900);
     CHECK(a["faces"]["count"] == 1 && a["faces"]["detector"] == true);
+    CHECK(a["faces"]["boxes"].size() == 1 && a["faces"]["boxes"][0].size() == 4);
     CHECK(a["noise_sigma"].get<double>() >= 0);
   }
   CHECK(enh_analyze(s, "/nonexistent.jpg", &out) != ENH_OK);
@@ -374,6 +375,47 @@ TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4
   if (fb.evs.size() == 2) {
     CHECK(fb.evs[0]["kind"] == "backend" && fb.evs[0]["to"] == "cpu_fp32");
     CHECK(fb.evs[1]["kind"] == "face" && fb.evs[1]["index"] == 0 && fb.evs[1]["reason"] == "oom");
+  }
+
+  // FR-FACE-007: the face turned off (its box from enh_analyze) is not restored; with that
+  // one face, the result equals the job without faces.
+  {
+    char* aj = nullptr;
+    CHECK(enh_analyze(s, fs::join(g_data, "einstein.jpg").c_str(), &aj) == ENH_OK);
+    const auto box = nlohmann::json::parse(aj)["faces"]["boxes"][0];
+    enh_free(aj);
+    nlohmann::json off = q;
+    off["job_id"] = "faces_off";
+    off["faces_off"] = nlohmann::json::array({box});
+    const std::string ro = off.dump();
+    CHECK(enh_job_create(s, ro.c_str(), &j) == ENH_OK);
+    seen = {};
+    CHECK(enh_job_start(
+              j,
+              [](int64_t, int32_t type, int32_t, int64_t, int64_t, char* p) {
+                const auto e = nlohmann::json::parse(p);
+                enh_free(p);
+                if (type == ENH_EV_WARNING && e.value("code", "") == "faces_found")
+                  g->faces = e["count"].get<int>() * 10 + e["off"].get<int>();
+              },
+              4) == ENH_OK);
+    for (int i = 0; i < 1200 && enh_job_status(j) < 0; ++i) usleep(100000);
+    CHECK(enh_job_status(j) == ENH_OK);
+    CHECK(seen.faces == 1);  // restored 0, off 1
+    enh_job_destroy(j);
+    nlohmann::json plain = q;
+    plain.erase("face_model");
+    plain["job_id"] = "faces_none";
+    const std::string rp = plain.dump();
+    CHECK(enh_job_create(s, rp.c_str(), &j) == ENH_OK);
+    CHECK(enh_job_start(
+              j, [](int64_t, int32_t, int32_t, int64_t, int64_t, char* p) { enh_free(p); }, 5) ==
+          ENH_OK);
+    for (int i = 0; i < 1200 && enh_job_status(j) < 0; ++i) usleep(100000);
+    CHECK(enh_job_status(j) == ENH_OK);
+    enh_job_destroy(j);
+    CHECK(fs::read_all(fs::join(g_work, "faces_off/bands/0000.raw")) ==
+          fs::read_all(fs::join(g_work, "faces_none/bands/0000.raw")));
   }
 
   // Region Faces (FR-FACE-006): the background is a Lanczos upscale, the SR model does not run.
