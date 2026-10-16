@@ -43,6 +43,20 @@ float feather(double fx, double fy) {
 
 }  // namespace
 
+void keep_restorable(std::vector<Face>& faces) {
+  faces.erase(std::remove_if(faces.begin(), faces.end(),
+                             [](const Face& f) { return std::min(f.w, f.h) < kMinFacePx; }),
+              faces.end());
+  if (faces.size() > kMaxFaces) faces.resize(kMaxFaces);
+}
+
+float iou(const Face& f, const FaceBox& b) {
+  const float ix = std::max(0.f, std::min(f.x + f.w, b.x + b.w) - std::max(f.x, b.x));
+  const float iy = std::max(0.f, std::min(f.y + f.h, b.y + b.h) - std::max(f.y, b.y));
+  const float inter = ix * iy, uni = f.w * f.h + b.w * b.h - inter;
+  return uni > 0 ? inter / uni : 0.f;
+}
+
 std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float min_score,
                                float nms_iou) {
   if (img.w <= 0 || img.h <= 0) return {};

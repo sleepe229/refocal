@@ -154,6 +154,10 @@ class ModelPacks extends Table {
   TextColumn get licenseSpdx => text()();
   IntColumn get installedAt => integer()();
 
+  /// The pack's localized titles from its manifest entry (JSON), shown for a pack the current
+  /// manifest does not list (installed from a .rfpack, or withdrawn). Null before schema 5.
+  TextColumn get title => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

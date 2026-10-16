@@ -50,15 +50,24 @@ nlohmann::json analyze_image(enh_session& s, const std::string& path,
   const Rgb8 small =
       s1 < 1 ? resize_area(img, std::max(3, int(w * s1 + 0.5)), std::max(3, int(h * s1 + 0.5)))
              : img;
-  nlohmann::json faces = {{"count", 0}, {"largest_px", 0}, {"detector", false}};
+  nlohmann::json faces = {
+      {"count", 0}, {"largest_px", 0}, {"detector", false}, {"boxes", nlohmann::json::array()}};
   if (fs::exists(fs::join(fs::join(s.models_dir, det_model), "model.ncnn.bin"))) {
     std::lock_guard run(s.run_mu);  // with jobs: one model run at a time (ADR-0006)
     auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s.cpu_threads});
     det->load(resolve_model(s.models_dir, det_model));
-    const auto found = detect_faces(*det, img);
+    auto found = detect_faces(*det, img);
+    keep_restorable(found);  // the faces a job would restore, largest first
     float largest = 0;
-    for (const Face& f : found) largest = std::max(largest, std::max(f.w, f.h));
-    faces = {{"count", found.size()}, {"largest_px", int(largest)}, {"detector", true}};
+    nlohmann::json boxes = nlohmann::json::array();
+    for (const Face& f : found) {
+      largest = std::max(largest, std::max(f.w, f.h));
+      boxes.push_back({std::round(f.x), std::round(f.y), std::round(f.w), std::round(f.h)});
+    }
+    faces = {{"count", found.size()},
+             {"largest_px", int(largest)},
+             {"detector", true},
+             {"boxes", boxes}};
   }
   return {{"schema", 1},
           {"width", w},

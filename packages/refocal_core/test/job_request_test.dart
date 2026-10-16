@@ -56,4 +56,21 @@ void main() {
       expect(() => JobRequest.fromJson(bad), throwsFormatException, reason: '$bad');
     }
   });
+
+  test('faces turned off go to the core and come back (FR-FACE-007)', () {
+    final r = Recipe(scale: 2, srModel: 'sr.x', faceModel: 'face.y');
+    final q = JobRequest.of(r, '/in.jpg', facesOff: const [FaceBox(10, 20, 30, 40)]);
+    expect(q.toJson()['faces_off'], [
+      [10.0, 20.0, 30.0, 40.0],
+    ]);
+    expect(JobRequest.fromJson(q.toJson()).facesOff, const [FaceBox(10, 20, 30, 40)]);
+    // Not part of the recipe (a preset or history entry is for any photo).
+    expect(JobRequest.fromJson(q.toJson()).recipe(), r);
+    // Without face restoration nothing is turned off.
+    expect(
+      JobRequest.of(Recipe(scale: 2, srModel: 'sr.x'), '/in.jpg').toJson(),
+      isNot(contains('faces_off')),
+    );
+    expect(() => JobRequest.fromJson({...q.toJson(), 'faces_off': 'x'}), throwsFormatException);
+  });
 }
