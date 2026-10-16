@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:refocal/bootstrap/engine.dart';
-import 'package:refocal/bootstrap/presets.dart';
 import 'package:refocal/l10n/app_localizations.dart';
 import 'package:refocal/ui_kit/labels.dart';
 import 'package:refocal_core/refocal_core.dart';
