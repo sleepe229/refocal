@@ -1017,6 +1017,29 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fragmentTitle => 'Preview of a part';
+
+  @override
+  String get fragmentRunning => 'Enhancing a part of the photo…';
+
+  @override
+  String fragmentInfo(int width, int height, String seconds) {
+    return 'Part $width × $height px in $seconds s';
+  }
+
+  @override
+  String get fragmentEnhanceAll => 'Enhance the whole photo';
+
+  @override
+  String get fragmentAction => 'Preview a part';
+
+  @override
+  String get fragmentHint => 'Tap the photo to choose the part';
+
+  @override
+  String get close => 'Close';
+
+  @override
   String resultSeconds(int seconds) {
     return '$seconds s';
   }

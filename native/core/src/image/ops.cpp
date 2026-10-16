@@ -11,6 +11,16 @@
 
 namespace enh {
 
+Rgb8 crop(const Rgb8& src, int x, int y, int w, int h) {
+  Rgb8 out;
+  out.w = w;
+  out.h = h;
+  out.px.resize(size_t(w) * h * 3);
+  for (int r = 0; r < h; ++r)
+    std::memcpy(&out.px[size_t(r) * w * 3], src.row(y + r) + size_t(x) * 3, size_t(w) * 3);
+  return out;
+}
+
 Rgb8 apply_orientation(Rgb8 src, int o) {
   if (o <= 1 || o > 8) return src;
   const bool swap = o >= 5;  // 5..8 transpose width/height

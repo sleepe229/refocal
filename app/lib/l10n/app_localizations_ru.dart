@@ -1016,6 +1016,29 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get fragmentTitle => 'Предпросмотр участка';
+
+  @override
+  String get fragmentRunning => 'Улучшаем участок фото…';
+
+  @override
+  String fragmentInfo(int width, int height, String seconds) {
+    return 'Участок $width × $height px за $seconds с';
+  }
+
+  @override
+  String get fragmentEnhanceAll => 'Улучшить всё фото';
+
+  @override
+  String get fragmentAction => 'Предпросмотр участка';
+
+  @override
+  String get fragmentHint => 'Нажмите на фото, чтобы выбрать участок';
+
+  @override
+  String get close => 'Закрыть';
+
+  @override
   String resultSeconds(int seconds) {
     return '$seconds с';
   }

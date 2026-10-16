@@ -22,6 +22,7 @@ import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
 import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
+import 'fragment_preview.dart';
 
 /// What the editor opens: a new photo, or a job from the home screen list.
 class EditorArgs {
@@ -193,9 +194,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           const SizedBox(height: 200, child: Center(child: Icon(Icons.image_outlined, size: 64))),
     );
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
-    final show = editable && _faces && a != null && a.boxes.isNotEmpty;
-    if (!show) return ClipRRect(borderRadius: BorderRadius.circular(8), child: image);
+    if (!editable || a == null) {
+      return ClipRRect(borderRadius: BorderRadius.circular(8), child: image);
+    }
+    final boxes = _faces && a.boxes.isNotEmpty;
     final scheme = Theme.of(context).colorScheme;
+    final crop = _fragmentPicked ? _fragmentCrop(a) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -209,29 +213,83 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    image,
-                    for (final (i, b) in a.boxes.indexed)
+                    // A tap chooses the part for the fragment preview (FR-ENH-015).
+                    GestureDetector(
+                      onTapUp: (d) => setState(() {
+                        _fragmentPicked = true;
+                        _fragmentCentre = Offset(
+                          d.localPosition.dx / c.maxWidth,
+                          d.localPosition.dy / c.maxHeight,
+                        );
+                      }),
+                      child: image,
+                    ),
+                    if (crop != null)
                       Positioned(
-                        left: b.x * k,
-                        top: b.y * k,
-                        width: b.w * k,
-                        height: b.h * k,
-                        child: _faceBox(i, b, scheme, l10n),
+                        left: crop.x * k,
+                        top: crop.y * k,
+                        width: crop.w * k,
+                        height: crop.h * k,
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: scheme.tertiary, width: 2),
+                            ),
+                          ),
+                        ),
                       ),
+                    if (boxes)
+                      for (final (i, b) in a.boxes.indexed)
+                        Positioned(
+                          left: b.x * k,
+                          top: b.y * k,
+                          width: b.w * k,
+                          height: b.h * k,
+                          child: _faceBox(i, b, scheme, l10n),
+                        ),
                   ],
                 );
               },
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.facesTapHint,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        if (boxes) ...[
+          const SizedBox(height: 4),
+          Text(
+            l10n.facesTapHint,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ],
     );
+  }
+
+  /// FR-ENH-015: the part of the photo the fragment preview runs on (the centre of the image
+  /// until a tap picks another).
+  Offset _fragmentCentre = const Offset(0.5, 0.5);
+  bool _fragmentPicked = false;
+
+  ({int x, int y, int w, int h}) _fragmentCrop(PhotoAnalysis a) => FragmentPreview.cropFor(
+    _recipe ?? Recipe(scale: 4, srModel: bundledSrModel),
+    a.width,
+    a.height,
+    _fragmentCentre,
+  );
+
+  Future<void> _previewFragment(EnhanceController ctl, Recipe r, AppLocalizations l10n) async {
+    final a = ref.read(photoAnalysisProvider(widget.input)).value;
+    if (a == null) return;
+    if (r.faceModel != null && !await _faceNotice(l10n)) return;
+    if (!mounted) return;
+    final all = await showFragmentPreview(
+      context,
+      input: widget.input,
+      recipe: r,
+      crop: _fragmentCrop(a),
+      facesOff: r.faceModel == null ? const [] : _facesOff.toList(),
+    );
+    if (all && mounted) await _enhance(ctl, r, l10n);
   }
 
   Widget _faceBox(int i, FaceBox b, ColorScheme scheme, AppLocalizations l10n) {
@@ -510,6 +568,19 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           },
           icon: const Icon(Icons.auto_fix_high),
           label: Text(l10n.enhance),
+        ),
+        TextButton.icon(
+          onPressed: switch ((_recipe, ref.watch(photoAnalysisProvider(widget.input)).value)) {
+            (final r?, _?) => () => _previewFragment(ctl, r, l10n),
+            _ => null,
+          },
+          icon: const Icon(Icons.crop_free),
+          label: Text(l10n.fragmentAction),
+        ),
+        Text(
+          l10n.fragmentHint,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
         Text(
