@@ -152,5 +152,41 @@ void main() {
       final p = await repo.add('ok', r);
       expect(() => repo.rename(p.id, ''), throwsArgumentError);
     });
+
+    test('a presets file round-trips; names already taken get a number (FR-PRE-003)', () async {
+      final repo = PresetRepository(prefs);
+      await repo.add('Soft', r, now: DateTime(2026));
+      final faces = Recipe(scale: 2, srModel: 'sr.general-x4v3', faceModel: 'face.gfpgan-1.4');
+      await repo.add('Portrait mine', faces, now: DateTime(2027));
+      final text = PresetFile.encode(await repo.watchAll().first);
+      final read = PresetFile.decode(text);
+      expect(read.map((p) => (p.name, p.recipe)), [('Soft', r), ('Portrait mine', faces)]);
+      expect(await repo.importAll(read, now: DateTime(2028)), 2);
+      expect((await repo.watchAll().first).map((p) => p.name), [
+        'Soft',
+        'Portrait mine',
+        'Soft (2)',
+        'Portrait mine (2)',
+      ]);
+      await repo.importAll([
+        (name: 'x' * 40, recipe: r),
+        (name: 'x' * 40, recipe: r),
+      ], now: DateTime(2029));
+      expect((await repo.watchAll().first).last.name, '${'x' * 36} (2)');
+    });
+
+    test('a presets file is checked before anything is added', () {
+      for (final bad in [
+        'not json',
+        '{"presets": []}',
+        '{"refocal_presets": 2, "presets": []}',
+        '{"refocal_presets": 1, "presets": [{"name": "", "recipe": {}}]}',
+        '{"refocal_presets": 1, "presets": [{"name": "a", "recipe": {"scale": 3}}]}',
+        '{"refocal_presets": 1, "presets": [1]}',
+      ]) {
+        expect(() => PresetFile.decode(bad), throwsFormatException, reason: bad);
+      }
+      expect(PresetFile.decode('{"refocal_presets": 1, "presets": []}'), isEmpty);
+    });
   });
 }
