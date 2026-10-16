@@ -264,5 +264,15 @@
   "tierGpu": "графический процессор",
   "tierCpu": "процессор",
   "tierUnknown": "Не измерен: T0, самый осторожный",
-  "tierMeasuring": "Измеряем…"
+  "tierMeasuring": "Измеряем…",
+  "autoChip": "Авто",
+  "autoAnalyzing": "Смотрим на фото…",
+  "autoFailed": "Авто недоступно: не удалось проанализировать фото",
+  "autoFaces": "лиц: {count}",
+  "autoFacesNotRestored": "на этом устройстве не восстанавливаются",
+  "autoFacesNeedPack": "модель лиц не установлена",
+  "autoFacesOnly": "только лица",
+  "autoDenoiseNone": "без денойза",
+  "autoDenoiseStandard": "денойз средний",
+  "autoDenoiseStrong": "денойз сильный"
 }

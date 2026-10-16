@@ -86,6 +86,15 @@ void main() {
     expect(File('${root.path}/out.jpg').lengthSync(), greaterThan(1000));
   }, skip: skip);
 
+  test('analyze on a helper isolate (FR-ENH-007)', () async {
+    final a = await session.analyze(input);
+    expect((a.width, a.height), (97, 61));
+    expect(a.detector, isFalse); // no det.yunet in this models dir
+    expect(a.faces, 0);
+    expect(a.noiseSigma, greaterThanOrEqualTo(0));
+    await expectLater(session.analyze('${root.path}/missing.jpg'), throwsA(isA<EnhException>()));
+  }, skip: skip);
+
   test('NEEDS_USER answer path', () async {
     final job = session.start(req('nu', extra: {'max_output_mp': 0.05}));
     job.events.listen((e) {

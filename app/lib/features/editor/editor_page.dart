@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
+import '../../bootstrap/auto.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/files.dart';
@@ -51,11 +52,17 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// Strength the result starts with: from a preset or a history entry, else 100%.
   double _strength = 1;
 
+  /// A new photo starts with Auto (06 §3.2): Enhance waits for its first proposal.
+  late bool _autoFirst = widget.args.recipe == null && widget.args.jobDir == null;
+
   @override
   void initState() {
     super.initState();
     if (widget.args.recipe case final r?) _apply(r);
     _readSize();
+    if (widget.args.jobDir == null) {
+      ref.listenManual(autoProvider(widget.input), _onAuto, fireImmediately: true);
+    }
     final dir = widget.args.jobDir;
     if (dir != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,6 +89,29 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     } on Object {
       // Flutter cannot decode every input the core can (e.g. AVIF on older Android).
       if (mounted) setState(() => _choice ??= ScaleChoice.fast2);
+    }
+  }
+
+  /// Applies Auto's proposal first, and again when it changes (the tier is measured, a pack is
+  /// installed) while the settings still are Auto's.
+  void _onAuto(AsyncValue<AutoProposal>? prev, AsyncValue<AutoProposal> next) {
+    final p = next.value;
+    if (p == null) {
+      if (next.hasError) {
+        AppLog.warn('analyze: ${next.error}');
+        setState(() => _autoFirst = false); // the size-based default stays
+      }
+      return;
+    }
+    final followed = switch (prev?.value) {
+      final old? => _matches(old.decision.recipe),
+      null => false,
+    };
+    if (_autoFirst || followed) {
+      setState(() {
+        _autoFirst = false;
+        _apply(p.decision.recipe);
+      });
     }
   }
 
@@ -168,7 +198,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// What Enhance runs; [_model] is one the device has (installed or bundled).
   Recipe? get _recipe {
     final c = _choice;
-    if (c == null) return null;
+    if (c == null || _autoFirst) return null;
     final r = Recipe(
       scale: c.scale,
       fast2: c.fastPath,
@@ -207,10 +237,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           title: Text(l10n.faces),
           subtitle: Text(l10n.facesHint),
           value: _faces,
-          onChanged: (v) async {
-            if (v && !await _faceNotice(l10n)) return;
-            setState(() => _faces = v);
-          },
+          onChanged: (v) => setState(() => _faces = v),
         ),
         if (_faces)
           SegmentedButton<bool>(
@@ -240,7 +267,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// ADR-0022: the first time faces are turned on, what face restoration does.
+  /// ADR-0022: before faces are restored the first time (by the switch, a preset or Auto),
+  /// what face restoration does.
   Future<bool> _faceNotice(AppLocalizations l10n) async {
     final settings = await ref.read(settingsProvider.future);
     if (settings.faceNoticeSeen || !mounted) return true;
@@ -321,9 +349,51 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       runSpacing: 4,
       alignment: WrapAlignment.center,
       children: [
+        if (widget.args.jobDir == null) _autoChip(l10n),
         for (final b in BuiltinPreset.values) chip(builtinPresetLabel(l10n, b), b.recipe),
         for (final p in user) chip(p.name, p.recipe),
       ],
+    );
+  }
+
+  /// Auto (FR-ENH-007): enh_analyze + AutoPolicy; disabled until the analysis is done.
+  Widget _autoChip(AppLocalizations l10n) {
+    final auto = ref.watch(autoProvider(widget.input));
+    final p = auto.value;
+    return ChoiceChip(
+      avatar: auto.isLoading
+          ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : null,
+      label: Text(l10n.autoChip),
+      selected: p != null && _matches(p.decision.recipe),
+      onSelected: p == null ? null : (_) => setState(() => _apply(p.decision.recipe)),
+    );
+  }
+
+  /// What Auto found and chose (06 §3.2), while Auto is selected.
+  Widget? _autoExplanation(AppLocalizations l10n) {
+    if (widget.args.jobDir != null) return null;
+    final text = switch (ref.watch(autoProvider(widget.input))) {
+      AsyncData(value: final p) when _matches(p.decision.recipe) => autoExplanation(
+        l10n,
+        p.analysis,
+        p.decision,
+      ),
+      AsyncData() => null,
+      AsyncError() => l10n.autoFailed,
+      _ => l10n.autoAnalyzing,
+    };
+    if (text == null) return null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Semantics(
+        liveRegion: true,
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
     );
   }
 
@@ -336,6 +406,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           Text(l10n.sizePx(size.width.toInt(), size.height.toInt()), textAlign: TextAlign.center),
         const SizedBox(height: 12),
         _presets(l10n),
+        ?_autoExplanation(l10n),
         ?_denoise(l10n),
         _facesControls(l10n),
         const SizedBox(height: 8),
@@ -365,7 +436,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: switch (_recipe) {
-            final r? => () => ctl.start(widget.input, r),
+            final r? => () => _enhance(ctl, r, l10n),
             null => null,
           },
           icon: const Icon(Icons.auto_fix_high),
@@ -379,6 +450,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _enhance(EnhanceController ctl, Recipe r, AppLocalizations l10n) async {
+    if (r.faceModel != null && !await _faceNotice(l10n)) return;
+    if (!mounted) return;
+    await ctl.start(widget.input, r);
   }
 
   Widget _progress(Running s, EnhanceController ctl, AppLocalizations l10n) {
