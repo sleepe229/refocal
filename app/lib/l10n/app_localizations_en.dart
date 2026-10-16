@@ -153,7 +153,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get noteAlphaFlattened => 'Transparent areas become white';
+  String get noteAlphaKept => 'Transparency is kept in PNG and WebP; in JPEG it becomes white';
 
   @override
   String get noteFirstFrame => 'Only the first frame of the animation is enhanced';
@@ -1014,5 +1014,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String faceToggle(int number) {
     return 'Face $number: restore';
+  }
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds s';
   }
 }

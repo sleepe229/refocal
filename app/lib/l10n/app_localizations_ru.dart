@@ -154,7 +154,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get noteAlphaFlattened => 'Прозрачные области станут белыми';
+  String get noteAlphaKept => 'Прозрачность сохранится в PNG и WebP, в JPEG фон станет белым';
 
   @override
   String get noteFirstFrame => 'Улучшается только первый кадр анимации';
@@ -1013,5 +1013,10 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String faceToggle(int number) {
     return 'Лицо $number: восстанавливать';
+  }
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds с';
   }
 }

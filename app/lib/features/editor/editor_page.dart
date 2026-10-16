@@ -633,6 +633,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(l10n.sizePx(s.result.width, s.result.height), textAlign: TextAlign.center),
+        Text(
+          resultInfo(l10n, s.result),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 8),
         Row(
           children: [

@@ -84,14 +84,19 @@ Rgb8 decode_image(const std::string& path, ImageInfo* info, SourceMeta* meta) {
     img = webp_decode(path, meta);
   } else {
     if (is_core_format(i.format)) fail(ENH_E_INTERNAL, "unreachable");
-    return platform_decode(path);
+    return platform_decode(path, meta ? &meta->alpha : nullptr);
   }
   if (meta && !icc_header_valid(meta->icc.data(), meta->icc.size())) meta->icc.clear();
   return img;
 }
 
-void rgba_to_rgb_on_white(std::vector<uint8_t>& px, size_t pixels, bool premultiplied) {
+void rgba_to_rgb_on_white(std::vector<uint8_t>& px, size_t pixels, bool premultiplied,
+                          std::vector<uint8_t>* alpha) {
   uint8_t* p = px.data();
+  if (alpha) {
+    alpha->resize(pixels);
+    for (size_t i = 0; i < pixels; ++i) (*alpha)[i] = p[i * 4 + 3];
+  }
   for (size_t i = 0; i < pixels; ++i) {  // dst index <= src index: safe in place
     const uint8_t* s = p + i * 4;
     uint8_t* d = p + i * 3;
