@@ -31,6 +31,47 @@ class Preset {
   }
 }
 
+/// FR-PRE-003: presets in a file, `{"refocal_presets": 1, "presets": [{"name", "recipe"}]}`;
+/// the recipe has its own schema (Recipe.toJson). Only presets go in it, no photos or paths.
+abstract final class PresetFile {
+  static const schema = 1;
+  static const maxPresets = 100;
+
+  static String encode(List<Preset> presets) => const JsonEncoder.withIndent('  ').convert({
+    'refocal_presets': schema,
+    'presets': [
+      for (final p in presets) {'name': p.name, 'recipe': p.recipe.toJson()},
+    ],
+  });
+
+  /// Throws [FormatException]: not a presets file, a newer schema, a bad name or recipe.
+  static List<({String name, Recipe recipe})> decode(String text) {
+    final Object? j;
+    try {
+      j = jsonDecode(text);
+    } on FormatException {
+      throw const FormatException('not JSON');
+    }
+    if (j case {'refocal_presets': final int v, 'presets': final List<Object?> list}) {
+      if (v > schema) throw FormatException('presets file schema $v is newer than $schema');
+      if (list.length > maxPresets) throw FormatException('more than $maxPresets presets');
+      return [
+        for (final p in list)
+          if (p case {'name': final String name, 'recipe': final Map<String, Object?> recipe})
+            (name: _name(name), recipe: Recipe.fromJson(recipe))
+          else
+            throw FormatException('not a preset', p),
+      ];
+    }
+    throw const FormatException('not a Refocal presets file');
+  }
+
+  static String _name(String n) {
+    if (!Preset.isValidName(n)) throw FormatException('bad preset name', n);
+    return n.trim();
+  }
+}
+
 /// User presets over `presets` (07 §3).
 class PresetRepository {
   PresetRepository(this._db);
@@ -64,6 +105,26 @@ class PresetRepository {
           ),
         );
     return p;
+  }
+
+  /// Adds [presets] from a file (FR-PRE-003); a name already taken gets " (2)", " (3)"...
+  /// Returns how many were added.
+  Future<int> importAll(List<({String name, Recipe recipe})> presets, {DateTime? now}) async {
+    final taken = {for (final p in await watchAll().first) p.name};
+    var t = now ?? DateTime.now();
+    for (final p in presets) {
+      var name = p.name;
+      for (var i = 2; taken.contains(name); i++) {
+        final suffix = ' ($i)';
+        name = p.name.length + suffix.length > Preset.maxNameLength
+            ? '${p.name.substring(0, Preset.maxNameLength - suffix.length)}$suffix'
+            : '${p.name}$suffix';
+      }
+      taken.add(name);
+      await add(name, p.recipe, now: t);
+      t = t.add(const Duration(milliseconds: 1)); // keeps the file's order
+    }
+    return presets.length;
   }
 
   Future<void> rename(String id, String name) async {

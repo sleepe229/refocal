@@ -1043,4 +1043,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get presetsImport => 'Import presets';
+
+  @override
+  String get presetsExport => 'Export your presets';
+
+  @override
+  String get presetsExported => 'Presets saved';
+
+  @override
+  String presetsImported(int count) {
+    return 'Presets added: $count';
+  }
+
+  @override
+  String get presetsNotAFile => 'Not a Refocal presets file, or a newer one';
 }
