@@ -468,9 +468,76 @@ class EnhBindings {
   late final _enh_version = _enh_versionPtr.asFunction<ffi.Pointer<ffi.Char> Function()>(
     isLeaf: true,
   );
+
+  void enh_viewer_close(ffi.Pointer<enh_viewer> v) {
+    return _enh_viewer_close(v);
+  }
+
+  late final _enh_viewer_closePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<enh_viewer>)>>('enh_viewer_close');
+  late final _enh_viewer_close = _enh_viewer_closePtr
+      .asFunction<void Function(ffi.Pointer<enh_viewer>)>();
+
+  int enh_viewer_open(ffi.Pointer<ffi.Char> job_dir, ffi.Pointer<ffi.Pointer<enh_viewer>> out) {
+    return _enh_viewer_open(job_dir, out);
+  }
+
+  late final _enh_viewer_openPtr =
+      _lookup<
+        ffi.NativeFunction<
+          enh_status Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Pointer<enh_viewer>>)
+        >
+      >('enh_viewer_open');
+  late final _enh_viewer_open = _enh_viewer_openPtr
+      .asFunction<int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Pointer<enh_viewer>>)>();
+
+  int enh_viewer_render(
+    ffi.Pointer<enh_viewer> v,
+    int source,
+    int x,
+    int y,
+    int w,
+    int h,
+    int factor,
+    ffi.Pointer<ffi.Uint8> rgba,
+    int rgba_size,
+  ) {
+    return _enh_viewer_render(v, source, x, y, w, h, factor, rgba, rgba_size);
+  }
+
+  late final _enh_viewer_renderPtr =
+      _lookup<
+        ffi.NativeFunction<
+          enh_status Function(
+            ffi.Pointer<enh_viewer>,
+            ffi.Int32,
+            ffi.Int64,
+            ffi.Int64,
+            ffi.Int64,
+            ffi.Int64,
+            ffi.Int32,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Int64,
+          )
+        >
+      >('enh_viewer_render');
+  late final _enh_viewer_render = _enh_viewer_renderPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<enh_viewer>,
+          int,
+          int,
+          int,
+          int,
+          int,
+          int,
+          ffi.Pointer<ffi.Uint8>,
+          int,
+        )
+      >();
 }
 
-const int ENH_ABI_VERSION = 4;
+const int ENH_ABI_VERSION = 5;
 
 const int ENH_E_BACKEND = 4;
 
@@ -626,3 +693,5 @@ final class enh_session_config extends ffi.Struct {
 
 typedef enh_status = ffi.Int32;
 typedef Dartenh_status = int;
+
+final class enh_viewer extends ffi.Opaque {}
