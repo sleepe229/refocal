@@ -29,6 +29,11 @@ void main() {
       languageCode: () => 'ru',
       onboardingDone: true,
       historyEnabled: false,
+      faceOfferDismissed: true,
+    );
+    expect(
+      Settings.fromStore(s.toStore().map((k, v) => MapEntry(k, v ?? ''))).faceOfferDismissed,
+      isTrue,
     );
     final stored = {
       for (final e in s.toStore().entries)
