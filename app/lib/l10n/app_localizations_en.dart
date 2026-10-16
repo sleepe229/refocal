@@ -929,4 +929,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tierMeasuring => 'Measuring…';
+
+  @override
+  String get autoChip => 'Auto';
+
+  @override
+  String get autoAnalyzing => 'Looking at the photo…';
+
+  @override
+  String get autoFailed => 'Auto is unavailable: the photo could not be analysed';
+
+  @override
+  String autoFaces(int count) {
+    return 'faces: $count';
+  }
+
+  @override
+  String get autoFacesNotRestored => 'not restored on this device';
+
+  @override
+  String get autoFacesNeedPack => 'face model not installed';
+
+  @override
+  String get autoFacesOnly => 'only faces';
+
+  @override
+  String get autoDenoiseNone => 'no denoise';
+
+  @override
+  String get autoDenoiseStandard => 'denoise medium';
+
+  @override
+  String get autoDenoiseStrong => 'denoise strong';
 }

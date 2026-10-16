@@ -1682,6 +1682,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Measuring…'**
   String get tierMeasuring;
+
+  /// No description provided for @autoChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get autoChip;
+
+  /// No description provided for @autoAnalyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking at the photo…'**
+  String get autoAnalyzing;
+
+  /// No description provided for @autoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto is unavailable: the photo could not be analysed'**
+  String get autoFailed;
+
+  /// No description provided for @autoFaces.
+  ///
+  /// In en, this message translates to:
+  /// **'faces: {count}'**
+  String autoFaces(int count);
+
+  /// No description provided for @autoFacesNotRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'not restored on this device'**
+  String get autoFacesNotRestored;
+
+  /// No description provided for @autoFacesNeedPack.
+  ///
+  /// In en, this message translates to:
+  /// **'face model not installed'**
+  String get autoFacesNeedPack;
+
+  /// No description provided for @autoFacesOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'only faces'**
+  String get autoFacesOnly;
+
+  /// No description provided for @autoDenoiseNone.
+  ///
+  /// In en, this message translates to:
+  /// **'no denoise'**
+  String get autoDenoiseNone;
+
+  /// No description provided for @autoDenoiseStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'denoise medium'**
+  String get autoDenoiseStandard;
+
+  /// No description provided for @autoDenoiseStrong.
+  ///
+  /// In en, this message translates to:
+  /// **'denoise strong'**
+  String get autoDenoiseStrong;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
