@@ -684,19 +684,32 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final l10n = AppLocalizations.of(context);
     final ctl = ref.read(enhanceProvider.notifier);
     final opts = e.options;
+    // FR-IMP-006 (input over the limit) or FR-ENH-014 (out of memory, 06 §3.5).
+    final oom = e.code == 'oom_downscale';
+    final current = scaleLabel(
+      l10n,
+      (e.payload['scale'] as num?)?.toInt() ?? 4,
+      fast2: e.payload['fast2'] == true,
+    );
     final picked = await showDialog<Map<String, Object?>>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text(l10n.tooLargeTitle),
-        content: Text(l10n.tooLargeBody),
+        title: Text(oom ? l10n.oomTitle : l10n.tooLargeTitle),
+        content: Text(oom ? l10n.oomBody(current) : l10n.tooLargeBody),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
           for (final o in opts)
             TextButton(
               onPressed: () => Navigator.pop(context, o),
               child: Text(
-                scaleLabel(l10n, (o['scale'] as num?)?.toInt() ?? 4, fast2: o['fast2'] == true),
+                o['background'] == 'lanczos'
+                    ? l10n.regionFaces
+                    : scaleLabel(
+                        l10n,
+                        (o['scale'] as num?)?.toInt() ?? 4,
+                        fast2: o['fast2'] == true,
+                      ),
               ),
             ),
         ],

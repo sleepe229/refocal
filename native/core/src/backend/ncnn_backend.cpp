@@ -116,7 +116,7 @@ class NcnnBackend final : public InferenceBackend {
     std::vector<ncnn::Mat> outs;
     for (const char* name : net_.output_names()) {
       ncnn::Mat m;
-      if (ex.extract(name, m) != 0 || m.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
+      check_extract(ex.extract(name, m), m);
       for (int c = 0; c < m.c; ++c) {
         const float* ch = m.channel(c);
         for (size_t i = 0; i < size_t(m.w) * m.h; ++i)
@@ -130,14 +130,13 @@ class NcnnBackend final : public InferenceBackend {
 
   void run(const ncnn::Mat& in, ncnn::Mat& out) override {
 #ifdef ENH_FAULT_INJECTION
-    const bool garbage = inject_fault();
+    const bool garbage = inject_fault(in);
 #endif
     // The extractor copies net_.opt; layers read num_threads from it in forward().
     net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
     ncnn::Extractor ex = net_.create_extractor();
     if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
-    if (ex.extract(out_name_.c_str(), out) != 0 || out.empty())
-      fail(ENH_E_BACKEND, "ncnn extract failed");
+    check_extract(ex.extract(out_name_.c_str(), out), out);
     // Silent garbage is checked by the benchmark gate (S3); NaN/Inf is checked on every tile.
     if (out.elemsize != 4 || out.elempack != 1) fail(ENH_E_BACKEND, "unexpected output layout");
 #ifdef ENH_FAULT_INJECTION
@@ -156,13 +155,22 @@ class NcnnBackend final : public InferenceBackend {
   }
 
  private:
+  // ncnn layers return -100 when an allocation fails (CPU or Vulkan): the fallback ladder
+  // answers that with a smaller tile first (ADR-0016), other failures with another backend.
+  static void check_extract(int ret, const ncnn::Mat& m) {
+    if (ret == -100) fail(ENH_E_OOM, "ncnn out of memory");
+    if (ret != 0 || m.empty()) fail(ENH_E_BACKEND, "ncnn extract failed");
+  }
+
   int threads_ = 0;  // the inference thread only (set_threads and run)
   int loaded_threads_ = 1;
 #ifdef ENH_FAULT_INJECTION
-  // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend|garbage>:<n> injects a fault
-  // into the n-th run (0-based; "garbage": every run from n on) of that backend.
-  // Test/CLI builds only (TEST-FAULT-*, fallback ladder, GPU gate).
-  bool inject_fault() {
+  // ENH_FAULT=<cpu|vulkan_fp16|vulkan_fp32>:<numeric|backend|oom|garbage>:<n> injects a fault
+  // into the n-th run (0-based; "garbage": every run from n on) of that backend;
+  // <backend>:oom_above:<px> fails every run whose input is wider than px with ENH_E_OOM (a
+  // device with memory for smaller tiles only). Test/CLI builds only (TEST-FAULT-*, fallback
+  // ladder, GPU gate).
+  bool inject_fault(const ncnn::Mat& in) {
     const char* f = std::getenv("ENH_FAULT");
     if (!f) return false;
     std::string spec(f), kind = cfg_.kind == BackendKind::cpu ? "cpu"
@@ -173,8 +181,15 @@ class NcnnBackend final : public InferenceBackend {
     const std::string mode = spec.substr(a + 1, b - a - 1);
     const int n = std::stoi(spec.substr(b + 1)), run = runs_++;
     if (mode == "garbage") return run >= n;
+    if (mode == "oom_above") {
+      if (in.w > n) fail(ENH_E_OOM, "injected out of memory");
+      return false;
+    }
     if (run != n) return false;
-    fail(mode == "numeric" ? ENH_E_NUMERIC : ENH_E_BACKEND, "injected fault");
+    fail(mode == "numeric" ? ENH_E_NUMERIC
+         : mode == "oom"   ? ENH_E_OOM
+                           : ENH_E_BACKEND,
+         "injected fault");
   }
   int runs_ = 0;
 #endif

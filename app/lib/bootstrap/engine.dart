@@ -79,6 +79,12 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final platform = ref.read(platformApiProvider);
   final thermal = ProcessingActions.instance.thermal.listen(session.setThermal);
   ref.onDispose(thermal.cancel);
+  // NFR-MEM-004: a memory warning halves the next tile of the running job.
+  final memory = ProcessingActions.instance.memory.listen((level) {
+    AppLog.warn('memory pressure $level');
+    session.setMemoryPressure(level);
+  });
+  ref.onDispose(memory.cancel);
   try {
     session.setThermal(await platform.thermalLevel());
   } on PlatformException catch (e) {

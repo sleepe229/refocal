@@ -960,4 +960,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get autoDenoiseStrong => 'денойз сильный';
+
+  @override
+  String get noteTileSmaller => 'Мало памяти: обрабатываем мелкими частями, медленнее';
+
+  @override
+  String noteFaceSkipped(int number) {
+    return 'Снижено качество обработки: лицо $number не удалось восстановить';
+  }
+
+  @override
+  String get noteFacesSkipped => 'Снижено качество обработки: лица не удалось восстановить';
+
+  @override
+  String get oomTitle => 'Недостаточно памяти';
+
+  @override
+  String oomBody(String scale) {
+    return 'Недостаточно памяти для $scale. Обработать в меньшем масштабе?';
+  }
 }

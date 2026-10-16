@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <cstring>
 #include <deque>
 #include <mutex>
 #include <optional>
@@ -141,6 +142,12 @@ class BoundedQueue {
     q_.clear();
     cv_.notify_all();
   }
+  // Open again for another run of the stage (no producer or consumer is running).
+  void reset() {
+    std::lock_guard lk(mu_);
+    closed_ = false;
+    q_.clear();
+  }
 
  private:
   std::mutex mu_;
@@ -166,7 +173,57 @@ struct TileOut {
 };
 
 const char* backend_kind_name(const BackendConfig& c) {
-  return c.kind == BackendKind::vulkan ? (c.fp16 ? "vulkan_fp16" : "vulkan_fp32") : "cpu";
+  if (c.kind == BackendKind::vulkan) return c.fp16 ? "vulkan_fp16" : "vulkan_fp32";
+  return c.fp16 ? "cpu" : "cpu_fp32";
+}
+
+// Failures the fallback ladder answers (ADR-0016); anything else ends the job.
+bool recoverable(enh_status st) {
+  return st == ENH_E_BACKEND || st == ENH_E_NUMERIC || st == ENH_E_OOM;
+}
+
+const char* fallback_reason(enh_status st) {
+  return st == ENH_E_NUMERIC ? "numeric" : st == ENH_E_OOM ? "oom" : "backend_error";
+}
+
+// Smallest sub-tile core of the "tile / 2" rung: below it the pad would dominate the work.
+constexpr int kMinSubTile = 32;
+
+// Runs one tile as n x n sub-tiles of its core (n = 2^split), each with the pad taken from the
+// tile's own padded input. With the model's receptive field within the pad the output equals
+// one run (S2), at about 1/n^2 of the activation memory (ADR-0016 "tile / 2").
+void run_tile(InferenceBackend& be, const ncnn::Mat& in, ncnn::Mat& out, int pad, int scale,
+              int split) {
+  if (split == 0) return be.run(in, out);
+  const int n = 1 << split, cw = in.w - 2 * pad, ch = in.h - 2 * pad;
+  out.create(scale * in.w, scale * in.h, 3);
+  if (out.empty()) fail(ENH_E_OOM, "tile output");
+  out.fill(0.f);
+  for (int sy = 0; sy < n; ++sy) {
+    const int y0 = ch * sy / n, y1 = ch * (sy + 1) / n;
+    for (int sx = 0; sx < n; ++sx) {
+      const int x0 = cw * sx / n, x1 = cw * (sx + 1) / n;
+      const int w = x1 - x0 + 2 * pad, h = y1 - y0 + 2 * pad;
+      ncnn::Mat sub(w, h, 3);
+      if (sub.empty()) fail(ENH_E_OOM, "sub-tile input");
+      for (int c = 0; c < 3; ++c) {
+        for (int r = 0; r < h; ++r) {
+          std::memcpy(sub.channel(c).row(r), in.channel(c).row(y0 + r) + x0, sizeof(float) * w);
+        }
+      }
+      ncnn::Mat so;
+      be.run(sub, so);
+      if (so.w != scale * w || so.h != scale * h || so.c != 3) {
+        fail(ENH_E_MODEL, "unexpected model output shape");
+      }
+      for (int c = 0; c < 3; ++c) {
+        for (int r = scale * pad; r < scale * (h - pad); ++r) {
+          std::memcpy(out.channel(c).row(scale * y0 + r) + scale * (x0 + pad),
+                      so.channel(c).row(r) + scale * pad, sizeof(float) * scale * (x1 - x0));
+        }
+      }
+    }
+  }
 }
 
 }  // namespace
@@ -262,6 +319,40 @@ struct enh_job {
 
   bool throttled = false;  // inference thread only
 
+  // Fallback ladder state (ADR-0016), kept across a retry at a smaller scale: tiles run as
+  // 2^split x 2^split sub-tiles; the memory warnings already answered (from enh_job_create on).
+  int split = 0;
+  uint32_t warnings_seen = 0;
+  bool sr_started = false;  // past decode and faces: an OOM now can be answered by a downscale
+
+  // "tile / 2" (ADR-0016): the next tiles run as sub-tiles of half the size. False when they
+  // are already the smallest.
+  bool smaller_tile(const Geometry& g, const char* reason, int64_t done, int64_t total,
+                    std::vector<std::string>& fallbacks) {
+    if ((std::min(g.tw, g.th) >> (split + 1)) < kMinSubTile) return false;
+    const std::string from = std::to_string(g.tw >> split), to = std::to_string(g.tw >> ++split);
+    ENH_LOGW("tile %s -> %s (%s)", from.c_str(), to.c_str(), reason);
+    sink.emit(ENH_EV_FALLBACK, kStageUpscale, done, total,
+              {{"kind", "tile"}, {"from", from}, {"to", to}, {"reason", reason}});
+    fallbacks.push_back("tile:" + from + "->" + to);
+    return true;
+  }
+
+  // NFR-MEM-004: each memory warning from the platform makes the next tile half the size. The
+  // warnings, not the level: iOS only warns, and Android never says the pressure is over.
+  void memory_gate(const Geometry& g, int64_t done, int64_t total,
+                   std::vector<std::string>& fallbacks) {
+    const uint32_t w = s->memory_warnings.load();
+    if (w == warnings_seen) return;
+    warnings_seen = w;
+    smaller_tile(g, "memory_pressure", done, total, fallbacks);
+  }
+
+  // FR-ENH-014, the rung before the error: out of memory with the smallest tiles on every
+  // backend. The user may pick a smaller output or region Faces (06 §3.5); the job then runs
+  // again from decode. Never without an answer: the batch queue does not answer this one.
+  bool retry_smaller();
+
   // DetectFaces + RestoreFaces (ADR-0012, ADR-0022): YuNet on CPU (tiny), the face model on
   // the backend ladder; each model is freed before the next stage. Faces smaller than
   // kMinFacePx are left alone; a face larger than 512 px in the input gets half the strength
@@ -356,11 +447,26 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   constexpr int kMaxFaces = 32;
   constexpr float kMinFacePx = 16;
   sink.emit(ENH_EV_STAGE, kStageFaces, 0, 0, {{"stage", "restore_faces"}});
+  // ADR-0016: a face that fails on every backend is left as the SR model makes it, with a
+  // FALLBACK event; so are all of them when detection itself fails.
+  auto skip = [&](enh_status st, int64_t index) {
+    nlohmann::json p = {{"kind", "face"}, {"to", "skipped"}, {"reason", fallback_reason(st)}};
+    if (index >= 0) p["index"] = index;
+    ENH_LOGW("face %lld skipped: %s", (long long)index, fallback_reason(st));
+    sink.emit(ENH_EV_FALLBACK, kStageFaces, 0, 0, p);
+  };
   std::vector<Face> found;
-  {
+  try {
     auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s->cpu_threads});
     det->load(resolve_model(s->models_dir, req.det_model));
     found = detect_faces(*det, img);
+  } catch (const Error& e) {
+    if (!recoverable(e.status())) throw;
+    skip(e.status(), -1);
+    return {};
+  } catch (const std::bad_alloc&) {
+    skip(ENH_E_OOM, -1);
+    return {};
   }
   found.erase(std::remove_if(found.begin(), found.end(),
                              [&](const Face& f) { return std::min(f.w, f.h) < kMinFacePx; }),
@@ -373,6 +479,9 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
 
   const ModelInfo fm = resolve_model(s->models_dir, req.face_model);
   Ladder lad = backend_ladder(*s, req, fm.id);
+  // ADR-0016: the face model gets a CPU fp32 rung after CPU fp16.
+  if (lad.rungs.back().kind == BackendKind::cpu)
+    lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
   size_t rung = 0;
   std::unique_ptr<InferenceBackend> be;
   auto load = [&] {
@@ -387,13 +496,34 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
       }
     }
   };
-  load();
+  // The next rung after a failure; false on the last one.
+  auto next_rung = [&](enh_status st) {
+    if (rung + 1 >= lad.rungs.size()) return false;
+    const std::string from = backend_kind_name(lad.rungs[rung]);
+    ++rung;
+    sink.emit(ENH_EV_FALLBACK, kStageFaces, 0, 0,
+              {{"kind", "backend"},
+               {"from", from},
+               {"to", backend_kind_name(lad.rungs[rung])},
+               {"reason", fallback_reason(st)}});
+    be.reset();
+    load();
+    return true;
+  };
+  try {
+    load();
+  } catch (const Error& e) {
+    if (!recoverable(e.status())) throw;
+    skip(e.status(), -1);
+    return {};
+  }
   for (size_t i = 0; i < found.size(); ++i) {
     if (stop()) throw Stopped{};
     const Affine align = face_alignment(found[i]);
     const Rgb8 aligned = warp_affine(img, align, kFaceSide, kFaceSide);
     Rgb8 restored;
     for (;;) {
+      enh_status st = ENH_OK;
       try {
         restored = restore_face(*be, aligned);
         if (req.face_color_match) {
@@ -402,11 +532,20 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
         }
         break;
       } catch (const Error& e) {
-        const bool recoverable = e.status() == ENH_E_BACKEND || e.status() == ENH_E_NUMERIC;
-        if (!recoverable || rung + 1 >= lad.rungs.size()) throw;
-        ++rung;
-        load();
+        if (!recoverable(e.status())) throw;
+        st = e.status();
+      } catch (const std::bad_alloc&) {
+        st = ENH_E_OOM;
       }
+      if (!next_rung(st)) {
+        skip(st, int64_t(i));
+        restored = {};
+        break;
+      }
+    }
+    if (restored.w == 0) {
+      sink.progress(kStageFaces, int64_t(i + 1), int64_t(found.size()), -1, true);
+      continue;
     }
     // FR-FACE-009: a face whose 512 crop covers more than 512 input pixels (the model would
     // lose detail the photo has) gets half the strength.
@@ -424,16 +563,18 @@ void enh_job::run() {
   nlohmann::json result;
   enh_status final_status = ENH_OK;
   std::string message;
-  try {
-    run_impl(result);
-  } catch (const Stopped&) {
-  } catch (const Error& e) {
-    record_error(e.status(), e.what());
-  } catch (const std::bad_alloc&) {
-    record_error(ENH_E_OOM, "out of memory");
-  } catch (const std::exception& e) {
-    record_error(ENH_E_INTERNAL, e.what());
-  }
+  do {
+    try {
+      run_impl(result);
+    } catch (const Stopped&) {
+    } catch (const Error& e) {
+      record_error(e.status(), e.what());
+    } catch (const std::bad_alloc&) {
+      record_error(ENH_E_OOM, "out of memory");
+    } catch (const std::exception& e) {
+      record_error(ENH_E_INTERNAL, e.what());
+    }
+  } while (retry_smaller());
   if (failed) {
     std::lock_guard lk(err_mu);
     final_status = err_status;
@@ -456,6 +597,50 @@ void enh_job::run() {
     if (final_status == ENH_E_PAUSED) p["job_dir"] = dir;
     sink.emit(ENH_EV_ERROR, kStageFinalize, 0, 0, p);
   }
+}
+
+bool enh_job::retry_smaller() {
+  {
+    std::lock_guard lk(err_mu);
+    if (!failed || err_status != ENH_E_OOM || !sr_started || cancel || pause) return false;
+  }
+  nlohmann::json opts = nlohmann::json::array();
+  if (req.background != "lanczos") {
+    if (req.scale == 4) opts.push_back({{"scale", 2}, {"fast2", false}});
+    if (req.scale >= 2 && !req.fast2) opts.push_back({{"scale", 2}, {"fast2", true}});
+    if (!req.face_model.empty())
+      opts.push_back({{"scale", req.scale}, {"fast2", false}, {"background", "lanczos"}});
+  }
+  if (opts.empty()) return false;
+  {
+    std::lock_guard lk(err_mu);
+    err_status = ENH_OK;
+    err_msg.clear();
+  }
+  failed = false;
+  q1.reset();
+  q2.reset();
+  nlohmann::json a;
+  try {
+    a = wait_answer(
+        {{"code", "oom_downscale"}, {"scale", req.scale}, {"fast2", req.fast2}, {"options", opts}});
+  } catch (const Stopped&) {
+    return false;
+  }
+  if (std::find(opts.begin(), opts.end(), a) == opts.end()) {
+    record_error(ENH_E_INVALID, "answer is not one of the options");
+    return false;
+  }
+  req.scale = a["scale"].get<int>();
+  req.fast2 = a["fast2"].get<bool>();
+  if (a.contains("background")) req.background = a["background"].get<std::string>();
+  fs::write_atomic(fs::join(dir, kRequestFile), dump_json(job_request_to_json(req)) + "\n");
+  ENH_LOGI("job %s: out of memory, again at scale %d%s%s", req.job_id.c_str(), req.scale,
+           req.fast2 ? " fast" : "", req.background == "lanczos" ? " faces only" : "");
+  resume = false;
+  sr_started = false;
+  throttled = false;
+  return true;
 }
 
 void enh_job::run_impl(nlohmann::json& result) {
@@ -523,6 +708,8 @@ void enh_job::run_impl(nlohmann::json& result) {
     faces = restore_faces(req, img);
     if (stop()) throw Stopped{};
   }
+
+  sr_started = true;
 
   // ---- region Faces (FR-FACE-006): Lanczos background, no SR model ----
   if (req.background == "lanczos") {
@@ -759,21 +946,26 @@ void enh_job::run_impl(nlohmann::json& result) {
         break;
       }
       if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
+      memory_gate(g, done_tiles.load(), total_tiles, fallbacks);
       TileOut o{t->band, t->j, {}};
       for (;;) {
         try {
-          be->run(t->in, o.out);
+          run_tile(*be, t->in, o.out, g.pad, g.model_scale, split);
           break;
         } catch (const Error& e) {
-          bool recoverable = e.status() == ENH_E_BACKEND || e.status() == ENH_E_NUMERIC;
-          if (!recoverable || rung + 1 >= ladder.size()) throw;
+          // ADR-0016: out of memory -> a smaller tile first, then the next backend.
+          if (e.status() == ENH_E_OOM &&
+              smaller_tile(g, "oom", done_tiles.load(), total_tiles, fallbacks))
+            continue;
+          if (!recoverable(e.status()) || rung + 1 >= ladder.size()) throw;
           std::string from = backend_kind_name(ladder[rung]);
           ++rung;
           std::string to = backend_kind_name(ladder[rung]);
           sink.emit(ENH_EV_FALLBACK, kStageUpscale, done_tiles, total_tiles,
-                    {{"from", from},
+                    {{"kind", "backend"},
+                     {"from", from},
                      {"to", to},
-                     {"reason", e.status() == ENH_E_NUMERIC ? "numeric" : "backend_error"}});
+                     {"reason", fallback_reason(e.status())}});
           fallbacks.push_back(from + "->" + to);
           if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
           be.reset();
@@ -897,6 +1089,7 @@ enh_status create_job(enh_session* s, const JobRequest& r, bool resume, enh_job*
   j->req = r;
   j->dir = fs::join(s->work_dir, r.job_id);
   j->resume = resume;
+  j->warnings_seen = s->memory_warnings.load();
   fs::mkdirs(j->dir);
   if (!resume)
     fs::write_atomic(fs::join(j->dir, kRequestFile), dump_json(job_request_to_json(r)) + "\n");

@@ -148,4 +148,8 @@ abstract class RefocalPlatformEvents {
 
   /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
   void onThermalLevel(int level);
+
+  /// The system is low on memory, as `enh_set_memory_pressure` takes it: 1 moderate, 2 low
+  /// (a memory warning: the next tile is half the size, NFR-MEM-004), 3 critical.
+  void onMemoryPressure(int level);
 }
