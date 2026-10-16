@@ -714,7 +714,28 @@ void enh_job::run_impl(nlohmann::json& result) {
     fs::write_atomic(fs::join(dir, kSourceExifFile), meta.exif.data(), meta.exif.size());
   if (!meta.icc.empty())
     fs::write_atomic(fs::join(dir, kSourceIccFile), meta.icc.data(), meta.icc.size());
-  if (info.alpha) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "alpha_flattened"}});
+  // FR-IMP-007: the SR model sees the image on white; the alpha is kept, oriented like the
+  // pixels, and the PNG/WebP export scales it back on (JPEG has none).
+  nlohmann::json alpha_json;
+  if (!meta.alpha.empty() && meta.alpha.size() != size_t(info.w) * info.h) {
+    ENH_LOGW("alpha of %zu px for a %dx%d image: dropped", meta.alpha.size(), info.w, info.h);
+    meta.alpha = {};
+  }
+  if (!meta.alpha.empty()) {
+    Rgb8 a3;
+    a3.w = int(info.w);
+    a3.h = int(info.h);
+    a3.px.resize(meta.alpha.size() * 3);
+    for (size_t i = 0; i < meta.alpha.size(); ++i)
+      a3.px[i * 3] = a3.px[i * 3 + 1] = a3.px[i * 3 + 2] = meta.alpha[i];
+    meta.alpha = {};
+    a3 = apply_orientation(std::move(a3), info.orientation);
+    std::vector<uint8_t> a(size_t(a3.w) * a3.h);
+    for (size_t i = 0; i < a.size(); ++i) a[i] = a3.px[i * 3];
+    fs::write_atomic(fs::join(dir, kAlphaFile), a.data(), a.size());
+    alpha_json = {{"file", kAlphaFile}, {"width", a3.w}, {"height", a3.h}};
+    sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "alpha_kept"}});
+  }
   if (info.animated)
     sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
   const int src_w = img.w, src_h = img.h;
@@ -786,6 +807,7 @@ void enh_job::run_impl(nlohmann::json& result) {
         {"timings_ms",
          {{"sr", 0},
           {"total", int64_t(duration<double>(steady_clock::now() - t_start).count() * 1000)}}}};
+    if (!alpha_json.is_null()) result["alpha"] = alpha_json;
     fs::write_atomic(fs::join(dir, kResultFile), result.dump(2) + "\n");
     return;
   }
@@ -1091,6 +1113,7 @@ void enh_job::run_impl(nlohmann::json& result) {
             {"timings_ms",
              {{"sr", int64_t(sr_s * 1000)},
               {"total", int64_t(duration<double>(steady_clock::now() - t_start).count() * 1000)}}}};
+  if (!alpha_json.is_null()) result["alpha"] = alpha_json;
   fs::write_atomic(fs::join(dir, kResultFile), result.dump(2) + "\n");
 }
 

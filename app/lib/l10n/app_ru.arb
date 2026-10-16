@@ -40,7 +40,7 @@
   "continueAction": "Продолжить",
   "continueLater": "Продолжить позже",
   "noteSwitchedTo": "Переключено на {backend}",
-  "noteAlphaFlattened": "Прозрачные области станут белыми",
+  "noteAlphaKept": "Прозрачность сохранится в PNG и WebP, в JPEG фон станет белым",
   "noteFirstFrame": "Улучшается только первый кадр анимации",
   "strength": "Сила",
   "strengthValue": "{percent}%",
