@@ -1,0 +1,2 @@
+# Vulnerabilities that do not affect Refocal: <id> <reason>. Reviewed when the dependency moves.
+OSV-2026-1068 libjpeg-turbo: crash in tj3Compress8 (TurboJPEG API); built with WITH_TURBOJPEG=OFF, the code is not compiled in
