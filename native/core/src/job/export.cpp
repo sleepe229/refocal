@@ -20,7 +20,9 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <nlohmann/json.hpp>
+#include <type_traits>
 
 #include "enh.h"
 #include "image/decode.hpp"
@@ -106,12 +108,30 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
       base = std::make_unique<LanczosResampler>(src, w, h);
     }
 
+    // FR-IMP-007: PNG and WebP get the input's alpha back, Lanczos-scaled to the result size
+    // (kept as three equal channels for the resampler); JPEG stays on white.
+    std::unique_ptr<LanczosResampler> alpha_up;
+    Rgb8 alpha3;
+    if (format != "jpeg" && res.contains("alpha")) {
+      const auto& a = res["alpha"];
+      const int aw = a.at("width").get<int>(), ah = a.at("height").get<int>();
+      const auto raw = fs::read_all(fs::join(job_dir, kAlphaFile));
+      if (raw.size() != size_t(aw) * ah) fail(ENH_E_INVALID, "alpha file does not match");
+      alpha3.w = aw;
+      alpha3.h = ah;
+      alpha3.px.resize(raw.size() * 3);
+      for (size_t i = 0; i < raw.size(); ++i)
+        alpha3.px[i * 3] = alpha3.px[i * 3 + 1] = alpha3.px[i * 3 + 2] = raw[i];
+      alpha_up = std::make_unique<LanczosResampler>(alpha3, w, h);
+    }
+    written["alpha"] = alpha_up != nullptr;
+
     PreviewAccumulator thumb;
     if (thumb_max) thumb.init(w, h, thumb_max);
 
     BandStore store(job_dir);
     auto pump = [&](auto& writer) {
-      std::vector<uint8_t> buf, lo;
+      std::vector<uint8_t> buf, lo, a3, alpha;
       int y = 0;
       for (size_t b = 0; b < rows.size(); ++b) {
         const size_t n = size_t(rows[b]) * w * 3;
@@ -121,7 +141,18 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
           base->rows(y, rows[b], lo.data());
           blend(lo.data(), buf.data(), n, float(strength), buf.data());
         }
-        writer.write_rows(buf.data(), rows[b]);
+        if constexpr (std::is_same_v<std::decay_t<decltype(writer)>, JpegWriter>) {
+          writer.write_rows(buf.data(), rows[b]);  // JPEG has no alpha
+        } else {
+          if (alpha_up) {
+            const size_t px = size_t(rows[b]) * w;
+            a3.resize(px * 3);
+            alpha.resize(px);
+            alpha_up->rows(y, rows[b], a3.data());
+            for (size_t i = 0; i < px; ++i) alpha[i] = a3[i * 3];
+          }
+          writer.write_rows(buf.data(), rows[b], alpha_up ? alpha.data() : nullptr);
+        }
         if (thumb_max) thumb.add_rows(buf.data(), y, rows[b]);
         y += rows[b];
       }
@@ -132,10 +163,10 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
       JpegWriter jw(tmp, w, h, quality, &meta);
       pump(jw);
     } else if (format == "png") {
-      PngWriter pw(tmp, w, h, &meta);
+      PngWriter pw(tmp, w, h, &meta, alpha_up != nullptr);
       pump(pw);
     } else {
-      WebpWriter ww(tmp, w, h, quality, lossless, &meta);
+      WebpWriter ww(tmp, w, h, quality, lossless, &meta, alpha_up != nullptr);
       pump(ww);
     }
     Rgb8 tn;

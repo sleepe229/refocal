@@ -96,7 +96,7 @@ Rgb8 webp_decode(const std::string& path, SourceMeta* meta) {
     const size_t n = size_t(img.w) * img.h;
     img.px.assign(frame, frame + n * 4);
     WebPAnimDecoderDelete(dec);
-    rgba_to_rgb_on_white(img.px, n, false);
+    rgba_to_rgb_on_white(img.px, n, false, meta ? &meta->alpha : nullptr);
   } else {
     img.w = f.width;
     img.h = f.height;
@@ -106,7 +106,7 @@ Rgb8 webp_decode(const std::string& path, SourceMeta* meta) {
       if (!WebPDecodeRGBAInto(data.data(), data.size(), img.px.data(), img.px.size(), img.w * 4)) {
         fail(ENH_E_INVALID, "WebP decode failed");
       }
-      rgba_to_rgb_on_white(img.px, n, false);
+      rgba_to_rgb_on_white(img.px, n, false, meta ? &meta->alpha : nullptr);
     } else {
       img.px.resize(n * 3);
       if (!WebPDecodeRGBInto(data.data(), data.size(), img.px.data(), img.px.size(), img.w * 3)) {
@@ -130,13 +130,13 @@ Rgb8 webp_decode(const std::string& path, SourceMeta* meta) {
 struct WebpWriter::Impl {
   std::string path;
   int w = 0, h = 0, quality = 0, y = 0;
-  bool lossless = false, finished = false;
+  bool lossless = false, finished = false, alpha = false;
   OutputMeta meta;
-  std::vector<uint8_t> rgb;  // libwebp encodes a whole picture
+  std::vector<uint8_t> rgb;  // libwebp encodes a whole picture; RGBA with [alpha]
 };
 
 WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
-                       const OutputMeta* meta)
+                       const OutputMeta* meta, bool alpha)
     : impl_(std::make_unique<Impl>()) {
   if (w > kWebpMaxSide || h > kWebpMaxSide)
     fail(ENH_E_LIMIT, "WebP is limited to 16383 px per side");
@@ -150,15 +150,27 @@ WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool 
   m.quality = quality;
   m.lossless = lossless;
   if (meta) m.meta = *meta;
-  m.rgb.resize(size_t(w) * h * 3);
+  m.alpha = alpha;
+  m.rgb.resize(size_t(w) * h * (alpha ? 4 : 3));
 }
 
 WebpWriter::~WebpWriter() = default;
 
-void WebpWriter::write_rows(const uint8_t* rgb, int rows) {
+void WebpWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) {
   Impl& m = *impl_;
   if (rows > m.h - m.y) fail(ENH_E_INTERNAL, "WebP: too many rows");
-  std::memcpy(m.rgb.data() + size_t(m.y) * m.w * 3, rgb, size_t(rows) * m.w * 3);
+  if (m.alpha != (alpha != nullptr)) fail(ENH_E_INTERNAL, "WebP: alpha rows expected or not");
+  if (!m.alpha) {
+    std::memcpy(m.rgb.data() + size_t(m.y) * m.w * 3, rgb, size_t(rows) * m.w * 3);
+  } else {
+    uint8_t* d = m.rgb.data() + size_t(m.y) * m.w * 4;
+    for (size_t i = 0; i < size_t(rows) * m.w; ++i, d += 4) {
+      d[0] = rgb[i * 3];
+      d[1] = rgb[i * 3 + 1];
+      d[2] = rgb[i * 3 + 2];
+      d[3] = alpha[i];
+    }
+  }
   m.y += rows;
 }
 
@@ -184,7 +196,8 @@ void WebpWriter::finish() {
   WebPMemoryWriterInit(&mw);
   pic.writer = WebPMemoryWrite;
   pic.custom_ptr = &mw;
-  bool ok = WebPPictureImportRGB(&pic, m.rgb.data(), m.w * 3);
+  bool ok = m.alpha ? WebPPictureImportRGBA(&pic, m.rgb.data(), m.w * 4)
+                    : WebPPictureImportRGB(&pic, m.rgb.data(), m.w * 3);
   std::vector<uint8_t>().swap(m.rgb);  // the picture holds its own copy now
   ok = ok && WebPEncode(&cfg, &pic);
   const WebPEncodingError err = pic.error_code;

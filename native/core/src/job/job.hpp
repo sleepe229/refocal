@@ -43,5 +43,7 @@ inline constexpr const char* kResultFile = "result.json";
 inline constexpr const char* kPreviewFile = "preview.jpg";
 inline constexpr const char* kSourceExifFile = "source.exif";  // TIFF block of the input
 inline constexpr const char* kSourceIccFile = "source.icc";
+// FR-IMP-007: the input's alpha, oriented, 1 byte per pixel (result.json "alpha" has its size).
+inline constexpr const char* kAlphaFile = "alpha.raw";
 
 }  // namespace enh

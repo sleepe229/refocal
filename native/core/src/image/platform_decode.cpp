@@ -118,7 +118,7 @@ ImageInfo platform_probe(const std::string& path) {
   return i;
 }
 
-Rgb8 platform_decode(const std::string& path) {
+Rgb8 platform_decode(const std::string& path, std::vector<uint8_t>* alpha) {
   if (!api().ok) fail(ENH_E_INVALID, "this format needs Android 11 or later");
   Decoder d(path);
   Rgb8 img;
@@ -141,7 +141,9 @@ Rgb8 platform_decode(const std::string& path) {
   }
   const size_t n = size_t(img.w) * img.h;
   buf.resize(n * 4);
-  rgba_to_rgb_on_white(buf, n, true);  // AImageDecoder outputs premultiplied alpha by default
+  // AImageDecoder outputs premultiplied alpha by default.
+  const bool has_alpha = api().alpha_flags(d.header()) != ANDROID_BITMAP_FLAGS_ALPHA_OPAQUE;
+  rgba_to_rgb_on_white(buf, n, true, has_alpha ? alpha : nullptr);
   img.px = std::move(buf);
   return img;
 }
@@ -150,7 +152,9 @@ Rgb8 platform_decode(const std::string& path) {
 
 bool platform_decoder_available() { return false; }
 ImageInfo platform_probe(const std::string&) { fail(ENH_E_INVALID, "unsupported input format"); }
-Rgb8 platform_decode(const std::string&) { fail(ENH_E_INVALID, "unsupported input format"); }
+Rgb8 platform_decode(const std::string&, std::vector<uint8_t>*) {
+  fail(ENH_E_INVALID, "unsupported input format");
+}
 
 #endif
 
