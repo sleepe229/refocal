@@ -1796,6 +1796,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The file could not be read'**
   String get modelsErrorStorage;
+
+  /// No description provided for @facesTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a face to leave it as it is'**
+  String get facesTapHint;
+
+  /// No description provided for @faceToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Face {number}: restore'**
+  String faceToggle(int number);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

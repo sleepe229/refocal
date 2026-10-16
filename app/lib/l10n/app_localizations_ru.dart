@@ -993,4 +993,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get modelsErrorStorage => 'Не удалось прочитать файл';
+
+  @override
+  String get facesTapHint => 'Нажмите на лицо, чтобы оставить его как есть';
+
+  @override
+  String faceToggle(int number) {
+    return 'Лицо $number: восстанавливать';
+  }
 }

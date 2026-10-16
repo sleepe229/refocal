@@ -25,6 +25,20 @@ struct Face {
 
 inline constexpr int kYunetSide = 640;
 
+// Which detected faces are restored (the job) and listed (enh_analyze, FR-FACE-007): at least
+// kMinFacePx on the short side, at most the kMaxFaces largest. detect_faces sorts largest first.
+inline constexpr float kMinFacePx = 16;
+inline constexpr size_t kMaxFaces = 32;
+void keep_restorable(std::vector<Face>& faces);
+
+// A face box the user turned off (FR-FACE-007), in the same coordinates as Face.
+struct FaceBox {
+  float x = 0, y = 0, w = 0, h = 0;
+};
+// Intersection over union of a detection and a box: >= kSameFaceIou is the same face.
+float iou(const Face& f, const FaceBox& b);
+inline constexpr float kSameFaceIou = 0.5f;
+
 // YuNet 2023mar (input BGR 0..255, 640x640; 12 outputs: cls/obj/bbox/kps at strides 8/16/32,
 // as OpenCV FaceDetectorYN decodes them). The image is scaled to fit 640 and padded. Largest
 // face first.

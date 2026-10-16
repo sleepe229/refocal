@@ -699,5 +699,14 @@
     }
   },
   "modelsErrorNotAPack": "Not a Refocal model pack, or the file is damaged",
-  "modelsErrorStorage": "The file could not be read"
+  "modelsErrorStorage": "The file could not be read",
+  "facesTapHint": "Tap a face to leave it as it is",
+  "faceToggle": "Face {number}: restore",
+  "@faceToggle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  }
 }
