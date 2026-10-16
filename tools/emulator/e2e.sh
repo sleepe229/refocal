@@ -58,7 +58,8 @@ want = sys.argv[1]
 hit = None
 for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
     n = m.group(0)
-    t = re.search(r"text=\"([^\"]*)\"", n).group(1) + " " + re.search(r"content-desc=\"([^\"]*)\"", n).group(1)
+    attr = lambda k: (re.search(k + r"=\"([^\"]*)\"", n) or [None, ""])[1]
+    t = attr("text") + " " + attr("content-desc")
     if want in t and "clickable=\"true\"" in n:  # buttons, not titles with the same text
         b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
         hit = ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
@@ -107,7 +108,11 @@ tap_text "Skip" 60  # first run: the introduction (FR-ONB-001)
 if [[ $SCENARIO = rfpack ]]; then
   echo "== offline pack (FR-MODEL-006)"
   tap_text "Settings" 30
-  tap_text "Models" 30
+  # "Models" is further down the settings list.
+  for _ in $(seq 6); do
+    tap_text "Models" 2 2>/dev/null && break
+    adb_ shell input swipe 540 1800 540 600 300
+  done
   tap_text "Import a .rfpack file" 30
   sleep 4
   # DocumentsUI: open Downloads from the roots drawer, then the file (its row has the name).
@@ -118,12 +123,17 @@ if [[ $SCENARIO = rfpack ]]; then
       xy=$(adb_ shell cat /sdcard/ui.xml 2>/dev/null | python3 -c '
 import re, sys
 want = sys.argv[1]
+by_text, by_desc = None, None
 for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
     n = m.group(0)
-    t = re.search(r"text=\"([^\"]*)\"", n).group(1) + " " + re.search(r"content-desc=\"([^\"]*)\"", n).group(1)
-    if want in t:
-        b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
-        print((b[0] + b[2]) // 2, (b[1] + b[3]) // 2); break' "$step")
+    attr = lambda k: (re.search(k + r"=\"([^\"]*)\"", n) or [None, ""])[1]
+    b = list(map(int, re.findall(r"\d+", attr("bounds"))))
+    xy = ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
+    # The file title, not its "Preview <name>" button (same name in content-desc).
+    if want in attr("text") and by_text is None: by_text = xy
+    if want in attr("content-desc") and by_desc is None: by_desc = xy
+hit = by_text or by_desc
+if hit: print(*hit)' "$step")
       if [[ -n "$xy" ]]; then adb_ shell input tap $xy; echo "  tap '$step' at $xy"; break; fi
       sleep 2
     done
