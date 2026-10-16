@@ -141,4 +141,34 @@ void main() {
     expect(File('${store.inboxDir}/paused.jpg').existsSync(), isTrue);
     expect(File(orphan).existsSync(), isFalse);
   });
+
+  test('the inbox quota drops the least recently used jobs first (NFR-SIZE-006)', () async {
+    final small = JobStore(jobsDir: store.jobsDir, inboxDir: store.inboxDir, inboxQuota: 25);
+    String big(String name) => (File('${store.inboxDir}/$name')..writeAsStringSync('x' * 10)).path;
+    final oldest = job('job-1', big('a.jpg'), finished: true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final queued = job('job-2', big('b.jpg'), bandIdx: 1);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final shared = job('job-3', big('c.jpg'), finished: true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final newest = job('job-4', '${store.inboxDir}/c.jpg', bandIdx: 0);
+    // 30 bytes over a quota of 25: job-1 goes (10 freed); job-2 is the queue's.
+    await small.sweep(keepJobs: {'job-2'});
+    expect(Directory(oldest).existsSync(), isFalse);
+    expect(File('${store.inboxDir}/a.jpg').existsSync(), isFalse);
+    expect(Directory(queued).existsSync(), isTrue);
+    expect(Directory(shared).existsSync(), isTrue);
+    expect(Directory(newest).existsSync(), isTrue);
+    // Quota 5: job-3's copy is shared with job-4, so job-3 goes without freeing it; then job-4.
+    final tiny = JobStore(jobsDir: store.jobsDir, inboxDir: store.inboxDir, inboxQuota: 5);
+    await tiny.sweep(keepJobs: {'job-2'});
+    expect(Directory(shared).existsSync(), isFalse);
+    expect(Directory(newest).existsSync(), isFalse);
+    expect(File('${store.inboxDir}/c.jpg').existsSync(), isFalse);
+    expect(File('${store.inboxDir}/b.jpg').existsSync(), isTrue, reason: 'the queue keeps it');
+    // Under the quota nothing goes.
+    final fresh = job('job-5', big('d.jpg'));
+    await store.sweep();
+    expect(Directory(fresh).existsSync(), isTrue);
+  });
 }
