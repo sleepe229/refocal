@@ -1118,4 +1118,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String packUpdatesAvailable(int count) {
     return 'Model updates: $count';
   }
+
+  @override
+  String get compareSideBySide => 'Side by side';
+
+  @override
+  String get compareBorder => 'With a border';
 }

@@ -320,5 +320,7 @@
   "presetsNotAFile": "Это не файл пресетов Refocal или он от более новой версии",
   "settingsPackUpdates": "Проверять обновления моделей",
   "settingsPackUpdatesHint": "Раз в день Refocal скачивает подписанный список моделей, чтобы узнать, есть ли обновления у ваших. О вас и ваших фото ничего не отправляется.",
-  "packUpdatesAvailable": "Обновления моделей: {count}"
+  "packUpdatesAvailable": "Обновления моделей: {count}",
+  "compareSideBySide": "Рядом",
+  "compareBorder": "С границей"
 }
