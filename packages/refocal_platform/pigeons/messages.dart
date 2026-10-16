@@ -108,6 +108,10 @@ abstract class RefocalPlatformApi {
   @async
   String? saveToFile(String path, String displayName, String mimeType);
 
+  /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
+  /// when nothing can open it; anything but https is refused.
+  void openUrl(String url);
+
   /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
   /// provider, read-only; the file must be in the cache "share" directory).
   void shareFile(String path, String mimeType, String chooserTitle);

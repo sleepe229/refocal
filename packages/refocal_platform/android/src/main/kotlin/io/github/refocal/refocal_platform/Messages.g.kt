@@ -553,6 +553,11 @@ interface RefocalPlatformApi {
    */
   suspend fun saveToFile(path: String, displayName: String, mimeType: String): String?
   /**
+   * Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
+   * when nothing can open it; anything but https is refused.
+   */
+  fun openUrl(url: String)
+  /**
    * Opens the system share sheet for [path] (Android: a content URI from the plugin's own
    * provider, read-only; the file must be in the cache "share" directory).
    */
@@ -704,6 +709,24 @@ interface RefocalPlatformApi {
               }
               reply.reply(wrapped)
             }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.openUrl$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val urlArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.openUrl(urlArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
           }
         } else {
           channel.setMessageHandler(null)

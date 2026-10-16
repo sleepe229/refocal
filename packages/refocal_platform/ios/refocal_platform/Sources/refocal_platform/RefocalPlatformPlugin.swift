@@ -42,6 +42,10 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
     throw PigeonError(code: "unimplemented", message: "saveToFile is not implemented on iOS yet", details: nil)
   }
 
+  func openUrl(url: String) throws {
+    throw PigeonError(code: "unimplemented", message: "openUrl is not implemented on iOS yet", details: nil)
+  }
+
   func shareFile(path: String, mimeType: String, chooserTitle: String) throws {
     throw PigeonError(code: "unimplemented", message: "shareFile is not implemented on iOS yet", details: nil)
   }

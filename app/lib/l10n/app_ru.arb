@@ -297,5 +297,20 @@
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
   "close": "Закрыть",
-  "resultSeconds": "{seconds} с"
+  "resultSeconds": "{seconds} с",
+  "reportBadAction": "Сообщить о плохом результате",
+  "reportBadTitle": "Что не так с результатом?",
+  "badOtherFace": "Чужое лицо",
+  "badArtifacts": "Артефакты",
+  "badColor": "Цвет",
+  "badBias": "Несправедливо к группе людей",
+  "badOther": "Другое",
+  "reportComment": "Что вы заметили? (необязательно)",
+  "reportWillSend": "Этот текст попадёт в публичный issue на GitHub (без фото):",
+  "reportOpenIssue": "Открыть issue на GitHub",
+  "reportSharePhoto": "Поделиться фото результата…",
+  "reportPhotoTitle": "Фото будет публичным",
+  "reportPhotoBody": "Issue на GitHub может прочитать кто угодно. Делитесь фото, только если вас это устраивает, и никогда — фото других людей без их согласия.",
+  "reportPhotoOk": "Поделиться фото",
+  "reportNoBrowser": "На телефоне нет приложения, открывающего ссылки"
 }
