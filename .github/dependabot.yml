@@ -1,0 +1,22 @@
+# Dependency updates (SEC-INP-006: CVE fixes within 14 days, critical within 72 h). Security
+# updates come as soon as an advisory is published; version updates weekly. Native libraries are
+# git submodules: their advisories are checked by tools/osv/check.sh in nightly.yml.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: gradle
+    directory: /app/android
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
