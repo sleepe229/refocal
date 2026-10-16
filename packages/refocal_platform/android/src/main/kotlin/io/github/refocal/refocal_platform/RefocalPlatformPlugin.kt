@@ -242,10 +242,14 @@ class RefocalPlatformPlugin :
    * Remembers the images of ACTION_SEND / ACTION_SEND_MULTIPLE (added to those not taken yet);
    * the intent is consumed so a recreated activity does not repeat it.
    */
+  /** FR-SHARE-001/002: ACTION_SEND(_MULTIPLE) streams, or the data of ACTION_EDIT. */
   private fun takeShare(intent: Intent?): Boolean {
-    if (intent == null || intent.type?.startsWith("image/") != true) return false
+    if (intent == null) return false
+    val type = intent.type ?: intent.data?.let { context.contentResolver.getType(it) }
+    if (type?.startsWith("image/") != true) return false
     val uris: List<Uri> =
         when (intent.action) {
+          Intent.ACTION_EDIT -> listOfNotNull(intent.data)
           Intent.ACTION_SEND ->
               listOfNotNull(
                   if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)

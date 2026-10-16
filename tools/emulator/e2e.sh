@@ -5,7 +5,7 @@
 #   [SCENARIO=basic|background|pause|queue] tools/emulator/e2e.sh APK [PHOTO.jpg|png|webp] [SCALE_LABEL]
 # background: Home during processing -> FGS notification, "Photo ready" -> reopen -> save.
 # pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
-# Every scenario ends with the log check, share intake and a queue of two photos;
+# Every scenario ends with the log check, share intake, "edit with" and a queue of two photos;
 # queue: only share intake and the queue (no 4x run).
 # rfpack: RFPACK=<file.rfpack> PACK=<pack id>: import it on the Models screen through the system
 # file picker (FR-MODEL-006, no network), check it is installed; nothing else.
@@ -236,6 +236,12 @@ adb_ shell am start -a android.intent.action.SEND -t "$mime" -d "$uri" --grant-r
 NOTAP=1 tap_text "Enhance" 60 || { echo "FAIL: shared photo did not open the editor"; exit 1; }
 echo "  shared photo opened"
 adb_ shell input keyevent KEYCODE_BACK  # leave the editor of the shared photo
+echo "== edit with (FR-SHARE-002)"
+adb_ shell am start -a android.intent.action.EDIT -t "$mime" -d "$uri" --grant-read-uri-permission \
+  -n io.github.refocal.app/.MainActivity >/dev/null
+NOTAP=1 tap_text "Enhance" 60 || { echo "FAIL: ACTION_EDIT did not open the editor"; exit 1; }
+echo "  edited photo opened"
+adb_ shell input keyevent KEYCODE_BACK
 
 echo "== queue (FR-BATCH-001..008): multi-pick -> batch sheet -> autosave"
 wait_text "Process several photos" 30
