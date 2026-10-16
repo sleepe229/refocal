@@ -10,8 +10,10 @@ import 'package:refocal_platform/refocal_platform.dart';
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/job_store.dart';
+import '../../bootstrap/models.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/queue.dart';
+import '../../bootstrap/settings.dart';
 import '../../bootstrap/tier.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/errors.dart';
@@ -155,6 +157,52 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.invalidate(jobListProvider);
   }
 
+  /// FR-ONB-003 (06 §3.1): after the introduction, an optional offer of the face model while
+  /// it is not installed; the Models screen downloads it on the user's action (ADR-0020).
+  Widget? _faceOffer(AppLocalizations l10n) {
+    final settings = ref.watch(settingsProvider).value;
+    final available = ref.watch(availableModelsProvider);
+    if (settings == null || settings.faceOfferDismissed || !settings.onboardingDone) return null;
+    if (!available.contains(bundledDetector) || available.contains(defaultFacePack)) return null;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.face_retouching_natural),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(l10n.faceOfferTitle, style: Theme.of(context).textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(l10n.faceOfferBody),
+            OverflowBar(
+              alignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => ref
+                      .read(settingsProvider.notifier)
+                      .change((s) => s.copyWith(faceOfferDismissed: true)),
+                  child: Text(l10n.faceOfferLater),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/models'),
+                  child: Text(l10n.faceOfferOpen),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -204,6 +252,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             const SizedBox(height: 8),
             Text(l10n.homePrivacy, textAlign: TextAlign.center),
             const SizedBox(height: 24),
+            ?_faceOffer(l10n),
             if (!e.modelReady)
               Text(
                 l10n.homeModelMissing,
