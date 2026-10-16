@@ -80,7 +80,7 @@ void main() {
         'id': id,
         'version': '1.0.0',
         'category': 'sr',
-        'title': {'en': id},
+        'title': {'en': 'Pack $id', 'ru': 'Пак $id'},
         'tier_min': 'T0',
         'license': {
           'spdx': nc ? 'LicenseRef-NC' : 'BSD-3-Clause',
@@ -268,7 +268,11 @@ void main() {
     final progress = <double>[];
     await manager.installOffline(p, onProgress: (x) => progress.add(x.fraction));
     expect(progress.last, 1.0);
-    expect((await manager.repo.installed()).single.id, 'face.x');
+    final installed = (await manager.repo.installed()).single;
+    expect(
+      (installed.id, installed.titleFor('ru'), installed.titleFor('de')),
+      ('face.x', 'Пак face.x', 'Pack face.x'),
+    );
     expect(File('${manager.dirOf('face.x')}/model.ncnn.bin').readAsBytesSync(), weights);
     expect(await manager.repo.current(), isNull); // the network manifest is untouched
     expect(Directory('${root.path}/tmp/rfpack').existsSync(), isFalse);

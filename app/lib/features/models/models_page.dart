@@ -75,7 +75,7 @@ class ModelsPage extends ConsumerWidget {
                 for (final i in installed.values)
                   if (s?.manifest?.pack(i.id) == null)
                     ListTile(
-                      title: Text(i.id),
+                      title: Text(i.titleFor(lang)),
                       subtitle: Text('${i.version} · ${l10n.modelsInstalled}'),
                       trailing: IconButton(
                         tooltip: l10n.modelsDelete,
