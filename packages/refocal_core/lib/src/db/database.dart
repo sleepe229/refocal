@@ -89,10 +89,14 @@ class RefocalDatabase extends _$RefocalDatabase {
     from3To4: (m, schema) async {
       await m.createTable(schema.benchmarkCache);
     },
+    // Titles of installed packs, for those the manifest does not list (FR-MODEL-006).
+    from4To5: (m, schema) async {
+      await m.addColumn(schema.modelPacks, schema.modelPacks.title);
+    },
   );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
