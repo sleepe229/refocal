@@ -203,6 +203,21 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  /// FR-MODEL-008: updates found by the opt-in check (FR-SET-005).
+  Widget? _packUpdates(AppLocalizations l10n) {
+    final n = ref.watch(packUpdatesProvider).value?.length ?? 0;
+    if (n == 0) return null;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: ListTile(
+        leading: const Icon(Icons.system_update_alt),
+        title: Text(l10n.packUpdatesAvailable(n)),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/models'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -253,6 +268,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             Text(l10n.homePrivacy, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ?_faceOffer(l10n),
+            ?_packUpdates(l10n),
             if (!e.modelReady)
               Text(
                 l10n.homeModelMissing,

@@ -2000,6 +2000,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not a Refocal presets file, or a newer one'**
   String get presetsNotAFile;
+
+  /// No description provided for @settingsPackUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for model updates'**
+  String get settingsPackUpdates;
+
+  /// No description provided for @settingsPackUpdatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Once a day, Refocal downloads the signed list of models to see if yours have updates. Nothing about you or your photos is sent.'**
+  String get settingsPackUpdatesHint;
+
+  /// No description provided for @packUpdatesAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Model updates: {count}'**
+  String packUpdatesAvailable(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

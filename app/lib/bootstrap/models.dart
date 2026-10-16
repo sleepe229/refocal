@@ -7,6 +7,7 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import 'app_log.dart';
 import 'database.dart';
 import 'engine.dart';
+import 'settings.dart';
 
 /// Public keys of the model manifest (ADR-0011): A signs (release CI), B is kept offline for
 /// rotation. The key lines of tools/models/keys/{A,B}.pub (test/models_test.dart compares).
@@ -460,6 +461,47 @@ final availableModelsProvider = Provider<Set<String>>((ref) {
   final installed = ref.watch(installedPacksProvider).value ?? const <InstalledPack>[];
   final detector = ref.watch(engineProvider).value?.detectorReady ?? false;
   return {bundledSrModel, if (detector) bundledDetector, for (final p in installed) p.id};
+});
+
+/// FR-MODEL-008: installed packs the manifest has a newer version of.
+List<PackInfo> packUpdates(Manifest m, List<InstalledPack> installed) {
+  List<int> v(String s) => s.split('.').map(int.parse).toList();
+  bool newer(String a, String b) {
+    final (x, y) = (v(a), v(b));
+    for (var i = 0; i < 3; i++) {
+      if (x[i] != y[i]) return x[i] > y[i];
+    }
+    return false;
+  }
+
+  return [
+    for (final i in installed)
+      if (m.pack(i.id) case final p? when newer(p.version, i.version)) p,
+  ];
+}
+
+/// FR-SET-005: with the check on, the manifest is fetched at most once a day (else the one
+/// already verified is used); the packs with an update come back. Off: nothing, no network.
+final packUpdatesProvider = FutureProvider<List<PackInfo>>((ref) async {
+  final settings = await ref.watch(settingsProvider.future);
+  if (!settings.packUpdateCheck) return const [];
+  final manager = await ref.watch(modelManagerProvider.future);
+  final installed = await manager.repo.installed();
+  if (installed.isEmpty) return const [];
+  var m = await manager.repo.current();
+  final last = settings.packUpdateCheckedAt;
+  if (last == null || DateTime.now().difference(last) > const Duration(days: 1)) {
+    try {
+      m = await manager.refresh();
+      AppLog.info('pack update check: serial ${m.serial}');
+    } on ModelError catch (e) {
+      AppLog.warn('pack update check: ${e.kind.name}'); // tried again tomorrow
+    }
+    await ref
+        .read(settingsProvider.notifier)
+        .change((s) => s.copyWith(packUpdateCheckedAt: DateTime.now));
+  }
+  return m == null ? const [] : packUpdates(m, installed);
 });
 
 /// The face pack the app uses (FR-FACE-002: GFPGAN 1.4 by default).

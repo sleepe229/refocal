@@ -1105,4 +1105,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get presetsNotAFile => 'Это не файл пресетов Refocal или он от более новой версии';
+
+  @override
+  String get settingsPackUpdates => 'Проверять обновления моделей';
+
+  @override
+  String get settingsPackUpdatesHint =>
+      'Раз в день Refocal скачивает подписанный список моделей, чтобы узнать, есть ли обновления у ваших. О вас и ваших фото ничего не отправляется.';
+
+  @override
+  String packUpdatesAvailable(int count) {
+    return 'Обновления моделей: $count';
+  }
 }

@@ -767,5 +767,15 @@
       }
     }
   },
-  "presetsNotAFile": "Not a Refocal presets file, or a newer one"
+  "presetsNotAFile": "Not a Refocal presets file, or a newer one",
+  "settingsPackUpdates": "Check for model updates",
+  "settingsPackUpdatesHint": "Once a day, Refocal downloads the signed list of models to see if yours have updates. Nothing about you or your photos is sent.",
+  "packUpdatesAvailable": "Model updates: {count}",
+  "@packUpdatesAvailable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
