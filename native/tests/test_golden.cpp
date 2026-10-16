@@ -2,9 +2,11 @@
 // (tools/models/golden.lock): PSNR >= 40 dB. Vulkan joins where a GPU exists (>= 35 dB). Without
 // the weights (they are not in git) the test is skipped: tools/models/fetch.sh with
 // DEST=<build>/golden and LOCK=tools/models/golden.lock puts them there.
+// TEST-ML-005 (NFR-REL-006): the same input, recipe and backend give a byte-identical result.
 //   test_golden GOLDEN_DIR      (GOLDEN_DIR/sr.general-x4v3/{model.ncnn.*, golden_*.f32})
 // SPDX-License-Identifier: Apache-2.0
 #include <net.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cmath>
@@ -15,6 +17,8 @@
 
 #include "backend/backend.hpp"
 #include "enh.h"
+#include "image/image.hpp"
+#include "image/jpeg.hpp"
 #include "mini_test.hpp"
 #include "util/fs.hpp"
 
@@ -65,6 +69,31 @@ double run(const BackendConfig& cfg, const ModelInfo& m, const std::vector<float
   return db;
 }
 
+// Runs a job to its end on [s]; its result's bands, concatenated, and its recipe hash.
+std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::string& jobs_dir,
+                                                 const nlohmann::json& req) {
+  const std::string r = req.dump();
+  enh_job* j = nullptr;
+  CHECK(enh_job_create(s, r.c_str(), &j) == ENH_OK);
+  if (!j) return {};
+  CHECK(enh_job_start(
+            j, [](int64_t, int32_t, int32_t, int64_t, int64_t, char* p) { enh_free(p); }, 1) ==
+        ENH_OK);
+  for (int i = 0; i < 3000 && enh_job_status(j) < 0; ++i) usleep(20000);
+  CHECK(enh_job_status(j) == ENH_OK);
+  enh_job_destroy(j);
+  const std::string dir = fs::join(jobs_dir, req["job_id"].get<std::string>());
+  const auto res = nlohmann::json::parse(fs::read_text(fs::join(dir, "result.json")));
+  std::vector<uint8_t> all;
+  for (size_t b = 0; b < res["band_rows"].size(); ++b) {
+    char name[32];
+    std::snprintf(name, sizeof name, "bands/%04zu.raw", b);
+    const auto d = fs::read_all(fs::join(dir, name));
+    all.insert(all.end(), d.begin(), d.end());
+  }
+  return {all, res["recipe_hash"].get<std::string>()};
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -102,6 +131,47 @@ int main(int argc, char** argv) {
     CHECK(tier == "T0" || tier == "T1" || tier == "T2");
   }
   enh_session_destroy(s);
+
+  // TEST-ML-005: a 320x240 input from the golden tile, several 128 px tiles, 4 CPU threads.
+  {
+    const std::string work = fs::join(argv[1], "determinism");
+    fs::remove_tree(work);
+    fs::mkdirs(fs::join(work, "jobs"));
+    Rgb8 img;
+    img.w = 320;
+    img.h = 240;
+    img.px.resize(size_t(img.w) * img.h * 3);
+    for (int y = 0; y < img.h; ++y)
+      for (int x = 0; x < img.w; ++x)
+        for (int c = 0; c < 3; ++c)
+          img.px[(size_t(y) * img.w + x) * 3 + c] = uint8_t(
+              std::lround(255 * in[size_t(c) * kIn * kIn + size_t(y % kIn) * kIn + x % kIn]));
+    const std::string input = fs::join(work, "in.jpg");
+    jpeg_encode(input, img, 90);
+    enh_session_config dc{};
+    dc.struct_size = sizeof dc;
+    dc.models_dir = argv[1];
+    const std::string jobs_dir = fs::join(work, "jobs");
+    dc.work_dir = jobs_dir.c_str();
+    dc.backend_pref = ENH_BACKEND_NCNN_CPU;
+    dc.cpu_threads = 4;
+    enh_session* ds = nullptr;
+    CHECK(enh_session_create(&dc, &ds) == ENH_OK);
+    if (ds) {
+      nlohmann::json q = {
+          {"schema", 1}, {"input", input}, {"sr_model", "sr.general-x4v3"}, {"tile", 128}};
+      q["job_id"] = "a";
+      const auto a = job(ds, jobs_dir, q);
+      q["job_id"] = "b";
+      const auto b = job(ds, jobs_dir, q);
+      CHECK(!a.first.empty() && a.first.size() == size_t(1280) * 960 * 3);
+      CHECK(a.first == b.first);
+      CHECK(a.second == b.second);
+      std::printf("determinism: %zu bytes, identical: %s\n", a.first.size(),
+                  a.first == b.first ? "yes" : "NO");
+      enh_session_destroy(ds);
+    }
+  }
   std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
   return mini::failures() ? 1 : 0;
 }
