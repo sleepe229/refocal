@@ -993,4 +993,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get modelsErrorStorage => 'Не удалось прочитать файл';
+
+  @override
+  String get faceOfferTitle => 'Модель лиц для портретов';
+
+  @override
+  String get faceOfferBody =>
+      'Восстанавливает лица на старых и мелких фото. Скачивается отдельно: около 177 МБ, для некоммерческого использования.';
+
+  @override
+  String get faceOfferOpen => 'Модели';
+
+  @override
+  String get faceOfferLater => 'Не сейчас';
 }
