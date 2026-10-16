@@ -6,6 +6,7 @@
 #include <csetjmp>
 #include <cstdio>
 #include <memory>
+#include <vector>
 
 #include "image/decode.hpp"
 #include "image/encode.hpp"
@@ -90,16 +91,20 @@ Rgb8 png_decode(const std::string& path, SourceMeta* meta) {
     png_image_free(&im);
     fail(ENH_E_INVALID, "PNG decode failed: " + msg);
   }
-  im.format = PNG_FORMAT_RGB;  // alpha is composited onto `bg` by libpng
-  const png_color bg{255, 255, 255};
+  // With transparency: RGBA, composited here (as the other decoders do) so that the alpha is
+  // kept for the export (FR-IMP-007).
+  im.format = hdr.alpha ? PNG_FORMAT_RGBA : PNG_FORMAT_RGB;
   Rgb8 img;
   img.w = int(im.width);
   img.h = int(im.height);
   img.px.resize(PNG_IMAGE_SIZE(im));
-  if (!png_image_finish_read(&im, &bg, img.px.data(), 0, nullptr)) {
+  if (!png_image_finish_read(&im, nullptr, img.px.data(), 0, nullptr)) {
     const std::string msg = im.message;
     png_image_free(&im);
     fail(ENH_E_INVALID, "PNG decode failed: " + msg);
+  }
+  if (hdr.alpha) {
+    rgba_to_rgb_on_white(img.px, size_t(img.w) * img.h, false, meta ? &meta->alpha : nullptr);
   }
   return img;
 }
@@ -117,7 +122,8 @@ struct PngWriter::Impl {
   png_structp png = nullptr;
   png_infop info = nullptr;
   int w = 0;
-  bool finished = false;
+  bool finished = false, alpha = false;
+  std::vector<uint8_t> row;  // an RGBA row, interleaved before libpng sees it
   OutputMeta meta;
   ~Impl() {
     if (png) png_destroy_write_struct(&png, info ? &info : nullptr);
@@ -125,11 +131,13 @@ struct PngWriter::Impl {
   }
 };
 
-PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* meta)
+PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* meta, bool alpha)
     : impl_(std::make_unique<Impl>()) {
   Impl& m = *impl_;
   if (meta) m.meta = *meta;
   m.w = w;
+  m.alpha = alpha;
+  if (alpha) m.row.resize(size_t(w) * 4);
   m.f = std::fopen(path.c_str(), "wb");
   if (!m.f) fail(ENH_E_IO, "cannot create output");
   m.png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, on_write_error, on_warning);
@@ -143,8 +151,9 @@ PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* me
   png_set_benign_errors(m.png, 1);
   png_set_option(m.png, PNG_SKIP_sRGB_CHECK_PROFILE, PNG_OPTION_ON);
   png_set_compression_level(m.png, 6);
-  png_set_IHDR(m.png, m.info, png_uint_32(w), png_uint_32(h), 8, PNG_COLOR_TYPE_RGB,
-               PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+  png_set_IHDR(m.png, m.info, png_uint_32(w), png_uint_32(h), 8,
+               alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+               PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
   if (!m.meta.icc.empty()) {  // validated on read (icc_header_valid)
     png_set_iCCP(m.png, m.info, "ICC Profile", PNG_COMPRESSION_TYPE_BASE, m.meta.icc.data(),
                  png_uint_32(m.meta.icc.size()));
@@ -166,11 +175,24 @@ PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* me
 
 PngWriter::~PngWriter() = default;
 
-void PngWriter::write_rows(const uint8_t* rgb, int rows) {
+void PngWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) {
   Impl& m = *impl_;
+  if (m.alpha != (alpha != nullptr)) fail(ENH_E_INTERNAL, "PNG: alpha rows expected or not");
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   for (int r = 0; r < rows; ++r) {
-    png_write_row(m.png, const_cast<png_bytep>(rgb + size_t(r) * m.w * 3));
+    if (!m.alpha) {
+      png_write_row(m.png, const_cast<png_bytep>(rgb + size_t(r) * m.w * 3));
+      continue;
+    }
+    const uint8_t* s = rgb + size_t(r) * m.w * 3;
+    const uint8_t* a = alpha + size_t(r) * m.w;
+    for (int x = 0; x < m.w; ++x) {
+      m.row[size_t(x) * 4] = s[x * 3];
+      m.row[size_t(x) * 4 + 1] = s[x * 3 + 1];
+      m.row[size_t(x) * 4 + 2] = s[x * 3 + 2];
+      m.row[size_t(x) * 4 + 3] = a[x];
+    }
+    png_write_row(m.png, m.row.data());
   }
 }
 
