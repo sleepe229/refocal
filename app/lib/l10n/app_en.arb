@@ -126,7 +126,7 @@
       }
     }
   },
-  "noteAlphaFlattened": "Transparent areas become white",
+  "noteAlphaKept": "Transparency is kept in PNG and WebP; in JPEG it becomes white",
   "noteFirstFrame": "Only the first frame of the animation is enhanced",
   "strength": "Strength",
   "strengthValue": "{percent}%",

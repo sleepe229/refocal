@@ -203,8 +203,8 @@ class EnhanceController extends Notifier<EnhanceState> {
               FallbackEvent(kind: FallbackKind.backend) => l10n.noteSwitchedTo(e.to),
             };
             state = Running(stage, progress, null, note: note);
-          case WarningEvent(code: 'alpha_flattened'):
-            note = l10n.noteAlphaFlattened;
+          case WarningEvent(code: 'alpha_kept'):
+            note = l10n.noteAlphaKept;
           case WarningEvent(code: 'animation_first_frame'):
             note = l10n.noteFirstFrame;
           case WarningEvent(code: 'thermal_wait'):
