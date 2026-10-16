@@ -39,7 +39,12 @@ class JobEntry {
 }
 
 class JobStore {
-  JobStore({required this.jobsDir, required this.inboxDir, this.otherInputs = _none});
+  JobStore({
+    required this.jobsDir,
+    required this.inboxDir,
+    this.otherInputs = _none,
+    this.inboxQuota = defaultInboxQuota,
+  });
 
   final String jobsDir, inboxDir;
 
@@ -51,6 +56,11 @@ class JobStore {
 
   /// Jobs and inbox copies are deleted after this long (07 §1).
   static const maxAge = Duration(days: 7);
+
+  /// NFR-SIZE-006: the inbox copies jobs still refer to, at most this many bytes; past it the
+  /// least recently used jobs go first (07 §1, ADR-0010).
+  static const defaultInboxQuota = 1 << 30;
+  final int inboxQuota;
 
   /// Unfinished writes younger than this may still be in progress.
   static const partialAge = Duration(hours: 1);
@@ -118,7 +128,8 @@ class JobStore {
   }
 
   /// Startup cleanup: jobs older than [maxAge], directories without a readable request, and
-  /// inbox copies no job refers to (nothing is open yet when this runs). [keepJobs] (directory
+  /// inbox copies no job refers to (nothing is open yet when this runs); then, while the copies
+  /// left take more than [inboxQuota], the least recently used job with its copy. [keepJobs] (directory
   /// names) and [keepInputs] are what the queue still refers to: a queued photo has no job
   /// directory yet, and the queue expires its own jobs. A copy the platform is
   /// still writing (`*.part`, ADR-0010) is kept until it is [partialAge] old. Each deletion is
@@ -146,6 +157,31 @@ class JobStore {
           return;
         }
         await f.delete();
+      });
+    }
+    await _enforceQuota(keepJobs, keepInputs);
+  }
+
+  Future<void> _enforceQuota(Set<String> keepJobs, Set<String> keepInputs) async {
+    final sizes = <String, int>{};
+    for (final f in await _children<File>(inboxDir)) {
+      await _bestEffort(() async => sizes[f.path] = await f.length());
+    }
+    var total = sizes.values.fold(0, (a, b) => a + b);
+    if (total <= inboxQuota) return;
+    final jobs = (await list()).reversed.toList(); // least recently used first
+    for (final (i, j) in jobs.indexed) {
+      if (total <= inboxQuota) break;
+      if (keepJobs.contains(j.id)) continue; // the queue's
+      final freed = sizes[j.input] ?? 0;
+      final shared =
+          keepInputs.contains(j.input) || jobs.skip(i + 1).any((o) => o.input == j.input);
+      await _bestEffort(() async {
+        await Directory(j.dir).delete(recursive: true);
+        if (!shared && freed > 0) {
+          await File(j.input).delete();
+          total -= freed;
+        }
       });
     }
   }

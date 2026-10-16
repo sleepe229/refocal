@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../db/database.dart';
@@ -20,9 +22,17 @@ class InstalledPack {
     required this.path,
     required this.size,
     required this.installedAt,
+    this.title = const {},
   });
 
   final String id, version;
+
+  /// Language code -> title, from the manifest entry it was installed from (empty before
+  /// schema 5); see [titleFor].
+  final Map<String, String> title;
+
+  /// The title in [lang], else English, else the id (as [PackInfo.titleFor]).
+  String titleFor(String lang) => title[lang] ?? title['en'] ?? id;
 
   /// Relative to AppSupport.
   final String path;
@@ -76,11 +86,22 @@ class ModelRepository {
               path: r.path,
               size: r.size,
               installedAt: DateTime.fromMillisecondsSinceEpoch(r.installedAt),
+              title: _title(r.title),
             ),
         ],
       );
 
   Future<List<InstalledPack>> installed() => watchInstalled().first;
+
+  /// The stored titles; anything unreadable is no title (the id is shown).
+  static Map<String, String> _title(String? json) {
+    if (json == null) return const {};
+    try {
+      return (jsonDecode(json) as Map).map((k, v) => MapEntry(k as String, v as String));
+    } on Object {
+      return const {};
+    }
+  }
 
   /// After every file of [files] was verified and moved into [path].
   Future<void> recordInstalled(PackInfo pack, List<PackFile> files, String path, {DateTime? now}) =>
@@ -96,6 +117,7 @@ class ModelRepository {
               sha256: files.map((f) => f.sha256).join(','),
               licenseSpdx: pack.license.spdx,
               installedAt: (now ?? DateTime.now()).millisecondsSinceEpoch,
+              title: Value(jsonEncode(pack.title)),
             ),
           );
 

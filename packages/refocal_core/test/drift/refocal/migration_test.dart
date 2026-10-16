@@ -11,6 +11,8 @@ import 'package:test/test.dart';
 import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v4.dart' as v4;
+import 'generated/schema_v5.dart' as v5;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -44,6 +46,33 @@ void main() {
     final db = RefocalDatabase(schema.newConnection());
     await verifier.migrateAndValidate(db, GeneratedHelper.versions.last);
     await db.close();
+  });
+
+  test('4 -> 5: installed packs stay, without a title until reinstalled', () async {
+    final schema = await verifier.schemaAt(4);
+    final old = v4.DatabaseAtV4(schema.newConnection());
+    await old
+        .into(old.modelPacks)
+        .insert(
+          v4.ModelPacksCompanion.insert(
+            id: 'sr.a',
+            version: '1.0.0',
+            category: 'sr',
+            path: 'models/sr.a',
+            size: 3,
+            sha256: 'x',
+            licenseSpdx: 'MIT',
+            installedAt: 1,
+          ),
+        );
+    await old.close();
+    final db = RefocalDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 5);
+    await db.close();
+    final now = v5.DatabaseAtV5(schema.newConnection());
+    final p = await now.select(now.modelPacks).getSingle();
+    expect((p.id, p.version, p.title), ('sr.a', '1.0.0', null));
+    await now.close();
   });
 
   test('a new database matches the last dump', () async {
