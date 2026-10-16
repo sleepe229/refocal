@@ -518,6 +518,31 @@ class RefocalPlatformApi {
     return pigeonVar_replyValue! as PickedImages;
   }
 
+  /// Asks for a file (Android: ACTION_OPEN_DOCUMENT, any type: an offline pack .rfpack,
+  /// FR-MODEL-006) and copies it into [dstDir]. Returns the copy's path, or null when
+  /// cancelled. Error "limit" when it is larger than [maxBytes].
+  Future<String?> pickFile(String dstDir, int maxBytes) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickFile$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      dstDir,
+      maxBytes,
+    ]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as String?;
+  }
+
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   Future<String> saveToGallery(String path, String displayName, String mimeType) async {
     final pigeonVar_channelName =

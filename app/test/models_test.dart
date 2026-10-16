@@ -21,6 +21,39 @@ class _Verifier implements ModelVerifier {
   }
 }
 
+/// The archive checks are the core's (TEST-SEC-005); this one only unpacks.
+class _Unpacker implements PackUnpacker {
+  @override
+  Future<void> extract(String rfpack, String entry, String dst, int maxBytes) async {
+    final r = Process.runSync('unzip', ['-p', rfpack, entry], stdoutEncoding: null);
+    final out = r.stdout as List<int>;
+    if (r.exitCode != 0) throw EnhException(EnhStatus.invalid);
+    if (out.length > maxBytes) throw EnhException(EnhStatus.limit);
+    File(dst).writeAsBytesSync(out);
+  }
+}
+
+/// A .rfpack: a zip of [entries] (name -> bytes).
+String _rfpack(String path, Map<String, List<int>> entries) {
+  final dir = Directory('$path.d')..createSync(recursive: true);
+  for (final e in entries.entries) {
+    File('${dir.path}/${e.key}').writeAsBytesSync(e.value);
+  }
+  final r = Process.runSync('python3', [
+    '-I',
+    '-c',
+    'import sys,zipfile,os\n'
+        'with zipfile.ZipFile(sys.argv[1],"w",zipfile.ZIP_DEFLATED) as z:\n'
+        '  [z.write(os.path.join(sys.argv[2],n),n) for n in sys.argv[3:]]',
+    path,
+    dir.path,
+    ...entries.keys,
+  ]);
+  expect(r.exitCode, 0, reason: '${r.stderr}');
+  dir.deleteSync(recursive: true);
+  return path;
+}
+
 String _sha(List<int> b) {
   final f = File('${Directory.systemTemp.path}/sha-${b.length}-${b.hashCode}')..writeAsBytesSync(b);
   final s = (Process.runSync('sha256sum', [f.path]).stdout as String).split(' ').first;
@@ -132,6 +165,7 @@ void main() {
     manager = ModelManager(
       repo: ModelRepository(db),
       verifier: _Verifier(),
+      unpacker: _Unpacker(),
       supportDir: '${root.path}/support',
       tmpDir: '${root.path}/tmp',
       http: client,
@@ -211,6 +245,72 @@ void main() {
     await manager.repo.recordConsent(face);
     await manager.install(face);
     expect((await manager.repo.installed()).single.id, 'face.x');
+  });
+
+  Map<String, List<int>> offline(
+    List<Map<String, Object?>> packs, {
+    String sig = 'good',
+    List<int>? bin,
+  }) => {
+    'manifest.json': utf8.encode(manifest(2, packs)),
+    'manifest.json.minisig': utf8.encode(sig),
+    'license.txt': license,
+    'model.ncnn.param': param,
+    'model.ncnn.bin': bin ?? weights,
+  };
+
+  test('an offline pack installs without the network manifest (FR-MODEL-006)', () async {
+    final path = _rfpack('${root.path}/face.rfpack', offline([pack('face.x', nc: true)]));
+    final p = await manager.openOffline(path);
+    expect((p.pack.id, p.licenseText), ('face.x', 'Non-commercial use only.\n'));
+    expect(() => manager.installOffline(p), throwsStateError); // consent first (ADR-0022)
+    await manager.repo.recordConsent(p.pack);
+    final progress = <double>[];
+    await manager.installOffline(p, onProgress: (x) => progress.add(x.fraction));
+    expect(progress.last, 1.0);
+    expect((await manager.repo.installed()).single.id, 'face.x');
+    expect(File('${manager.dirOf('face.x')}/model.ncnn.bin').readAsBytesSync(), weights);
+    expect(await manager.repo.current(), isNull); // the network manifest is untouched
+    expect(Directory('${root.path}/tmp/rfpack').existsSync(), isFalse);
+  });
+
+  test('offline packs: same checks as the network ones', () async {
+    Future<void> refused(Map<String, List<int>> entries, ModelErrorKind kind) async {
+      final path = _rfpack('${root.path}/p${entries.hashCode}.rfpack', entries);
+      await expectLater(
+        () async => manager.installOffline(await manager.openOffline(path)),
+        throwsA(isA<ModelError>().having((e) => e.kind, 'kind', kind)),
+      );
+      expect(await manager.repo.installed(), isEmpty);
+    }
+
+    await refused(offline([pack('sr.a')], sig: 'forged'), ModelErrorKind.integrity);
+    await refused(offline([pack('sr.a'), pack('sr.b')]), ModelErrorKind.notAPack);
+    await refused(
+      offline([pack('sr.a')], bin: List.filled(weights.length, 1)),
+      ModelErrorKind.integrity,
+    );
+    await refused(offline([pack('sr.a')])..remove('license.txt'), ModelErrorKind.notAPack);
+    await refused(
+      offline([pack('sr.a')])..['license.txt'] = utf8.encode('Another license'),
+      ModelErrorKind.integrity,
+    );
+    final garbage = File('${root.path}/garbage.rfpack')..writeAsStringSync('not a zip');
+    await expectLater(
+      manager.openOffline(garbage.path),
+      throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.notAPack)),
+    );
+  });
+
+  test('an offline pack older than the installed version is refused', () async {
+    final v2 = {...pack('sr.a'), 'version': '1.10.0'};
+    await manager.installOffline(
+      await manager.openOffline(_rfpack('${root.path}/v2.rfpack', offline([v2]))),
+    );
+    await expectLater(
+      manager.openOffline(_rfpack('${root.path}/v1.rfpack', offline([pack('sr.a')]))),
+      throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.rollback)),
+    );
   });
 
   test('the public keys are the ones in tools/models/keys', () {

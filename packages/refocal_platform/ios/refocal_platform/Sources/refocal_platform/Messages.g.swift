@@ -517,6 +517,10 @@ protocol RefocalPlatformApi {
   /// System photo picker, up to [maxCount] images (1: single selection); copies the selection
   /// into [inboxDir] in the order picked. Empty when cancelled.
   func pickImages(inboxDir: String, maxCount: Int64) async throws -> PickedImages
+  /// Asks for a file (Android: ACTION_OPEN_DOCUMENT, any type: an offline pack .rfpack,
+  /// FR-MODEL-006) and copies it into [dstDir]. Returns the copy's path, or null when
+  /// cancelled. Error "limit" when it is larger than [maxBytes].
+  func pickFile(dstDir: String, maxBytes: Int64) async throws -> String?
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   func saveToGallery(path: String, displayName: String, mimeType: String) async throws -> String
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
@@ -600,6 +604,27 @@ class RefocalPlatformApiSetup {
       }
     } else {
       pickImagesChannel.setMessageHandler(nil)
+    }
+    /// Asks for a file (Android: ACTION_OPEN_DOCUMENT, any type: an offline pack .rfpack,
+    /// FR-MODEL-006) and copies it into [dstDir]. Returns the copy's path, or null when
+    /// cancelled. Error "limit" when it is larger than [maxBytes].
+    let pickFileChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickFile\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      pickFileChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let dstDirArg = args[0] as! String
+        let maxBytesArg = args[1] as! Int64
+        Task { @MainActor in
+          do {
+            let result = try await api.pickFile(dstDir: dstDirArg, maxBytes: maxBytesArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      pickFileChannel.setMessageHandler(nil)
     }
     /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
     let saveToGalleryChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.saveToGallery\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)

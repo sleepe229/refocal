@@ -4,7 +4,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "enh.h"
 
+#include <unistd.h>
+
+#include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <new>
@@ -20,6 +24,7 @@
 #include "util/fs.hpp"
 #include "util/integrity.hpp"
 #include "util/log.hpp"
+#include "util/zip.hpp"
 
 #ifndef ENH_VERSION_STRING
 #define ENH_VERSION_STRING "0.0.0"
@@ -152,6 +157,48 @@ enh_status enh_verify_file(const char* path, const char* sha256_hex) {
     return ENH_OK;
   } catch (const enh::Error& e) {
     return e.status();
+  }
+}
+
+enh_status enh_rfpack_extract(const char* rfpack_path, const char* entry, const char* dst_path,
+                              int64_t max_bytes) {
+  if (!rfpack_path || !entry || !dst_path || max_bytes < 0) return ENH_E_INVALID;
+  const std::string dst = dst_path, part = dst + ".part";
+  try {
+    const enh::FileZipSource src(rfpack_path);
+    const auto entries = enh::zip_entries(src);
+    const auto e = std::find_if(entries.begin(), entries.end(),
+                                [&](const enh::ZipEntry& z) { return z.name == entry; });
+    if (e == entries.end()) return ENH_E_INVALID;
+    if (e->size > uint64_t(max_bytes)) return ENH_E_LIMIT;
+    std::FILE* f = std::fopen(part.c_str(), "wb");
+    if (!f) return ENH_E_IO;
+    try {
+      enh::zip_extract(src, *e, [&](const uint8_t* p, size_t n) {
+        if (std::fwrite(p, 1, n, f) != n) enh::fail(ENH_E_IO, "cannot write " + part);
+      });
+    } catch (...) {
+      std::fclose(f);
+      std::remove(part.c_str());
+      throw;
+    }
+    if (std::fflush(f) != 0 || fsync(fileno(f)) != 0) {
+      std::fclose(f);
+      std::remove(part.c_str());
+      return ENH_E_IO;
+    }
+    std::fclose(f);
+    if (std::rename(part.c_str(), dst.c_str()) != 0) {
+      std::remove(part.c_str());
+      return ENH_E_IO;
+    }
+    return ENH_OK;
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::bad_alloc&) {
+    return ENH_E_OOM;
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
   }
 }
 

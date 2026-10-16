@@ -7,6 +7,9 @@
 # pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
 # Every scenario ends with the log check, share intake and a queue of two photos;
 # queue: only share intake and the queue (no 4x run).
+# rfpack: RFPACK=<file.rfpack> PACK=<pack id>: import it on the Models screen through the system
+# file picker (FR-MODEL-006, no network), check it is installed; nothing else.
+# Without SCALE_LABEL the editor's Auto must show its explanation (FR-ENH-007) before Enhance.
 # The APK must contain x86_64 libs (e.g. flutter build apk --profile --target-platform android-x64).
 set -euo pipefail
 APK=$(realpath "${1:?apk}")
@@ -24,7 +27,8 @@ cleanup() { $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 $DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" \
-  -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.$EXT:ro" refocal-emulator:35 bash -c '
+  -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.$EXT:ro" \
+  ${RFPACK:+-v "$(realpath "$RFPACK"):/in/pack.rfpack:ro"} refocal-emulator:35 bash -c '
     emulator -avd refocal35 -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
       -gpu swiftshader_indirect -memory 4096 -cores 4 > /tmp/emu.log 2>&1 &
     adb wait-for-device
@@ -93,12 +97,45 @@ adb_ shell getprop ro.build.version.release
 echo "== install"
 adb_ install -r /in/app.apk | tail -1
 adb_ push "/in/photo.$EXT" "/sdcard/Pictures/e2e_input.$EXT" >/dev/null
+if [[ -n "${RFPACK:-}" ]]; then adb_ push /in/pack.rfpack "/sdcard/Download/$(basename "$RFPACK")" >/dev/null; fi
 adb_ shell pm grant io.github.refocal.app android.permission.POST_NOTIFICATIONS
 adb_ shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null
 adb_ shell am start -n io.github.refocal.app/.MainActivity >/dev/null
 
 echo "== flow"
 tap_text "Skip" 60  # first run: the introduction (FR-ONB-001)
+if [[ $SCENARIO = rfpack ]]; then
+  echo "== offline pack (FR-MODEL-006)"
+  tap_text "Settings" 30
+  tap_text "Models" 30
+  tap_text "Import a .rfpack file" 30
+  sleep 4
+  # DocumentsUI: open Downloads from the roots drawer, then the file (its row has the name).
+  name=$(basename "$RFPACK")
+  for step in "Show roots" "Downloads" "$name"; do
+    for _ in $(seq 15); do
+      dump_ui
+      xy=$(adb_ shell cat /sdcard/ui.xml 2>/dev/null | python3 -c '
+import re, sys
+want = sys.argv[1]
+for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
+    n = m.group(0)
+    t = re.search(r"text=\"([^\"]*)\"", n).group(1) + " " + re.search(r"content-desc=\"([^\"]*)\"", n).group(1)
+    if want in t:
+        b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
+        print((b[0] + b[2]) // 2, (b[1] + b[3]) // 2); break' "$step")
+      if [[ -n "$xy" ]]; then adb_ shell input tap $xy; echo "  tap '$step' at $xy"; break; fi
+      sleep 2
+    done
+    sleep 2
+  done
+  wait_text "Installed:" 60 || { echo "FAIL: pack not installed"; exit 1; }
+  shot rfpack
+  wait_text "${PACK:?PACK id}" 10 || { echo "FAIL: $PACK not listed"; exit 1; }
+  echo "  $PACK imported and listed"
+  echo PASS
+  exit 0
+fi
 if [[ $SCENARIO != queue ]]; then
 tap_text "Choose a photo" 60
 sleep 3
@@ -114,7 +151,12 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
 [[ -n "$xy" ]] || xy="177 1523"
 adb_ shell input tap $xy
 echo "  picked photo at $xy"
-if [[ -n "$SCALE" ]]; then tap_text "$SCALE" 30; fi
+if [[ -n "$SCALE" ]]; then
+  tap_text "$SCALE" 30
+else
+  wait_text "denoise" 60 || { echo "FAIL: no Auto explanation"; exit 1; }  # "4×, ..., denoise medium"
+  shot auto
+fi
 tap_text "Enhance" 30
 t0=$SECONDS
 notif() { adb_ shell dumpsys notification --noredact 2>/dev/null | grep -E "android\.(title|text)=" | grep -c "$1" || true; }
@@ -155,6 +197,9 @@ sleep 2
 adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null
 log_ui=$(adb_ shell cat /sdcard/ui.xml)
 grep -q "job done" <<<"$log_ui" || { echo "FAIL: the log has no finished job"; exit 1; }
+if [[ -z "$SCALE" ]]; then
+  grep -q "analyze:" <<<"$log_ui" || { echo "FAIL: Auto did not analyse the photo"; exit 1; }
+fi
 if grep -qE "/data/|/storage/|content://" <<<"$log_ui"; then echo "FAIL: a path or URI in the log"; exit 1; fi
 echo "  log shows the job, no paths"
 adb_ shell input keyevent KEYCODE_BACK

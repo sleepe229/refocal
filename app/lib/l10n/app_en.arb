@@ -688,5 +688,16 @@
         "type": "String"
       }
     }
-  }
+  },
+  "modelsImport": "Import a .rfpack file",
+  "modelsImported": "Installed: {name}",
+  "@modelsImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsErrorNotAPack": "Not a Refocal model pack, or the file is damaged",
+  "modelsErrorStorage": "The file could not be read"
 }
