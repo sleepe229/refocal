@@ -28,6 +28,21 @@ abstract interface class ModelVerifier {
   void signature(String msgPath, String sigPath, List<String> keys);
 }
 
+/// Entries of an offline pack (.rfpack, SEC-INP-005: the core checks the archive).
+abstract interface class PackUnpacker {
+  /// Unpacks [entry] of [rfpack] to [dst]. Throws [EnhException] (invalid, limit, io).
+  Future<void> extract(String rfpack, String entry, String dst, int maxBytes);
+}
+
+class NativePackUnpacker implements PackUnpacker {
+  const NativePackUnpacker(this.native);
+  final RefocalNative native;
+
+  @override
+  Future<void> extract(String rfpack, String entry, String dst, int maxBytes) =>
+      native.rfpackExtract(rfpack, entry, dst, maxBytes);
+}
+
 class NativeModelVerifier implements ModelVerifier {
   const NativeModelVerifier(this.native);
   final RefocalNative native;
@@ -64,8 +79,13 @@ enum ModelErrorKind {
   /// A file or the manifest did not match its hash or signature: not used.
   integrity,
 
-  /// An older manifest than the one already accepted (ADR-0011).
+  /// An older manifest than the one already accepted, or an offline pack older than the
+  /// installed version (ADR-0011).
   rollback,
+
+  /// An offline pack that is not one (a damaged or foreign file), or has no files for this
+  /// device.
+  notAPack,
 
   /// Not enough free space.
   storage,
@@ -78,6 +98,7 @@ class ModelManager {
   ModelManager({
     required this.repo,
     required this.verifier,
+    required this.unpacker,
     required this.supportDir,
     required this.tmpDir,
     HttpClient? http,
@@ -88,6 +109,7 @@ class ModelManager {
 
   final ModelRepository repo;
   final ModelVerifier verifier;
+  final PackUnpacker unpacker;
   final String supportDir, tmpDir;
 
   /// The manifest's location (one URL per mirror).
@@ -162,7 +184,104 @@ class ModelManager {
       before += f.size;
       onProgress?.call(PackProgress(before, total));
     }
-    // The pack replaces an older version in one rename; the old one is deleted afterwards.
+    await _activate(pack, files, staging);
+  }
+
+  /// Opens an offline pack (.rfpack, ADR-0011, 04 §6): the core checks the archive and
+  /// unpacks only its manifest and signature; the signature is verified before the manifest
+  /// is parsed, as for the network one. The pack's own manifest has exactly one pack; it never
+  /// replaces the accepted network manifest. Throws [ModelError].
+  Future<OfflinePack> openOffline(String rfpack) async {
+    final dir = Directory('$tmpDir/rfpack');
+    if (await dir.exists()) await dir.delete(recursive: true);
+    await dir.create(recursive: true);
+    final json = '${dir.path}/manifest.json', sig = '$json.minisig';
+    final license = '${dir.path}/license.txt';
+    try {
+      await _unpack(rfpack, 'manifest.json', json, _maxManifestBytes);
+      await _unpack(rfpack, 'manifest.json.minisig', sig, _maxSignatureBytes);
+      try {
+        verifier.signature(json, sig, manifestKeys);
+      } on EnhException catch (e) {
+        AppLog.warn('rfpack signature: ${e.status.name}');
+        throw const ModelError(ModelErrorKind.integrity);
+      }
+      final Manifest m;
+      try {
+        m = Manifest.parse(await File(json).readAsString());
+      } on FormatException catch (e) {
+        AppLog.warn('rfpack manifest: ${e.message}');
+        throw ModelError(ModelErrorKind.integrity, e);
+      }
+      if (m.packs.length != 1) throw const ModelError(ModelErrorKind.notAPack);
+      final pack = m.packs.single;
+      if (filesFor(pack).isEmpty) throw const ModelError(ModelErrorKind.notAPack);
+      final installed = (await repo.installed()).where((p) => p.id == pack.id).firstOrNull;
+      if (installed != null && _semver(installed.version) > _semver(pack.version)) {
+        throw ModelError(ModelErrorKind.rollback, '${pack.id} ${installed.version} installed');
+      }
+      // The license text the consent is for (ADR-0022), checked against the manifest.
+      await _unpack(rfpack, 'license.txt', license, _maxLicenseBytes);
+      try {
+        await verifier.file(license, pack.license.textSha256);
+      } on EnhException {
+        throw const ModelError(ModelErrorKind.integrity);
+      }
+      AppLog.info('rfpack ${pack.id}@${pack.version}: signature ok');
+      return OfflinePack(rfpack, pack, await File(license).readAsString());
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Installs an opened offline pack: each file is unpacked (at most its manifest size) and
+  /// checked against its SHA-256, then the pack moves into place as a downloaded one does.
+  /// Throws [ModelError].
+  Future<void> installOffline(OfflinePack p, {void Function(PackProgress)? onProgress}) async {
+    final pack = p.pack;
+    if (pack.license.requiresAcceptance && !await repo.hasConsent(pack)) {
+      throw StateError('${pack.id}: license not accepted');
+    }
+    final files = filesFor(pack);
+    // Not the download's staging directory: a partial download of the pack stays resumable.
+    final staging = Directory('$modelsDir/.${pack.id}.rfpack');
+    if (await staging.exists()) await staging.delete(recursive: true);
+    await staging.create(recursive: true);
+    try {
+      final total = files.fold(0, (n, f) => n + f.size);
+      var done = 0;
+      for (final f in files) {
+        final dst = File('${staging.path}/${f.path}');
+        await _unpack(p.path, f.path, dst.path, f.size);
+        if (!await _verified(dst, f)) throw const ModelError(ModelErrorKind.integrity);
+        done += f.size;
+        onProgress?.call(PackProgress(done, total));
+      }
+      await _activate(pack, files, staging);
+    } finally {
+      if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  static const _maxManifestBytes = 1 << 20, _maxSignatureBytes = 4096;
+  static const _maxLicenseBytes = 1 << 20;
+
+  Future<void> _unpack(String rfpack, String entry, String dst, int maxBytes) async {
+    try {
+      await unpacker.extract(rfpack, entry, dst, maxBytes);
+    } on EnhException catch (e) {
+      AppLog.warn('rfpack $entry: ${e.status.name}');
+      throw switch (e.status) {
+        EnhStatus.io => ModelError(ModelErrorKind.storage, e),
+        _ => ModelError(ModelErrorKind.notAPack, e),
+      };
+    }
+  }
+
+  static int _semver(String v) => v.split('.').map(int.parse).fold(0, (n, p) => n * 100000 + p);
+
+  /// The pack replaces an older version in one rename; the old one is deleted afterwards.
+  Future<void> _activate(PackInfo pack, List<PackFile> files, Directory staging) async {
     final target = Directory(dirOf(pack.id)), old = Directory('${target.path}.old');
     if (await old.exists()) await old.delete(recursive: true);
     if (await target.exists()) await target.rename(old.path);
@@ -291,6 +410,16 @@ class ModelManager {
   }
 }
 
+/// A verified offline pack (.rfpack), ready to install once its license is accepted.
+class OfflinePack {
+  const OfflinePack(this.path, this.pack, this.licenseText);
+  final String path;
+  final PackInfo pack;
+
+  /// Checked against the manifest's SHA-256: what a consent is given for (ADR-0022).
+  final String licenseText;
+}
+
 /// [ModelManager.install] was cancelled; the partial file stays for resuming.
 class DownloadCancelled implements Exception {
   const DownloadCancelled();
@@ -313,6 +442,7 @@ final modelManagerProvider = FutureProvider<ModelManager>((ref) async {
   return ModelManager(
     repo: ModelRepository(await ref.watch(databaseProvider.future)),
     verifier: NativeModelVerifier(engine.native),
+    unpacker: NativePackUnpacker(engine.native),
     supportDir: engine.dirs.support,
     tmpDir: '${engine.dirs.cache}/models',
   );
@@ -395,6 +525,20 @@ class ModelsController extends AsyncNotifier<ModelsState> {
       AppLog.info('pack ${pack.id}: download cancelled');
     } finally {
       state = AsyncData(_s.copyWith(downloads: {..._s.downloads}..remove(pack.id)));
+    }
+  }
+
+  /// Installs an opened offline pack (FR-MODEL-006), with progress like a download. Throws
+  /// [ModelError].
+  Future<void> installOffline(OfflinePack p) async {
+    final manager = await ref.read(modelManagerProvider.future);
+    void progress(PackProgress x) =>
+        state = AsyncData(_s.copyWith(downloads: {..._s.downloads, p.pack.id: x}));
+    progress(const PackProgress(0, 0));
+    try {
+      await manager.installOffline(p, onProgress: progress);
+    } finally {
+      state = AsyncData(_s.copyWith(downloads: {..._s.downloads}..remove(p.pack.id)));
     }
   }
 

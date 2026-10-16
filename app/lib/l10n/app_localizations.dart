@@ -1772,6 +1772,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not enough memory for {scale}. Process at a smaller size?'**
   String oomBody(String scale);
+
+  /// No description provided for @modelsImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import a .rfpack file'**
+  String get modelsImport;
+
+  /// No description provided for @modelsImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed: {name}'**
+  String modelsImported(String name);
+
+  /// No description provided for @modelsErrorNotAPack.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a Refocal model pack, or the file is damaged'**
+  String get modelsErrorNotAPack;
+
+  /// No description provided for @modelsErrorStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be read'**
+  String get modelsErrorStorage;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

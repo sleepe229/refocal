@@ -191,6 +191,7 @@ set(ENH_SOURCES
   core/src/util/fs.cpp
   core/src/util/integrity.cpp
   core/src/util/log.cpp
+  core/src/util/zip.cpp
   core/src/image/decode.cpp
   core/src/image/jpeg.cpp
   core/src/image/png.cpp
@@ -290,6 +291,9 @@ if(ENH_BUILD_TESTS)
   target_link_libraries(test_integrity PRIVATE enh_core)
   add_test(NAME integrity COMMAND test_integrity ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/minisign
     ${CMAKE_CURRENT_BINARY_DIR}/test-work-integrity)
+  add_executable(test_rfpack tests/test_rfpack.cpp)
+  target_link_libraries(test_rfpack PRIVATE enh_core)
+  add_test(NAME rfpack COMMAND test_rfpack ${CMAKE_CURRENT_BINARY_DIR}/test-work-rfpack)
   foreach(t blocklist sentinel log)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)
@@ -298,7 +302,7 @@ if(ENH_BUILD_TESTS)
 endif()
 
 if(ENH_BUILD_FUZZ)
-  foreach(t metaio decode)
+  foreach(t metaio decode zip)
     add_executable(fuzz_${t} tests/fuzz/fuzz_${t}.cpp)
     target_link_libraries(fuzz_${t} PRIVATE enh_core)
     target_link_options(fuzz_${t} PRIVATE -fsanitize=fuzzer)
