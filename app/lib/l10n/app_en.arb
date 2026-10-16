@@ -712,5 +712,25 @@
         "type": "int"
       }
     }
-  }
+  },
+  "fragmentTitle": "Preview of a part",
+  "fragmentRunning": "Enhancing a part of the photo…",
+  "fragmentInfo": "Part {width} × {height} px in {seconds} s",
+  "@fragmentInfo": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "fragmentEnhanceAll": "Enhance the whole photo",
+  "fragmentAction": "Preview a part",
+  "fragmentHint": "Tap the photo to choose the part",
+  "close": "Close"
 }

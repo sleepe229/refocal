@@ -71,6 +71,16 @@ JobRequest parse_job_request(const std::string& text) {
       r.faces_off.push_back({v[0], v[1], v[2], v[3]});
     }
     if (r.faces_off.size() > kMaxFaces) fail(ENH_E_INVALID, "too many faces_off");
+    if (j.contains("crop") && !j["crop"].is_null()) {
+      const auto c = j["crop"].get<std::vector<int>>();
+      if (c.size() != 4 || c[0] < 0 || c[1] < 0 || c[2] < 16 || c[3] < 16 || c[2] > 2048 ||
+          c[3] > 2048)
+        fail(ENH_E_INVALID, "bad crop");
+      r.crop_x = c[0];
+      r.crop_y = c[1];
+      r.crop_w = c[2];
+      r.crop_h = c[3];
+    }
   } catch (const nlohmann::json::exception& e) {
     fail(ENH_E_INVALID, std::string("bad request: ") + e.what());
   }
@@ -93,26 +103,28 @@ JobRequest parse_job_request(const std::string& text) {
 }
 
 nlohmann::json job_request_to_json(const JobRequest& r) {
-  return {{"schema", 1},
-          {"job_id", r.job_id},
-          {"input", r.input},
-          {"sr_model", r.sr_model},
-          {"scale", r.scale},
-          {"fast2", r.fast2},
-          {"tile", r.tile},
-          {"backend", r.backend},
-          {"preview_max", r.preview_max},
-          {"max_output_mp", r.max_output_mp},
-          {"face_model", r.face_model},
-          {"det_model", r.det_model},
-          {"face_strength", r.face_strength},
-          {"face_color_match", r.face_color_match},
-          {"background", r.background},
-          {"faces_off", [&] {
-             nlohmann::json a = nlohmann::json::array();
-             for (const FaceBox& b : r.faces_off) a.push_back({b.x, b.y, b.w, b.h});
-             return a;
-           }()}};
+  nlohmann::json j = {{"schema", 1},
+                      {"job_id", r.job_id},
+                      {"input", r.input},
+                      {"sr_model", r.sr_model},
+                      {"scale", r.scale},
+                      {"fast2", r.fast2},
+                      {"tile", r.tile},
+                      {"backend", r.backend},
+                      {"preview_max", r.preview_max},
+                      {"max_output_mp", r.max_output_mp},
+                      {"face_model", r.face_model},
+                      {"det_model", r.det_model},
+                      {"face_strength", r.face_strength},
+                      {"face_color_match", r.face_color_match},
+                      {"background", r.background},
+                      {"faces_off", [&] {
+                         nlohmann::json a = nlohmann::json::array();
+                         for (const FaceBox& b : r.faces_off) a.push_back({b.x, b.y, b.w, b.h});
+                         return a;
+                       }()}};
+  if (r.crop_w) j["crop"] = {r.crop_x, r.crop_y, r.crop_w, r.crop_h};
+  return j;
 }
 
 namespace {
@@ -451,6 +463,10 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
                   ";scale=" + std::to_string(r.scale) + ";fast2=" + std::to_string(r.fast2) +
                   ";tile=" + std::to_string(g.tw) + "x" + std::to_string(g.th) +
                   ";pad=" + std::to_string(g.pad) + ";down=" + std::to_string(g.down);
+  if (r.crop_w) {
+    s += ";crop=" + std::to_string(r.crop_x) + "," + std::to_string(r.crop_y) + "," +
+         std::to_string(r.crop_w) + "," + std::to_string(r.crop_h);
+  }
   return Sha256::of_string(s);
 }
 
@@ -738,6 +754,23 @@ void enh_job::run_impl(nlohmann::json& result) {
   }
   if (info.animated)
     sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
+  // FR-ENH-015: a fragment preview runs on its part of the photo only (and of the alpha).
+  if (req.crop_w) {
+    if (req.crop_x + req.crop_w > img.w || req.crop_y + req.crop_h > img.h)
+      fail(ENH_E_INVALID, "crop outside the photo");
+    img = crop(img, req.crop_x, req.crop_y, req.crop_w, req.crop_h);
+    if (!alpha_json.is_null()) {
+      const int aw = alpha_json["width"];
+      auto a = fs::read_all(fs::join(dir, kAlphaFile));
+      std::vector<uint8_t> c(size_t(req.crop_w) * req.crop_h);
+      for (int y = 0; y < req.crop_h; ++y)
+        std::memcpy(&c[size_t(y) * req.crop_w], &a[size_t(req.crop_y + y) * aw + req.crop_x],
+                    size_t(req.crop_w));
+      fs::write_atomic(fs::join(dir, kAlphaFile), c.data(), c.size());
+      alpha_json["width"] = req.crop_w;
+      alpha_json["height"] = req.crop_h;
+    }
+  }
   const int src_w = img.w, src_h = img.h;
   if (stop()) throw Stopped{};
 
@@ -762,6 +795,10 @@ void enh_job::run_impl(nlohmann::json& result) {
     ck.out_w = ow;
     ck.out_h = oh;
     ck.recipe_hash = "lanczos:" + input_sha;
+    if (req.crop_w) {
+      ck.recipe_hash += ";crop=" + std::to_string(req.crop_x) + "," + std::to_string(req.crop_y) +
+                        "," + std::to_string(req.crop_w) + "," + std::to_string(req.crop_h);
+    }
     PreviewAccumulator preview;
     preview.init(ow, oh, req.preview_max);
     LanczosResampler up(img, ow, oh);

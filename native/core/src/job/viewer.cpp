@@ -26,6 +26,7 @@ using namespace enh;
 struct enh_viewer {
   std::string dir, input;
   int w = 0, h = 0;
+  int crop_x = 0, crop_y = 0, crop_w = 0, crop_h = 0;  // a fragment preview's part of the input
   std::vector<int> band_rows, band_y0;
 
   std::once_flag decoded;
@@ -96,11 +97,14 @@ void render_result(const enh_viewer& v, int x, int y, int w, int h, int f, uint8
 void render_original(const enh_viewer& v, int x, int y, int w, int h, int f, uint8_t* rgba) {
   const Rgb8& in = *v.original;
   const int ow = (w + f - 1) / f, oh = (h + f - 1) / f;
-  const double sx = double(in.w) / v.w, sy = double(in.h) / v.h;
+  // The result covers the crop of a fragment preview, else the whole input.
+  const int cx = v.crop_x, cy = v.crop_y;
+  const int cw = v.crop_w ? v.crop_w : in.w, ch = v.crop_h ? v.crop_h : in.h;
+  const double sx = double(cw) / v.w, sy = double(ch) / v.h;
   for (int oy = 0; oy < oh; ++oy) {
-    const double a0 = (y + oy * f) * sy, a1 = std::min(y + h, y + (oy + 1) * f) * sy;
+    const double a0 = cy + (y + oy * f) * sy, a1 = cy + std::min(y + h, y + (oy + 1) * f) * sy;
     for (int ox = 0; ox < ow; ++ox) {
-      const double b0 = (x + ox * f) * sx, b1 = std::min(x + w, x + (ox + 1) * f) * sx;
+      const double b0 = cx + (x + ox * f) * sx, b1 = cx + std::min(x + w, x + (ox + 1) * f) * sx;
       uint8_t* out = rgba + (size_t(oy) * ow + ox) * 4;
       out[3] = 255;
       if (a1 - a0 >= 1 && b1 - b0 >= 1) {
@@ -152,7 +156,12 @@ enh_status enh_viewer_open(const char* job_dir, enh_viewer** out) {
       y += r;
     }
     if (v->w <= 0 || y != v->h) return ENH_E_INVALID;
-    v->input = parse_job_request(fs::read_text(fs::join(v->dir, kRequestFile))).input;
+    const JobRequest req = parse_job_request(fs::read_text(fs::join(v->dir, kRequestFile)));
+    v->input = req.input;
+    v->crop_x = req.crop_x;
+    v->crop_y = req.crop_y;
+    v->crop_w = req.crop_w;
+    v->crop_h = req.crop_h;
     *out = v.release();
     return ENH_OK;
   } catch (const Error& e) {
