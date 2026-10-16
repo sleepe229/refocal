@@ -15,6 +15,7 @@ import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/viewer.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';
@@ -142,6 +143,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 aspectRatio: result.width / result.height,
                 strength: strength,
                 resultLabel: l10n.resultAlt(result.width, result.height),
+                // Zoom to 1:1 of the result (FR-CMP-005): tiles from its BandStore.
+                tiles: ref.watch(viewerTilesProvider(result.jobDir)).value,
+                resultWidth: result.width,
+                resultHeight: result.height,
               ),
               _ => _preview(original, state is Idle || state is AskUser, l10n),
             },
@@ -628,6 +633,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(l10n.sizePx(s.result.width, s.result.height), textAlign: TextAlign.center),
+        Text(
+          resultInfo(l10n, s.result),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
