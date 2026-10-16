@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.0-beta.1
+
+First beta. Still **not tested on a phone**: only on a desktop and a headless Android 15
+emulator. Please report problems with the device model and Android version.
+
+New:
+- **Zoom:** pinch the before/after comparison up to the result's real pixels (and closer);
+  double-tap switches between 1:1 and the whole photo. Even a 48 MP result stays sharp: only
+  the visible part is loaded.
+- **Preview a part:** tap the photo to choose a part, then "Preview a part" shows it enhanced
+  with the current settings in a few seconds, next to the original, before the whole photo.
+- **Single faces:** with face restoration on, each face the model would restore has a frame;
+  tap it to leave that face as it is.
+- **Transparency** is kept when saving as PNG or WebP (JPEG still gets a white background).
+- **Result details:** under the result, the model, the processor used and the time it took.
+- **Face model offer:** after the introduction, a card on the home screen offers the face model
+  for portraits (until you dismiss it).
+- Models imported from a `.rfpack` file are listed by their name.
+- Copies of your photos kept for unfinished results take at most 1 GB; past that, the oldest
+  unfinished results are removed first.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- HEIC output comes in 0.5 (Android's encoder cannot keep the colour profile and the AI marker).
+- Accessibility (TalkBack) and speed on a range of real phones have not been checked yet.
+- WebP is limited to 50 MP (lossless: 24 MP).
+
+Models: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled, and its denoise 0 and 1.0
+variants (download); YuNet face detector (MIT), bundled; GFPGAN 1.4 (non-commercial, download).
+
 ## 0.2.0-alpha.1
 
 First alpha. Still **not tested on a phone**: only on a desktop and a headless Android 15
