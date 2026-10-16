@@ -47,6 +47,10 @@ C/C++ is formatted with clang-format 18 (`.clang-format`); `native/include/enh.h
 
 - [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`,
   `test:`, `style:`, `ci:` … with the requirement IDs the change covers.
+- Every commit is signed off (`git commit -s`), certifying the
+  [Developer Certificate of Origin](https://developercertificate.org/): you wrote the change or
+  have the right to submit it under the project's license. The `dco` check fails without a
+  `Signed-off-by:` line matching the commit author; `git rebase --signoff main` fixes a branch.
 - One topic per pull request, based on `main`. CI must be green; UI changes come with a
   screenshot; new strings go to `app/lib/l10n/app_en.arb` (English is the template) and
   `app_ru.arb`.
