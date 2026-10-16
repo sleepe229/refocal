@@ -9,7 +9,8 @@
 # queue: only share intake and the queue (no 4x run).
 # rfpack: RFPACK=<file.rfpack> PACK=<pack id>: import it on the Models screen through the system
 # file picker (FR-MODEL-006, no network), check it is installed; nothing else.
-# Without SCALE_LABEL the editor's Auto must show its explanation (FR-ENH-007) before Enhance.
+# Without SCALE_LABEL the editor's Auto must show its explanation (FR-ENH-007) before Enhance,
+# and a fragment preview runs (FR-ENH-015).
 # The APK must contain x86_64 libs (e.g. flutter build apk --profile --target-platform android-x64).
 set -euo pipefail
 APK=$(realpath "${1:?apk}")
@@ -166,6 +167,11 @@ if [[ -n "$SCALE" ]]; then
 else
   wait_text "denoise" 60 || { echo "FAIL: no Auto explanation"; exit 1; }  # "4×, ..., denoise medium"
   shot auto
+  # FR-ENH-015: a part of the photo first, in a sheet, then back to the editor.
+  tap_text "Preview a part" 30
+  wait_text "px in" 300 || { echo "FAIL: no fragment preview"; exit 1; }  # "Part 512 × 512 px in 1.2 s"
+  shot fragment
+  tap_text "Close" 10
 fi
 tap_text "Enhance" 30
 t0=$SECONDS
