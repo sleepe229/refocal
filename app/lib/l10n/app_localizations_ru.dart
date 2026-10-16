@@ -1042,4 +1042,50 @@ class AppLocalizationsRu extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds с';
   }
+
+  @override
+  String get reportBadAction => 'Сообщить о плохом результате';
+
+  @override
+  String get reportBadTitle => 'Что не так с результатом?';
+
+  @override
+  String get badOtherFace => 'Чужое лицо';
+
+  @override
+  String get badArtifacts => 'Артефакты';
+
+  @override
+  String get badColor => 'Цвет';
+
+  @override
+  String get badBias => 'Несправедливо к группе людей';
+
+  @override
+  String get badOther => 'Другое';
+
+  @override
+  String get reportComment => 'Что вы заметили? (необязательно)';
+
+  @override
+  String get reportWillSend => 'Этот текст попадёт в публичный issue на GitHub (без фото):';
+
+  @override
+  String get reportOpenIssue => 'Открыть issue на GitHub';
+
+  @override
+  String get reportSharePhoto => 'Поделиться фото результата…';
+
+  @override
+  String get reportPhotoTitle => 'Фото будет публичным';
+
+  @override
+  String get reportPhotoBody =>
+      'Issue на GitHub может прочитать кто угодно. Делитесь фото, только если вас это устраивает, и никогда — фото других людей без их согласия.';
+
+  @override
+  String get reportPhotoOk => 'Поделиться фото';
+
+  @override
+  String get reportNoBrowser => 'На телефоне нет приложения, открывающего ссылки';
 }

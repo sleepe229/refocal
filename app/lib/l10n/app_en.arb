@@ -740,5 +740,20 @@
         "type": "int"
       }
     }
-  }
+  },
+  "reportBadAction": "Report a bad result",
+  "reportBadTitle": "What is wrong with the result?",
+  "badOtherFace": "Someone else's face",
+  "badArtifacts": "Artifacts",
+  "badColor": "Colours",
+  "badBias": "Unfair to a group of people",
+  "badOther": "Something else",
+  "reportComment": "What did you notice? (optional)",
+  "reportWillSend": "This text will be in a public GitHub issue (no photo):",
+  "reportOpenIssue": "Open the issue on GitHub",
+  "reportSharePhoto": "Share the result photo…",
+  "reportPhotoTitle": "The photo will be public",
+  "reportPhotoBody": "GitHub issues can be read by anyone. Share the photo only if you are fine with that, and never photos of other people without their consent.",
+  "reportPhotoOk": "Share the photo",
+  "reportNoBrowser": "No app on this phone opens links"
 }

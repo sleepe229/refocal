@@ -526,6 +526,9 @@ protocol RefocalPlatformApi {
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
   /// there. Returns the document URI, or null when cancelled.
   func saveToFile(path: String, displayName: String, mimeType: String) async throws -> String?
+  /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
+  /// when nothing can open it; anything but https is refused.
+  func openUrl(url: String) throws
   /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
   /// provider, read-only; the file must be in the cache "share" directory).
   func shareFile(path: String, mimeType: String, chooserTitle: String) throws
@@ -666,6 +669,23 @@ class RefocalPlatformApiSetup {
       }
     } else {
       saveToFileChannel.setMessageHandler(nil)
+    }
+    /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
+    /// when nothing can open it; anything but https is refused.
+    let openUrlChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.openUrl\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      openUrlChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let urlArg = args[0] as! String
+        do {
+          try api.openUrl(url: urlArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      openUrlChannel.setMessageHandler(nil)
     }
     /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
     /// provider, read-only; the file must be in the cache "share" directory).

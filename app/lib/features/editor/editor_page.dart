@@ -23,6 +23,7 @@ import '../../ui_kit/labels.dart';
 import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
 import 'fragment_preview.dart';
+import '../report/bad_result.dart';
 
 /// What the editor opens: a new photo, or a job from the home screen list.
 class EditorArgs {
@@ -752,6 +753,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           child: Text(l10n.presetSaveAs),
         ),
         TextButton(onPressed: busy ? null : ctl.reset, child: Text(l10n.tryAnotherScale)),
+        // FR-REP-001: tell the project about a bad result (15 §5).
+        TextButton.icon(
+          onPressed: busy ? null : () => showBadResultReport(context, s.result),
+          icon: const Icon(Icons.flag_outlined),
+          label: Text(l10n.reportBadAction),
+        ),
       ],
     );
   }

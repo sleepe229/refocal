@@ -592,6 +592,22 @@ class RefocalPlatformApi {
     return pigeonVar_replyValue as String?;
   }
 
+  /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
+  /// when nothing can open it; anything but https is refused.
+  Future<void> openUrl(String url) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.openUrl$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[url]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
   /// Opens the system share sheet for [path] (Android: a content URI from the plugin's own
   /// provider, read-only; the file must be in the cache "share" directory).
   Future<void> shareFile(String path, String mimeType, String chooserTitle) async {

@@ -1880,6 +1880,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{seconds} s'**
   String resultSeconds(int seconds);
+
+  /// No description provided for @reportBadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a bad result'**
+  String get reportBadAction;
+
+  /// No description provided for @reportBadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What is wrong with the result?'**
+  String get reportBadTitle;
+
+  /// No description provided for @badOtherFace.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone else\'s face'**
+  String get badOtherFace;
+
+  /// No description provided for @badArtifacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Artifacts'**
+  String get badArtifacts;
+
+  /// No description provided for @badColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours'**
+  String get badColor;
+
+  /// No description provided for @badBias.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfair to a group of people'**
+  String get badBias;
+
+  /// No description provided for @badOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get badOther;
+
+  /// No description provided for @reportComment.
+  ///
+  /// In en, this message translates to:
+  /// **'What did you notice? (optional)'**
+  String get reportComment;
+
+  /// No description provided for @reportWillSend.
+  ///
+  /// In en, this message translates to:
+  /// **'This text will be in a public GitHub issue (no photo):'**
+  String get reportWillSend;
+
+  /// No description provided for @reportOpenIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the issue on GitHub'**
+  String get reportOpenIssue;
+
+  /// No description provided for @reportSharePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the result photo…'**
+  String get reportSharePhoto;
+
+  /// No description provided for @reportPhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The photo will be public'**
+  String get reportPhotoTitle;
+
+  /// No description provided for @reportPhotoBody.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub issues can be read by anyone. Share the photo only if you are fine with that, and never photos of other people without their consent.'**
+  String get reportPhotoBody;
+
+  /// No description provided for @reportPhotoOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the photo'**
+  String get reportPhotoOk;
+
+  /// No description provided for @reportNoBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'No app on this phone opens links'**
+  String get reportNoBrowser;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
