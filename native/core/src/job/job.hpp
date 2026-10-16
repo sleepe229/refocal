@@ -32,6 +32,9 @@ struct JobRequest {
   // FR-FACE-007: faces the user turned off, as enh_analyze listed them (input pixels after
   // EXIF orientation). A detected face matching one of them is not restored.
   std::vector<FaceBox> faces_off;
+  // FR-ENH-015 fragment preview: only this part of the oriented input (x, y, w, h; w = 0: the
+  // whole input). Each side 16..2048.
+  int crop_x = 0, crop_y = 0, crop_w = 0, crop_h = 0;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)

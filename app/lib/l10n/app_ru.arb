@@ -290,5 +290,12 @@
   "faceOfferLater": "Не сейчас",
   "facesTapHint": "Нажмите на лицо, чтобы оставить его как есть",
   "faceToggle": "Лицо {number}: восстанавливать",
+  "fragmentTitle": "Предпросмотр участка",
+  "fragmentRunning": "Улучшаем участок фото…",
+  "fragmentInfo": "Участок {width} × {height} px за {seconds} с",
+  "fragmentEnhanceAll": "Улучшить всё фото",
+  "fragmentAction": "Предпросмотр участка",
+  "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
+  "close": "Закрыть",
   "resultSeconds": "{seconds} с"
 }

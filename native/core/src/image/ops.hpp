@@ -12,6 +12,8 @@ namespace enh {
 
 // Applies EXIF orientation 1..8 so the result is upright (orientation 1).
 Rgb8 apply_orientation(Rgb8 src, int orientation);
+// The w x h part at (x, y); the caller keeps it inside the image.
+Rgb8 crop(const Rgb8& src, int x, int y, int w, int h);
 
 // Box (area) downscale by an integer factor of `rows` rows (multiple of f), width w -> w/f.
 void area_down(const uint8_t* src, int w, int rows, int f, uint8_t* dst);

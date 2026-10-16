@@ -171,4 +171,11 @@ void main() {
     await store.sweep();
     expect(Directory(fresh).existsSync(), isTrue);
   });
+
+  test('fragment previews are never listed and go at the next start (FR-ENH-015)', () async {
+    final d = job('${JobStore.previewPrefix}x', input('p.jpg'), finished: true);
+    expect(await store.list(), isEmpty);
+    await store.sweep();
+    expect(Directory(d).existsSync(), isFalse);
+  });
 }
