@@ -1123,4 +1123,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get compareBorder => 'С границей';
+
+  @override
+  String get presetAnime => 'Аниме';
+
+  @override
+  String get srModel => 'Модель';
+
+  @override
+  String get srModelCompact => 'Стандартная';
+
+  @override
+  String get srModelHq => 'Высокое качество';
+
+  @override
+  String get srModelAnime => 'Аниме и рисунки';
 }

@@ -122,7 +122,7 @@ void main() {
     expect(ScaleChoice.of(BuiltinPreset.fast.recipe), ScaleChoice.fast2);
     expect(ScaleChoice.of(BuiltinPreset.quality.recipe), ScaleChoice.x4);
     const bundled = {bundledSrModel, bundledDetector};
-    final withPacks = {...bundled, defaultFacePack, DenoiseLevel.strong.model};
+    final withPacks = {...bundled, defaultFacePack, DenoiseLevel.strong.model, SrModel.anime.model};
     for (final b in BuiltinPreset.values) {
       expect(b.recipe.output, isNull);
       expect(canRun(b.recipe, withPacks), isTrue, reason: b.name);
@@ -136,6 +136,11 @@ void main() {
       reason: 'and the detector',
     );
     expect(canRun(BuiltinPreset.oldPhoto.recipe, {...bundled, defaultFacePack}), isFalse);
+    expect(canRun(BuiltinPreset.anime.recipe, bundled), isFalse, reason: 'needs the anime pack');
+    // FR-ENH-008: the denoise packs are the compact model; a face pack is no SR model.
+    expect(SrModel.of(DenoiseLevel.none.model), SrModel.compact);
+    expect(SrModel.of('sr.x4plus'), SrModel.hq);
+    expect(SrModel.of(defaultFacePack), isNull);
     for (final c in ScaleChoice.values) {
       expect(ScaleChoice.of(Recipe(scale: c.scale, fast2: c.fastPath, srModel: 'm')), c);
     }

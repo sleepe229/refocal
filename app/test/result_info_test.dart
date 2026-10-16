@@ -34,5 +34,9 @@ void main() {
       resultInfo(ru, _result(model: 'face.gfpgan-1.4', backend: 'lanczos', ms: null)),
       'face.gfpgan-1.4 · Только лица',
     );
+    expect(
+      resultInfo(ru, _result(model: 'sr.x4plus-anime6b', ms: 2000)),
+      'Модель: Аниме и рисунки · ${ru.tierCpu} · 2 с',
+    );
   });
 }

@@ -15,6 +15,7 @@ import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/tier.dart';
 import '../../bootstrap/viewer.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
@@ -423,8 +424,37 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     return true;
   }
 
-  /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one.
+  /// SR models the device has and its tier allows (FR-ENH-008); hidden with only the
+  /// compact one.
+  Widget? _srModel(AppLocalizations l10n) {
+    final available = ref.watch(availableModelsProvider);
+    final tier = ref.watch(tierProvider).value?.tier ?? DeviceTier.t0;
+    final models = [
+      for (final m in SrModel.values)
+        if (available.contains(m.model) && tier.index >= m.tierMin.index) m,
+    ];
+    if (models.length < 2) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        Text(l10n.srModel, textAlign: TextAlign.center),
+        SegmentedButton<SrModel>(
+          segments: [
+            for (final m in models) ButtonSegment(value: m, label: Text(srModelLabel(l10n, m))),
+          ],
+          selected: {?SrModel.of(_model)},
+          onSelectionChanged: (s) =>
+              setState(() => _model = s.first == SrModel.compact ? bundledSrModel : s.first.model),
+        ),
+      ],
+    );
+  }
+
+  /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one
+  /// and for the RRDBNet models (no denoise levels).
   Widget? _denoise(AppLocalizations l10n) {
+    if (SrModel.of(_model) != SrModel.compact) return null;
     final available = ref.watch(availableModelsProvider);
     final levels = [
       for (final d in DenoiseLevel.values)
@@ -535,6 +565,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         const SizedBox(height: 12),
         _presets(l10n),
         ?_autoExplanation(l10n),
+        ?_srModel(l10n),
         ?_denoise(l10n),
         _facesControls(l10n),
         const SizedBox(height: 8),
