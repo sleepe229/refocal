@@ -37,6 +37,12 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="image/*"/>
             </intent-filter>
+            <!-- "Edit with Refocal" (FR-SHARE-002): the image opens the editor, as a shared one. -->
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
