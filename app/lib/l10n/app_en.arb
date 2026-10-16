@@ -732,5 +732,13 @@
   "fragmentEnhanceAll": "Enhance the whole photo",
   "fragmentAction": "Preview a part",
   "fragmentHint": "Tap the photo to choose the part",
-  "close": "Close"
+  "close": "Close",
+  "resultSeconds": "{seconds} s",
+  "@resultSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  }
 }

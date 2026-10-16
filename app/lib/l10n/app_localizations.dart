@@ -1874,6 +1874,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get close;
+
+  /// No description provided for @resultSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String resultSeconds(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

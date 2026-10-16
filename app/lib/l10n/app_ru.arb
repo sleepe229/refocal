@@ -296,5 +296,6 @@
   "fragmentEnhanceAll": "Улучшить всё фото",
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
-  "close": "Закрыть"
+  "close": "Закрыть",
+  "resultSeconds": "{seconds} с"
 }
