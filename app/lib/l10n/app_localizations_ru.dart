@@ -1014,4 +1014,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String faceToggle(int number) {
     return 'Лицо $number: восстанавливать';
   }
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds с';
+  }
 }
