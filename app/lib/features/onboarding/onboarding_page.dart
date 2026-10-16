@@ -53,7 +53,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         child: Column(
           children: [
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: TextButton(onPressed: _done, child: Text(l10n.onbSkip)),
             ),
             Expanded(
@@ -61,18 +61,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 controller: _pages,
                 onPageChanged: (i) => setState(() => _index = i),
                 children: [
+                  // Centred, and scrolls when large text does not fit (A11Y-GEN-004).
                   for (final (icon, title, body) in steps)
-                    Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(icon, size: 72),
-                          const SizedBox(height: 24),
-                          Text(title, style: t.headlineSmall, textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
-                          Text(body, style: t.bodyLarge, textAlign: TextAlign.center),
-                        ],
+                    LayoutBuilder(
+                      builder: (context, box) => SingleChildScrollView(
+                        padding: const EdgeInsets.all(32),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: box.maxHeight - 64),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(icon, size: 72),
+                              const SizedBox(height: 24),
+                              Text(title, style: t.headlineSmall, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              Text(body, style: t.bodyLarge, textAlign: TextAlign.center),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                 ],
