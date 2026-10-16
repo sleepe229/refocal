@@ -1930,6 +1930,15 @@ class $ModelPacksTable extends ModelPacks with TableInfo<$ModelPacksTable, Model
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1940,6 +1949,7 @@ class $ModelPacksTable extends ModelPacks with TableInfo<$ModelPacksTable, Model
     sha256,
     licenseSpdx,
     installedAt,
+    title,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2002,6 +2012,9 @@ class $ModelPacksTable extends ModelPacks with TableInfo<$ModelPacksTable, Model
     } else if (isInserting) {
       context.missing(_installedAtMeta);
     }
+    if (data.containsKey('title')) {
+      context.handle(_titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    }
     return context;
   }
 
@@ -2034,6 +2047,10 @@ class $ModelPacksTable extends ModelPacks with TableInfo<$ModelPacksTable, Model
         DriftSqlType.int,
         data['${effectivePrefix}installed_at'],
       )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
     );
   }
 
@@ -2058,6 +2075,10 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
   final String sha256;
   final String licenseSpdx;
   final int installedAt;
+
+  /// The pack's localized titles from its manifest entry (JSON), shown for a pack the current
+  /// manifest does not list (installed from a .rfpack, or withdrawn). Null before schema 5.
+  final String? title;
   const ModelPackRow({
     required this.id,
     required this.version,
@@ -2067,6 +2088,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
     required this.sha256,
     required this.licenseSpdx,
     required this.installedAt,
+    this.title,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2079,6 +2101,9 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
     map['sha256'] = Variable<String>(sha256);
     map['license_spdx'] = Variable<String>(licenseSpdx);
     map['installed_at'] = Variable<int>(installedAt);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
     return map;
   }
 
@@ -2092,6 +2117,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
       sha256: Value(sha256),
       licenseSpdx: Value(licenseSpdx),
       installedAt: Value(installedAt),
+      title: title == null && nullToAbsent ? const Value.absent() : Value(title),
     );
   }
 
@@ -2106,6 +2132,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
       sha256: serializer.fromJson<String>(json['sha256']),
       licenseSpdx: serializer.fromJson<String>(json['licenseSpdx']),
       installedAt: serializer.fromJson<int>(json['installedAt']),
+      title: serializer.fromJson<String?>(json['title']),
     );
   }
   @override
@@ -2120,6 +2147,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
       'sha256': serializer.toJson<String>(sha256),
       'licenseSpdx': serializer.toJson<String>(licenseSpdx),
       'installedAt': serializer.toJson<int>(installedAt),
+      'title': serializer.toJson<String?>(title),
     };
   }
 
@@ -2132,6 +2160,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
     String? sha256,
     String? licenseSpdx,
     int? installedAt,
+    Value<String?> title = const Value.absent(),
   }) => ModelPackRow(
     id: id ?? this.id,
     version: version ?? this.version,
@@ -2141,6 +2170,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
     sha256: sha256 ?? this.sha256,
     licenseSpdx: licenseSpdx ?? this.licenseSpdx,
     installedAt: installedAt ?? this.installedAt,
+    title: title.present ? title.value : this.title,
   );
   ModelPackRow copyWithCompanion(ModelPacksCompanion data) {
     return ModelPackRow(
@@ -2152,6 +2182,7 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
       sha256: data.sha256.present ? data.sha256.value : this.sha256,
       licenseSpdx: data.licenseSpdx.present ? data.licenseSpdx.value : this.licenseSpdx,
       installedAt: data.installedAt.present ? data.installedAt.value : this.installedAt,
+      title: data.title.present ? data.title.value : this.title,
     );
   }
 
@@ -2165,14 +2196,15 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
           ..write('size: $size, ')
           ..write('sha256: $sha256, ')
           ..write('licenseSpdx: $licenseSpdx, ')
-          ..write('installedAt: $installedAt')
+          ..write('installedAt: $installedAt, ')
+          ..write('title: $title')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, version, category, path, size, sha256, licenseSpdx, installedAt);
+      Object.hash(id, version, category, path, size, sha256, licenseSpdx, installedAt, title);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2184,7 +2216,8 @@ class ModelPackRow extends DataClass implements Insertable<ModelPackRow> {
           other.size == this.size &&
           other.sha256 == this.sha256 &&
           other.licenseSpdx == this.licenseSpdx &&
-          other.installedAt == this.installedAt);
+          other.installedAt == this.installedAt &&
+          other.title == this.title);
 }
 
 class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
@@ -2196,6 +2229,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
   final Value<String> sha256;
   final Value<String> licenseSpdx;
   final Value<int> installedAt;
+  final Value<String?> title;
   final Value<int> rowid;
   const ModelPacksCompanion({
     this.id = const Value.absent(),
@@ -2206,6 +2240,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
     this.sha256 = const Value.absent(),
     this.licenseSpdx = const Value.absent(),
     this.installedAt = const Value.absent(),
+    this.title = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ModelPacksCompanion.insert({
@@ -2217,6 +2252,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
     required String sha256,
     required String licenseSpdx,
     required int installedAt,
+    this.title = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        version = Value(version),
@@ -2235,6 +2271,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
     Expression<String>? sha256,
     Expression<String>? licenseSpdx,
     Expression<int>? installedAt,
+    Expression<String>? title,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2246,6 +2283,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
       if (sha256 != null) 'sha256': sha256,
       if (licenseSpdx != null) 'license_spdx': licenseSpdx,
       if (installedAt != null) 'installed_at': installedAt,
+      if (title != null) 'title': title,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2259,6 +2297,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
     Value<String>? sha256,
     Value<String>? licenseSpdx,
     Value<int>? installedAt,
+    Value<String?>? title,
     Value<int>? rowid,
   }) {
     return ModelPacksCompanion(
@@ -2270,6 +2309,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
       sha256: sha256 ?? this.sha256,
       licenseSpdx: licenseSpdx ?? this.licenseSpdx,
       installedAt: installedAt ?? this.installedAt,
+      title: title ?? this.title,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2301,6 +2341,9 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
     if (installedAt.present) {
       map['installed_at'] = Variable<int>(installedAt.value);
     }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2318,6 +2361,7 @@ class ModelPacksCompanion extends UpdateCompanion<ModelPackRow> {
           ..write('sha256: $sha256, ')
           ..write('licenseSpdx: $licenseSpdx, ')
           ..write('installedAt: $installedAt, ')
+          ..write('title: $title, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4652,6 +4696,7 @@ typedef $$ModelPacksTableCreateCompanionBuilder = ModelPacksCompanion Function({
   required String sha256,
   required String licenseSpdx,
   required int installedAt,
+  Value<String?> title,
   Value<int> rowid,
 });
 typedef $$ModelPacksTableUpdateCompanionBuilder = ModelPacksCompanion Function({
@@ -4663,6 +4708,7 @@ typedef $$ModelPacksTableUpdateCompanionBuilder = ModelPacksCompanion Function({
   Value<String> sha256,
   Value<String> licenseSpdx,
   Value<int> installedAt,
+  Value<String?> title,
   Value<int> rowid,
 });
 
@@ -4697,6 +4743,9 @@ class $$ModelPacksTableFilterComposer extends Composer<_$RefocalDatabase, $Model
 
   ColumnFilters<int> get installedAt =>
       $composableBuilder(column: $table.installedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => ColumnFilters(column));
 }
 
 class $$ModelPacksTableOrderingComposer extends Composer<_$RefocalDatabase, $ModelPacksTable> {
@@ -4730,6 +4779,9 @@ class $$ModelPacksTableOrderingComposer extends Composer<_$RefocalDatabase, $Mod
 
   ColumnOrderings<int> get installedAt =>
       $composableBuilder(column: $table.installedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ModelPacksTableAnnotationComposer extends Composer<_$RefocalDatabase, $ModelPacksTable> {
@@ -4763,6 +4815,9 @@ class $$ModelPacksTableAnnotationComposer extends Composer<_$RefocalDatabase, $M
 
   GeneratedColumn<int> get installedAt =>
       $composableBuilder(column: $table.installedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
 }
 
 class $$ModelPacksTableTableManager
@@ -4799,6 +4854,7 @@ class $$ModelPacksTableTableManager
                 Value<String> sha256 = const Value.absent(),
                 Value<String> licenseSpdx = const Value.absent(),
                 Value<int> installedAt = const Value.absent(),
+                Value<String?> title = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ModelPacksCompanion(
                 id: id,
@@ -4809,6 +4865,7 @@ class $$ModelPacksTableTableManager
                 sha256: sha256,
                 licenseSpdx: licenseSpdx,
                 installedAt: installedAt,
+                title: title,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4821,6 +4878,7 @@ class $$ModelPacksTableTableManager
                 required String sha256,
                 required String licenseSpdx,
                 required int installedAt,
+                Value<String?> title = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ModelPacksCompanion.insert(
                 id: id,
@@ -4831,6 +4889,7 @@ class $$ModelPacksTableTableManager
                 sha256: sha256,
                 licenseSpdx: licenseSpdx,
                 installedAt: installedAt,
+                title: title,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

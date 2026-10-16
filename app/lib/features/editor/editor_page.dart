@@ -15,6 +15,7 @@ import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/viewer.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';
@@ -142,18 +143,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 aspectRatio: result.width / result.height,
                 strength: strength,
                 resultLabel: l10n.resultAlt(result.width, result.height),
+                // Zoom to 1:1 of the result (FR-CMP-005): tiles from its BandStore.
+                tiles: ref.watch(viewerTilesProvider(result.jobDir)).value,
+                resultWidth: result.width,
+                resultHeight: result.height,
               ),
-              _ => ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image(
-                  image: original,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(
-                    height: 200,
-                    child: Center(child: Icon(Icons.image_outlined, size: 64)),
-                  ),
-                ),
-              ),
+              _ => _preview(original, state is Idle || state is AskUser, l10n),
             },
             const SizedBox(height: 16),
             switch (state) {
@@ -184,6 +179,80 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       _model == r.srModel &&
       _faces == (r.faceModel != null) &&
       (!_faces || (_faceStrength == r.faceStrength && _facesOnly == r.facesOnly));
+
+  /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
+  final _facesOff = <FaceBox>{};
+
+  /// The photo; before Enhance with face restoration on, a box over each face it would
+  /// restore: a tap turns that face off or on again (FR-FACE-007).
+  Widget _preview(ImageProvider original, bool editable, AppLocalizations l10n) {
+    final image = Image(
+      image: original,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) =>
+          const SizedBox(height: 200, child: Center(child: Icon(Icons.image_outlined, size: 64))),
+    );
+    final a = ref.watch(photoAnalysisProvider(widget.input)).value;
+    final show = editable && _faces && a != null && a.boxes.isNotEmpty;
+    if (!show) return ClipRRect(borderRadius: BorderRadius.circular(8), child: image);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: AspectRatio(
+            aspectRatio: a.width / a.height,
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final k = c.maxWidth / a.width;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    image,
+                    for (final (i, b) in a.boxes.indexed)
+                      Positioned(
+                        left: b.x * k,
+                        top: b.y * k,
+                        width: b.w * k,
+                        height: b.h * k,
+                        child: _faceBox(i, b, scheme, l10n),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.facesTapHint,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _faceBox(int i, FaceBox b, ColorScheme scheme, AppLocalizations l10n) {
+    final on = !_facesOff.contains(b);
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: l10n.faceToggle(i + 1),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => on ? _facesOff.add(b) : _facesOff.remove(b)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: on ? scheme.primary : scheme.outline, width: on ? 2 : 1),
+            color: on ? null : scheme.surface.withValues(alpha: 0.5),
+          ),
+          child: on ? null : Icon(Icons.block, color: scheme.onSurface),
+        ),
+      ),
+    );
+  }
 
   /// FR-FACE-002/004: restore faces with the face pack, at this strength.
   bool _faces = false;
@@ -455,7 +524,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   Future<void> _enhance(EnhanceController ctl, Recipe r, AppLocalizations l10n) async {
     if (r.faceModel != null && !await _faceNotice(l10n)) return;
     if (!mounted) return;
-    await ctl.start(widget.input, r);
+    await ctl.start(widget.input, r, facesOff: r.faceModel == null ? const [] : _facesOff.toList());
   }
 
   Widget _progress(Running s, EnhanceController ctl, AppLocalizations l10n) {

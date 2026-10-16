@@ -699,5 +699,18 @@
     }
   },
   "modelsErrorNotAPack": "Not a Refocal model pack, or the file is damaged",
-  "modelsErrorStorage": "The file could not be read"
+  "modelsErrorStorage": "The file could not be read",
+  "faceOfferTitle": "Face model for portraits",
+  "faceOfferBody": "Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.",
+  "faceOfferOpen": "Models",
+  "faceOfferLater": "Not now",
+  "facesTapHint": "Tap a face to leave it as it is",
+  "faceToggle": "Face {number}: restore",
+  "@faceToggle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  }
 }

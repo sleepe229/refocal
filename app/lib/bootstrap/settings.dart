@@ -23,6 +23,7 @@ class Settings {
     this.historyEnabled = true,
     this.batchAutosave = true,
     this.faceNoticeSeen = false,
+    this.faceOfferDismissed = false,
     this.tierOverride,
   });
 
@@ -52,6 +53,9 @@ class Settings {
   /// ADR-0022: the warning about face restoration was shown (first use only).
   final bool faceNoticeSeen;
 
+  /// FR-ONB-003: the home screen's offer of the face model was dismissed.
+  final bool faceOfferDismissed;
+
   /// FR-SET-003: "T0".."T2" chosen by the user; null: the benchmark decides.
   final String? tierOverride;
 
@@ -65,6 +69,7 @@ class Settings {
     bool? historyEnabled,
     bool? batchAutosave,
     bool? faceNoticeSeen,
+    bool? faceOfferDismissed,
     String? Function()? tierOverride,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
@@ -76,6 +81,7 @@ class Settings {
     historyEnabled: historyEnabled ?? this.historyEnabled,
     batchAutosave: batchAutosave ?? this.batchAutosave,
     faceNoticeSeen: faceNoticeSeen ?? this.faceNoticeSeen,
+    faceOfferDismissed: faceOfferDismissed ?? this.faceOfferDismissed,
     tierOverride: tierOverride != null ? tierOverride() : this.tierOverride,
   );
 
@@ -90,6 +96,7 @@ class Settings {
     'history_enabled': '$historyEnabled',
     'batch_autosave': '$batchAutosave',
     'face_notice_seen': '$faceNoticeSeen',
+    'face_offer_dismissed': '$faceOfferDismissed',
     'tier_override': tierOverride,
   };
 
@@ -113,6 +120,7 @@ class Settings {
       historyEnabled: flag('history_enabled', d.historyEnabled),
       batchAutosave: flag('batch_autosave', d.batchAutosave),
       faceNoticeSeen: flag('face_notice_seen', d.faceNoticeSeen),
+      faceOfferDismissed: flag('face_offer_dismissed', d.faceOfferDismissed),
       tierOverride: const {'T0', 'T1', 'T2'}.contains(m['tier_override'])
           ? m['tier_override']
           : null,

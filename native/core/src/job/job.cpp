@@ -63,6 +63,14 @@ JobRequest parse_job_request(const std::string& text) {
     r.face_strength = j.value("face_strength", r.face_strength);
     r.face_color_match = j.value("face_color_match", r.face_color_match);
     r.background = j.value("background", r.background);
+    for (const auto& b : j.value("faces_off", nlohmann::json::array())) {
+      const auto v = b.get<std::vector<float>>();
+      if (v.size() != 4 ||
+          !std::all_of(v.begin(), v.end(), [](float x) { return std::isfinite(x) && x >= 0; }))
+        fail(ENH_E_INVALID, "bad faces_off box");
+      r.faces_off.push_back({v[0], v[1], v[2], v[3]});
+    }
+    if (r.faces_off.size() > kMaxFaces) fail(ENH_E_INVALID, "too many faces_off");
   } catch (const nlohmann::json::exception& e) {
     fail(ENH_E_INVALID, std::string("bad request: ") + e.what());
   }
@@ -99,7 +107,12 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
           {"det_model", r.det_model},
           {"face_strength", r.face_strength},
           {"face_color_match", r.face_color_match},
-          {"background", r.background}};
+          {"background", r.background},
+          {"faces_off", [&] {
+             nlohmann::json a = nlohmann::json::array();
+             for (const FaceBox& b : r.faces_off) a.push_back({b.x, b.y, b.w, b.h});
+             return a;
+           }()}};
 }
 
 namespace {
@@ -444,8 +457,6 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
 }  // namespace
 
 std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rgb8& img) {
-  constexpr int kMaxFaces = 32;
-  constexpr float kMinFacePx = 16;
   sink.emit(ENH_EV_STAGE, kStageFaces, 0, 0, {{"stage", "restore_faces"}});
   // ADR-0016: a face that fails on every backend is left as the SR model makes it, with a
   // FALLBACK event; so are all of them when detection itself fails.
@@ -468,12 +479,19 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     skip(ENH_E_OOM, -1);
     return {};
   }
+  keep_restorable(found);
+  // FR-FACE-007: faces turned off stay as the SR model makes them.
+  const size_t detected = found.size();
   found.erase(std::remove_if(found.begin(), found.end(),
-                             [&](const Face& f) { return std::min(f.w, f.h) < kMinFacePx; }),
+                             [&](const Face& f) {
+                               return std::any_of(
+                                   req.faces_off.begin(), req.faces_off.end(),
+                                   [&](const FaceBox& b) { return iou(f, b) >= kSameFaceIou; });
+                             }),
               found.end());
-  if (found.size() > size_t(kMaxFaces)) found.resize(kMaxFaces);
+  if (found.size() != detected) ENH_LOGI("faces: %zu turned off", detected - found.size());
   sink.emit(ENH_EV_WARNING, kStageFaces, 0, int64_t(found.size()),
-            {{"code", "faces_found"}, {"count", found.size()}});
+            {{"code", "faces_found"}, {"count", found.size()}, {"off", detected - found.size()}});
   std::vector<RestoredFace> out;
   if (found.empty()) return out;
 

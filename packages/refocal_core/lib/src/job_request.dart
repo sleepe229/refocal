@@ -1,3 +1,4 @@
+import 'auto.dart' show FaceBox;
 import 'db/database.dart' show newId;
 import 'recipe.dart';
 
@@ -14,13 +15,20 @@ class JobRequest {
     this.faceModel,
     this.faceStrength = Recipe.defaultFaceStrength,
     this.facesOnly = false,
+    this.facesOff = const [],
   }) : id = id ?? 'job-${newId()}' {
     if (!_id.hasMatch(this.id)) throw ArgumentError.value(this.id, 'id', 'not a job id');
     recipe(); // the same parameter rules as a recipe
   }
 
   /// The processing parameters of [recipe] for [input].
-  factory JobRequest.of(Recipe recipe, String input, {String? id}) => JobRequest(
+  /// [facesOff]: faces of this photo the user turned off (FR-FACE-007); not part of a recipe.
+  factory JobRequest.of(
+    Recipe recipe,
+    String input, {
+    String? id,
+    List<FaceBox> facesOff = const [],
+  }) => JobRequest(
     id: id,
     input: input,
     scale: recipe.scale,
@@ -29,6 +37,7 @@ class JobRequest {
     faceModel: recipe.faceModel,
     faceStrength: recipe.faceStrength,
     facesOnly: recipe.facesOnly,
+    facesOff: facesOff,
   );
 
   /// The job directory name under AppSupport/jobs (`[A-Za-z0-9_-]{1,64}` in the core).
@@ -47,6 +56,9 @@ class JobRequest {
 
   /// Region "Faces" (FR-FACE-006): `background: lanczos` in the core.
   final bool facesOnly;
+
+  /// FR-FACE-007: faces left as the SR model makes them (boxes from enh_analyze).
+  final List<FaceBox> facesOff;
 
   static final _id = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
@@ -74,6 +86,7 @@ class JobRequest {
       'face_model': f,
       'face_strength': faceStrength,
       if (facesOnly) 'background': 'lanczos',
+      if (facesOff.isNotEmpty) 'faces_off': [for (final b in facesOff) b.toJson()],
     },
   };
 
@@ -104,6 +117,11 @@ class JobRequest {
           faceModel: face == null || face == '' ? null : face as String,
           faceStrength: faceStrength.toDouble(),
           facesOnly: j['background'] == 'lanczos',
+          facesOff: switch (j['faces_off']) {
+            null => const [],
+            final List<Object?> l => [for (final b in l) FaceBox.fromJson(b)],
+            final other => throw FormatException('bad faces_off', other),
+          },
         );
       } on ArgumentError catch (e) {
         throw FormatException('${e.message}', j);

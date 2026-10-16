@@ -17,7 +17,9 @@ namespace enh {
 double estimate_noise(const Rgb8& img);
 
 // {"schema": 1, "width", "height", "megapixels", "noise_sigma", "faces": {"count",
-// "largest_px", "detector": bool}}.
+// "largest_px", "detector": bool, "boxes": [[x, y, w, h], ...]}}: the faces a job restores
+// (keep_restorable), largest first, in pixels of the oriented input; a box can be passed back
+// in the request's faces_off (FR-FACE-007).
 nlohmann::json analyze_image(enh_session& s, const std::string& path,
                              const std::string& det_model = "det.yunet-2023mar");
 
