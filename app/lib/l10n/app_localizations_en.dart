@@ -1043,4 +1043,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get reportBadAction => 'Report a bad result';
+
+  @override
+  String get reportBadTitle => 'What is wrong with the result?';
+
+  @override
+  String get badOtherFace => 'Someone else\'s face';
+
+  @override
+  String get badArtifacts => 'Artifacts';
+
+  @override
+  String get badColor => 'Colours';
+
+  @override
+  String get badBias => 'Unfair to a group of people';
+
+  @override
+  String get badOther => 'Something else';
+
+  @override
+  String get reportComment => 'What did you notice? (optional)';
+
+  @override
+  String get reportWillSend => 'This text will be in a public GitHub issue (no photo):';
+
+  @override
+  String get reportOpenIssue => 'Open the issue on GitHub';
+
+  @override
+  String get reportSharePhoto => 'Share the result photo…';
+
+  @override
+  String get reportPhotoTitle => 'The photo will be public';
+
+  @override
+  String get reportPhotoBody =>
+      'GitHub issues can be read by anyone. Share the photo only if you are fine with that, and never photos of other people without their consent.';
+
+  @override
+  String get reportPhotoOk => 'Share the photo';
+
+  @override
+  String get reportNoBrowser => 'No app on this phone opens links';
 }
