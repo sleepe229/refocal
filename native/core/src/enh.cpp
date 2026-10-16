@@ -13,6 +13,8 @@
 
 #include "job/session.hpp"
 #include "json_util.hpp"
+#include "policy/analyze.hpp"
+#include "policy/benchmark.hpp"
 #include "probe.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -56,6 +58,7 @@ enh_status enh_session_create(const enh_session_config* cfg, enh_session** out) 
   s->cpu_threads = cfg->cpu_threads;
   s->blocklist_json = opt(cfg->blocklist_json);
   s->tier = opt(cfg->tier);
+  s->tier_level = s->tier == "T2" ? 2 : s->tier == "T1" ? 1 : 0;
   // Fields appended after ABI 1.0 are read only when the caller's struct has them.
   const char* prev_exit =
       cfg->struct_size >= offsetof(enh_session_config, previous_exit) + sizeof(void*)
@@ -103,8 +106,32 @@ enh_status enh_device_probe(enh_session* s, char** out_json) {
   return put_json(j, out_json);
 }
 
-enh_status enh_benchmark(enh_session*, const char*, char**) { return ENH_E_INTERNAL; }
-enh_status enh_analyze(enh_session*, const char*, char**) { return ENH_E_INTERNAL; }
+enh_status enh_benchmark(enh_session* s, const char* opts_json, char** out_json) {
+  if (!s || !out_json) return ENH_E_INVALID;
+  try {
+    const auto opts = nlohmann::json::parse(opts_json ? opts_json : "{}", nullptr, false);
+    if (opts.is_discarded() || !opts.is_object()) return ENH_E_INVALID;
+    return put_json(enh::run_benchmark(*s, opts).dump(), out_json);
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
+enh_status enh_analyze(enh_session* s, const char* input_path, char** out_json) {
+  if (!s || !input_path || !out_json) return ENH_E_INVALID;
+  try {
+    return put_json(enh::analyze_image(*s, input_path).dump(), out_json);
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
+
+void enh_set_tier(enh_session* s, int32_t tier) {
+  if (s && tier >= 0 && tier <= 2) s->tier_level = tier;
+}
 
 void enh_set_memory_pressure(enh_session* s, int32_t level) {
   if (s) s->memory_pressure = level;

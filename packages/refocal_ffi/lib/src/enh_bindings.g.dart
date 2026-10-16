@@ -392,6 +392,17 @@ class EnhBindings {
   late final _enh_set_thermal = _enh_set_thermalPtr
       .asFunction<void Function(ffi.Pointer<enh_session>, int)>(isLeaf: true);
 
+  void enh_set_tier(ffi.Pointer<enh_session> s, int tier) {
+    return _enh_set_tier(s, tier);
+  }
+
+  late final _enh_set_tierPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<enh_session>, ffi.Int32)>>(
+        'enh_set_tier',
+      );
+  late final _enh_set_tier = _enh_set_tierPtr
+      .asFunction<void Function(ffi.Pointer<enh_session>, int)>(isLeaf: true);
+
   int enh_verify_file(ffi.Pointer<ffi.Char> path, ffi.Pointer<ffi.Char> sha256_hex) {
     return _enh_verify_file(path, sha256_hex);
   }
@@ -434,7 +445,7 @@ class EnhBindings {
   );
 }
 
-const int ENH_ABI_VERSION = 2;
+const int ENH_ABI_VERSION = 3;
 
 const int ENH_E_BACKEND = 4;
 

@@ -2895,6 +2895,242 @@ class ManifestStateCompanion extends UpdateCompanion<ManifestStateRow> {
   }
 }
 
+class $BenchmarkCacheTable extends BenchmarkCache
+    with TableInfo<$BenchmarkCacheTable, BenchmarkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BenchmarkCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  @override
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, json, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'benchmark_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BenchmarkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(_keyMeta, key.isAcceptableOrUnknown(data['key']!, _keyMeta));
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(_jsonMeta, json.isAcceptableOrUnknown(data['json']!, _jsonMeta));
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  BenchmarkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BenchmarkRow(
+      key: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}key'])!,
+      json: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}json'])!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BenchmarkCacheTable createAlias(String alias) {
+    return $BenchmarkCacheTable(attachedDatabase, alias);
+  }
+}
+
+class BenchmarkRow extends DataClass implements Insertable<BenchmarkRow> {
+  final String key;
+  final String json;
+  final int createdAt;
+  const BenchmarkRow({required this.key, required this.json, required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['json'] = Variable<String>(json);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  BenchmarkCacheCompanion toCompanion(bool nullToAbsent) {
+    return BenchmarkCacheCompanion(key: Value(key), json: Value(json), createdAt: Value(createdAt));
+  }
+
+  factory BenchmarkRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BenchmarkRow(
+      key: serializer.fromJson<String>(json['key']),
+      json: serializer.fromJson<String>(json['json']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'json': serializer.toJson<String>(json),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  BenchmarkRow copyWith({String? key, String? json, int? createdAt}) => BenchmarkRow(
+    key: key ?? this.key,
+    json: json ?? this.json,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  BenchmarkRow copyWithCompanion(BenchmarkCacheCompanion data) {
+    return BenchmarkRow(
+      key: data.key.present ? data.key.value : this.key,
+      json: data.json.present ? data.json.value : this.json,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BenchmarkRow(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, json, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BenchmarkRow &&
+          other.key == this.key &&
+          other.json == this.json &&
+          other.createdAt == this.createdAt);
+}
+
+class BenchmarkCacheCompanion extends UpdateCompanion<BenchmarkRow> {
+  final Value<String> key;
+  final Value<String> json;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const BenchmarkCacheCompanion({
+    this.key = const Value.absent(),
+    this.json = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BenchmarkCacheCompanion.insert({
+    required String key,
+    required String json,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       json = Value(json),
+       createdAt = Value(createdAt);
+  static Insertable<BenchmarkRow> custom({
+    Expression<String>? key,
+    Expression<String>? json,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (json != null) 'json': json,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BenchmarkCacheCompanion copyWith({
+    Value<String>? key,
+    Value<String>? json,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return BenchmarkCacheCompanion(
+      key: key ?? this.key,
+      json: json ?? this.json,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BenchmarkCacheCompanion(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RefocalDatabase extends GeneratedDatabase {
   _$RefocalDatabase(QueryExecutor e) : super(e);
   $RefocalDatabaseManager get managers => $RefocalDatabaseManager(this);
@@ -2905,6 +3141,7 @@ abstract class _$RefocalDatabase extends GeneratedDatabase {
   late final $ModelPacksTable modelPacks = $ModelPacksTable(this);
   late final $ConsentsTable consents = $ConsentsTable(this);
   late final $ManifestStateTable manifestState = $ManifestStateTable(this);
+  late final $BenchmarkCacheTable benchmarkCache = $BenchmarkCacheTable(this);
   late final Index historyCreatedAt = Index(
     'history_created_at',
     'CREATE INDEX history_created_at ON history (created_at)',
@@ -2925,6 +3162,7 @@ abstract class _$RefocalDatabase extends GeneratedDatabase {
     modelPacks,
     consents,
     manifestState,
+    benchmarkCache,
     historyCreatedAt,
     queueJobsPosition,
   ];
@@ -4935,6 +5173,151 @@ typedef $$ManifestStateTableProcessedTableManager =
       ManifestStateRow,
       PrefetchHooks Function()
     >;
+typedef $$BenchmarkCacheTableCreateCompanionBuilder = BenchmarkCacheCompanion Function({
+  required String key,
+  required String json,
+  required int createdAt,
+  Value<int> rowid,
+});
+typedef $$BenchmarkCacheTableUpdateCompanionBuilder = BenchmarkCacheCompanion Function({
+  Value<String> key,
+  Value<String> json,
+  Value<int> createdAt,
+  Value<int> rowid,
+});
+
+class $$BenchmarkCacheTableFilterComposer
+    extends Composer<_$RefocalDatabase, $BenchmarkCacheTable> {
+  $$BenchmarkCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$BenchmarkCacheTableOrderingComposer
+    extends Composer<_$RefocalDatabase, $BenchmarkCacheTable> {
+  $$BenchmarkCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$BenchmarkCacheTableAnnotationComposer
+    extends Composer<_$RefocalDatabase, $BenchmarkCacheTable> {
+  $$BenchmarkCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$BenchmarkCacheTableTableManager
+    extends
+        RootTableManager<
+          _$RefocalDatabase,
+          $BenchmarkCacheTable,
+          BenchmarkRow,
+          $$BenchmarkCacheTableFilterComposer,
+          $$BenchmarkCacheTableOrderingComposer,
+          $$BenchmarkCacheTableAnnotationComposer,
+          $$BenchmarkCacheTableCreateCompanionBuilder,
+          $$BenchmarkCacheTableUpdateCompanionBuilder,
+          (BenchmarkRow, BaseReferences<_$RefocalDatabase, $BenchmarkCacheTable, BenchmarkRow>),
+          BenchmarkRow,
+          PrefetchHooks Function()
+        > {
+  $$BenchmarkCacheTableTableManager(_$RefocalDatabase db, $BenchmarkCacheTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BenchmarkCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BenchmarkCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BenchmarkCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> key = const Value.absent(),
+            Value<String> json = const Value.absent(),
+            Value<int> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => BenchmarkCacheCompanion(key: key, json: json, createdAt: createdAt, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String json,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BenchmarkCacheCompanion.insert(
+                key: key,
+                json: json,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BenchmarkCacheTable, BenchmarkRow>(table),
+                  BaseReferences<_$RefocalDatabase, $BenchmarkCacheTable, BenchmarkRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BenchmarkCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RefocalDatabase,
+      $BenchmarkCacheTable,
+      BenchmarkRow,
+      $$BenchmarkCacheTableFilterComposer,
+      $$BenchmarkCacheTableOrderingComposer,
+      $$BenchmarkCacheTableAnnotationComposer,
+      $$BenchmarkCacheTableCreateCompanionBuilder,
+      $$BenchmarkCacheTableUpdateCompanionBuilder,
+      (BenchmarkRow, BaseReferences<_$RefocalDatabase, $BenchmarkCacheTable, BenchmarkRow>),
+      BenchmarkRow,
+      PrefetchHooks Function()
+    >;
 
 class $RefocalDatabaseManager {
   final _$RefocalDatabase _db;
@@ -4948,4 +5331,6 @@ class $RefocalDatabaseManager {
   $$ConsentsTableTableManager get consents => $$ConsentsTableTableManager(_db, _db.consents);
   $$ManifestStateTableTableManager get manifestState =>
       $$ManifestStateTableTableManager(_db, _db.manifestState);
+  $$BenchmarkCacheTableTableManager get benchmarkCache =>
+      $$BenchmarkCacheTableTableManager(_db, _db.benchmarkCache);
 }

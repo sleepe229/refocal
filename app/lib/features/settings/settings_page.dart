@@ -5,6 +5,7 @@ import 'package:refocal_core/refocal_core.dart';
 
 import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/tier.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
 import '../../ui_kit/errors.dart';
@@ -119,6 +120,7 @@ class SettingsPage extends ConsumerWidget {
             ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
             ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
             ListTile(title: Text(l10n.settingsModels), onTap: () => context.push('/models')),
+            _TierTile(chosen: s.tierOverride, change: change),
             ListTile(title: Text(l10n.settingsStorage), onTap: () => context.push('/storage')),
             const Divider(),
             ListTile(
@@ -183,5 +185,42 @@ class SettingsPage extends ConsumerWidget {
           ),
         ) ??
         false;
+  }
+}
+
+/// FR-SET-003: the device tier the benchmark found, and the user's override (ADR-0017).
+class _TierTile extends ConsumerWidget {
+  const _TierTile({required this.chosen, required this.change});
+  final String? chosen;
+  final Future<bool> Function(Settings Function(Settings)) change;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final t = ref.watch(tierProvider);
+    final b = t.value?.benchmark;
+    final found = switch (t) {
+      AsyncData(:final value) when b != null => l10n.tierMeasured(
+        value.benchmark!.tier.label,
+        b.gpu ? l10n.tierGpu : l10n.tierCpu,
+        b.tile128Ms.round(),
+      ),
+      AsyncData() => l10n.tierUnknown,
+      AsyncError() => l10n.tierUnknown,
+      _ => l10n.tierMeasuring,
+    };
+    return ListTile(
+      title: Text(l10n.tierTitle),
+      subtitle: Text(found),
+      isThreeLine: true,
+      trailing: DropdownButton<String?>(
+        value: chosen,
+        onChanged: (v) => change((c) => c.copyWith(tierOverride: () => v)),
+        items: [
+          DropdownMenuItem(child: Text(l10n.tierAuto)),
+          for (final x in DeviceTier.values) DropdownMenuItem(value: x.label, child: Text(x.label)),
+        ],
+      ),
+    );
   }
 }

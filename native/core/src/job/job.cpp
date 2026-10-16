@@ -336,7 +336,7 @@ class SentinelGuard {
 int auto_tile(const enh_session& s, const BackendConfig& first) {
   // S2/S3: T0 (CPU, 600 MB) -> 128; T1/T2 -> 256; never 512 on Vulkan (silent corruption).
   if (first.kind == BackendKind::vulkan) return 256;
-  return s.tier == "T1" || s.tier == "T2" ? 256 : 128;
+  return s.tier_level.load() >= 1 ? 256 : 128;
 }
 
 std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const Geometry& g,
