@@ -1880,6 +1880,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{seconds} s'**
   String resultSeconds(int seconds);
+
+  /// No description provided for @presetsImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import presets'**
+  String get presetsImport;
+
+  /// No description provided for @presetsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export your presets'**
+  String get presetsExport;
+
+  /// No description provided for @presetsExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets saved'**
+  String get presetsExported;
+
+  /// No description provided for @presetsImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets added: {count}'**
+  String presetsImported(int count);
+
+  /// No description provided for @presetsNotAFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a Refocal presets file, or a newer one'**
+  String get presetsNotAFile;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

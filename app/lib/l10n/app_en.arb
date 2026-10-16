@@ -740,5 +740,17 @@
         "type": "int"
       }
     }
-  }
+  },
+  "presetsImport": "Import presets",
+  "presetsExport": "Export your presets",
+  "presetsExported": "Presets saved",
+  "presetsImported": "Presets added: {count}",
+  "@presetsImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "presetsNotAFile": "Not a Refocal presets file, or a newer one"
 }

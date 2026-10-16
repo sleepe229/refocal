@@ -297,5 +297,10 @@
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
   "close": "Закрыть",
-  "resultSeconds": "{seconds} с"
+  "resultSeconds": "{seconds} с",
+  "presetsImport": "Импортировать пресеты",
+  "presetsExport": "Экспортировать ваши пресеты",
+  "presetsExported": "Пресеты сохранены",
+  "presetsImported": "Добавлено пресетов: {count}",
+  "presetsNotAFile": "Это не файл пресетов Refocal или он от более новой версии"
 }
