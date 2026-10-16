@@ -928,4 +928,36 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tierMeasuring => 'Измеряем…';
+
+  @override
+  String get autoChip => 'Авто';
+
+  @override
+  String get autoAnalyzing => 'Смотрим на фото…';
+
+  @override
+  String get autoFailed => 'Авто недоступно: не удалось проанализировать фото';
+
+  @override
+  String autoFaces(int count) {
+    return 'лиц: $count';
+  }
+
+  @override
+  String get autoFacesNotRestored => 'на этом устройстве не восстанавливаются';
+
+  @override
+  String get autoFacesNeedPack => 'модель лиц не установлена';
+
+  @override
+  String get autoFacesOnly => 'только лица';
+
+  @override
+  String get autoDenoiseNone => 'без денойза';
+
+  @override
+  String get autoDenoiseStandard => 'денойз средний';
+
+  @override
+  String get autoDenoiseStrong => 'денойз сильный';
 }
