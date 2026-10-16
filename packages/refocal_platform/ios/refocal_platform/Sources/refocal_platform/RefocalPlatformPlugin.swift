@@ -30,6 +30,10 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
     throw PigeonError(code: "unimplemented", message: "pickImages is not implemented on iOS yet", details: nil)
   }
 
+  func pickFile(dstDir: String, maxBytes: Int64) async throws -> String? {
+    throw PigeonError(code: "unimplemented", message: "pickFile is not implemented on iOS yet", details: nil)
+  }
+
   func saveToGallery(path: String, displayName: String, mimeType: String) async throws -> String {
     throw PigeonError(code: "unimplemented", message: "saveToGallery is not implemented on iOS yet", details: nil)
   }

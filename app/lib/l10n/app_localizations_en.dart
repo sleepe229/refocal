@@ -980,4 +980,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String oomBody(String scale) {
     return 'Not enough memory for $scale. Process at a smaller size?';
   }
+
+  @override
+  String get modelsImport => 'Import a .rfpack file';
+
+  @override
+  String modelsImported(String name) {
+    return 'Installed: $name';
+  }
+
+  @override
+  String get modelsErrorNotAPack => 'Not a Refocal model pack, or the file is damaged';
+
+  @override
+  String get modelsErrorStorage => 'The file could not be read';
 }

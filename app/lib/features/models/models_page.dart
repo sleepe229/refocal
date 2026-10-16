@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refocal_core/refocal_core.dart';
 
 import '../../bootstrap/app_log.dart';
+import '../../bootstrap/engine.dart';
 import '../../bootstrap/models.dart';
 import '../../bootstrap/settings.dart';
 import '../../l10n/app_localizations.dart';
@@ -10,7 +14,8 @@ import '../storage/storage_page.dart' show formatBytes;
 
 /// Models (06 §1 `/models`, ADR-0011): packs of the last verified manifest, download with
 /// progress and cancel, delete; license acceptance for restricted packs (ADR-0022). The
-/// network is used only when the user checks for models or downloads one (ADR-0020).
+/// network is used only when the user checks for models or downloads one (ADR-0020). Offline
+/// packs (.rfpack, FR-MODEL-006) are imported from a file with the same checks.
 class ModelsPage extends ConsumerWidget {
   const ModelsPage({super.key});
 
@@ -45,6 +50,14 @@ class ModelsPage extends ConsumerWidget {
                     label: Text(l10n.modelsCheck),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextButton.icon(
+                    onPressed: () => _import(context, ref, lang),
+                    icon: const Icon(Icons.file_open_outlined),
+                    label: Text(l10n.modelsImport),
+                  ),
+                ),
                 if (s?.manifest == null)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -58,6 +71,18 @@ class ModelsPage extends ConsumerWidget {
                       installed: installed[p.id],
                       progress: s.downloads[p.id],
                     ),
+                // Installed from a file, or no longer in the manifest: still listed, to delete.
+                for (final i in installed.values)
+                  if (s?.manifest?.pack(i.id) == null)
+                    ListTile(
+                      title: Text(i.id),
+                      subtitle: Text('${i.version} · ${l10n.modelsInstalled}'),
+                      trailing: IconButton(
+                        tooltip: l10n.modelsDelete,
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => ref.read(modelsProvider.notifier).remove(i.id),
+                      ),
+                    ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(l10n.modelsPrivacy, style: Theme.of(context).textTheme.bodySmall),
@@ -66,6 +91,50 @@ class ModelsPage extends ConsumerWidget {
             ),
     );
   }
+
+  /// FR-MODEL-006: a .rfpack from the device, no network.
+  Future<void> _import(BuildContext context, WidgetRef ref, String lang) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final manager = await ref.read(modelManagerProvider.future);
+    String? path;
+    try {
+      path = await ref
+          .read(platformApiProvider)
+          .pickFile('${manager.tmpDir}/import', _maxRfpackBytes);
+      if (path == null) return;
+      final p = await manager.openOffline(path);
+      if (p.pack.license.requiresAcceptance && !await manager.repo.hasConsent(p.pack)) {
+        if (!context.mounted) return;
+        final title = p.pack.titleFor(lang);
+        if (await acceptLicense(context, l10n, title, p.licenseText) != true) return;
+        await manager.repo.recordConsent(p.pack);
+        AppLog.info('consent: ${p.pack.id} ${p.pack.license.spdx}');
+      }
+      await ref.read(modelsProvider.notifier).installOffline(p);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.modelsImported(p.pack.titleFor(lang)))));
+    } on ModelError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(modelErrorText(l10n, e))));
+    } on PlatformException catch (e) {
+      AppLog.warn('rfpack pick: ${e.code}');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.code == 'limit' ? l10n.modelsErrorNotAPack : l10n.modelsErrorStorage),
+        ),
+      );
+    } finally {
+      if (path != null) {
+        try {
+          await File(path).delete();
+        } on FileSystemException catch (e) {
+          AppLog.warn('rfpack copy: ${e.message}'); // in the cache: cleared with it
+        }
+      }
+    }
+  }
+
+  /// SEC-INP-005: what the core unpacks at most.
+  static const _maxRfpackBytes = 2 << 30;
 
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -83,7 +152,39 @@ String modelErrorText(AppLocalizations l10n, ModelError e) => switch (e.kind) {
   ModelErrorKind.integrity => l10n.modelsErrorIntegrity,
   ModelErrorKind.rollback => l10n.modelsErrorRollback,
   ModelErrorKind.storage => l10n.failDiskFull,
+  ModelErrorKind.notAPack => l10n.modelsErrorNotAPack,
 };
+
+/// The license text before a restricted pack is installed (ADR-0022); true when accepted.
+Future<bool?> acceptLicense(
+  BuildContext context,
+  AppLocalizations l10n,
+  String title,
+  String text,
+) => showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: Text(l10n.modelsLicenseTitle(title)),
+    content: SizedBox(
+      width: double.maxFinite,
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          Text(l10n.modelsLicenseIntro),
+          const SizedBox(height: 12),
+          SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, true),
+        child: Text(l10n.modelsLicenseAccept),
+      ),
+    ],
+  ),
+);
 
 class _PackTile extends ConsumerWidget {
   const _PackTile({
@@ -150,7 +251,7 @@ class _PackTile extends ConsumerWidget {
       if (pack.license.requiresAcceptance && !await manager.repo.hasConsent(pack)) {
         final text = await manager.licenseText(pack);
         if (!context.mounted) return;
-        if (await _accept(context, l10n, text) != true) return;
+        if (await acceptLicense(context, l10n, pack.titleFor(lang), text) != true) return;
         await manager.repo.recordConsent(pack);
         AppLog.info('consent: ${pack.id} ${pack.license.spdx}');
       }
@@ -159,30 +260,4 @@ class _PackTile extends ConsumerWidget {
       messenger.showSnackBar(SnackBar(content: Text(modelErrorText(l10n, e))));
     }
   }
-
-  Future<bool?> _accept(BuildContext context, AppLocalizations l10n, String text) =>
-      showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.modelsLicenseTitle(pack.titleFor(lang))),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Text(l10n.modelsLicenseIntro),
-                const SizedBox(height: 12),
-                SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(l10n.modelsLicenseAccept),
-            ),
-          ],
-        ),
-      );
 }

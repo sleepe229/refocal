@@ -327,6 +327,31 @@ class EnhBindings {
   late final _enh_log_write = _enh_log_writePtr
       .asFunction<void Function(int, ffi.Pointer<ffi.Char>)>();
 
+  int enh_rfpack_extract(
+    ffi.Pointer<ffi.Char> rfpack_path,
+    ffi.Pointer<ffi.Char> entry,
+    ffi.Pointer<ffi.Char> dst_path,
+    int max_bytes,
+  ) {
+    return _enh_rfpack_extract(rfpack_path, entry, dst_path, max_bytes);
+  }
+
+  late final _enh_rfpack_extractPtr =
+      _lookup<
+        ffi.NativeFunction<
+          enh_status Function(
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Int64,
+          )
+        >
+      >('enh_rfpack_extract');
+  late final _enh_rfpack_extract = _enh_rfpack_extractPtr
+      .asFunction<
+        int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, int)
+      >();
+
   int enh_session_create(
     ffi.Pointer<enh_session_config> cfg,
     ffi.Pointer<ffi.Pointer<enh_session>> out,
@@ -445,7 +470,7 @@ class EnhBindings {
   );
 }
 
-const int ENH_ABI_VERSION = 3;
+const int ENH_ABI_VERSION = 4;
 
 const int ENH_E_BACKEND = 4;
 
