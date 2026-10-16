@@ -961,4 +961,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoDenoiseStrong => 'denoise strong';
+
+  @override
+  String get noteTileSmaller => 'Low on memory: processing in smaller pieces, slower';
+
+  @override
+  String noteFaceSkipped(int number) {
+    return 'Reduced quality: face $number could not be restored';
+  }
+
+  @override
+  String get noteFacesSkipped => 'Reduced quality: faces could not be restored';
+
+  @override
+  String get oomTitle => 'Not enough memory';
+
+  @override
+  String oomBody(String scale) {
+    return 'Not enough memory for $scale. Process at a smaller size?';
+  }
 }

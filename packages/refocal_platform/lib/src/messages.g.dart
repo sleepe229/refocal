@@ -733,6 +733,10 @@ abstract class RefocalPlatformEvents {
   /// The device's thermal level changed (see RefocalPlatformApi.thermalLevel).
   void onThermalLevel(int level);
 
+  /// The system is low on memory, as `enh_set_memory_pressure` takes it: 1 moderate, 2 low
+  /// (a memory warning: the next tile is half the size, NFR-MEM-004), 3 critical.
+  void onMemoryPressure(int level);
+
   static void setUp(
     RefocalPlatformEvents? api, {
     BinaryMessenger? binaryMessenger,
@@ -801,6 +805,31 @@ abstract class RefocalPlatformEvents {
           final int arg_level = args[0]! as int;
           try {
             api.onThermalLevel(arg_level);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformEvents.onMemoryPressure$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final int arg_level = args[0]! as int;
+          try {
+            api.onMemoryPressure(arg_level);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

@@ -191,8 +191,17 @@ class EnhanceController extends Notifier<EnhanceState> {
               fg.update(this, '$pct%', pct);
             }
           case FallbackEvent():
-            AppLog.warn('fallback ${e.from} -> ${e.to} (${e.reason})');
-            note = l10n.noteSwitchedTo(e.to);
+            AppLog.warn('fallback ${e.kind.name} ${e.from} -> ${e.to} (${e.reason})');
+            // FR-ENH-013: every rung of the ladder is visible.
+            note = switch (e) {
+              FallbackEvent(kind: FallbackKind.tile) => l10n.noteTileSmaller,
+              FallbackEvent(kind: FallbackKind.face, faceIndex: final i?) => l10n.noteFaceSkipped(
+                i + 1,
+              ),
+              FallbackEvent(kind: FallbackKind.face) => l10n.noteFacesSkipped,
+              FallbackEvent(kind: FallbackKind.backend) => l10n.noteSwitchedTo(e.to),
+            };
+            state = Running(stage, progress, null, note: note);
           case WarningEvent(code: 'alpha_flattened'):
             note = l10n.noteAlphaFlattened;
           case WarningEvent(code: 'animation_first_frame'):

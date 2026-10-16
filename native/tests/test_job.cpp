@@ -714,6 +714,91 @@ static void test_needs_user(Session& se) {
   CHECK(read_output(fs::join(g_work, "nu")).w == 400);  // fast 2x: (200 / 2) * 4
 }
 
+// TEST-FAULT-001 (ADR-0016, NFR-MEM-004, FR-ENH-014): out of memory or a memory warning ->
+// half-size sub-tiles with the same pixels; with no smaller tile left -> the user is asked
+// for a smaller output, never a silent downscale.
+static std::vector<Ev> fallbacks(Collector& c) {
+  std::lock_guard lk(c.mu);
+  std::vector<Ev> out;
+  for (auto& e : c.evs)
+    if (e.type == ENH_EV_FALLBACK) out.push_back(e);
+  return out;
+}
+
+static void test_oom_ladder(Session& se) {
+  std::string in = make_jpeg("oom.jpg", 230, 170);
+  {
+    Collector c;
+    CHECK(run_job(se, req("oom_ref", in, "bilinear4"), c).status == ENH_OK);
+  }
+  const Rgb8 ref = read_output(fs::join(g_work, "oom_ref"));
+  {  // tile 64 + pad 16 = 96 px input does not fit, 32 + 32 does
+    setenv("ENH_FAULT", "cpu:oom_above:90", 1);
+    Collector c;
+    auto r = run_job(se, req("oom_tile", in, "bilinear4"), c);
+    unsetenv("ENH_FAULT");
+    CHECK(r.status == ENH_OK);
+    auto f = fallbacks(c);
+    CHECK(f.size() == 1);
+    if (!f.empty()) {
+      CHECK(f[0].payload["kind"] == "tile" && f[0].payload["reason"] == "oom");
+      CHECK(f[0].payload["from"] == "64" && f[0].payload["to"] == "32");
+    }
+    CHECK(read_output(fs::join(g_work, "oom_tile")).px == ref.px);
+    CHECK(r.payload["fallbacks"] == json::array({"tile:64->32"}));
+  }
+  {  // a memory warning after the job was created: its first tile is already smaller; one from
+     // before (the previous job's) does not count
+    enh_set_memory_pressure(se.s, 3);
+    Collector c;
+    g_col = &c;
+    const std::string q = req("oom_pressure", in, "bilinear4").dump();
+    enh_job* j = nullptr;
+    CHECK(enh_job_create(se.s, q.c_str(), &j) == ENH_OK);
+    enh_set_memory_pressure(se.s, 2);
+    CHECK(enh_job_start(j, on_event, 4) == ENH_OK);
+    CHECK(wait_terminal(c));
+    CHECK(enh_job_status(j) == ENH_OK);
+    enh_job_destroy(j);
+    check_invariants(c);
+    enh_set_memory_pressure(se.s, 0);
+    auto f = fallbacks(c);
+    CHECK(f.size() == 1 && f[0].payload["reason"] == "memory_pressure");
+    CHECK(read_output(fs::join(g_work, "oom_pressure")).px == ref.px);
+  }
+  // No smaller tile (32 + 32 > 50) and no other backend: NEEDS_USER oom_downscale. A wrong
+  // answer ends the job; 2x runs the job again (here with the memory back).
+  for (const char* answer : {"{\"scale\":1,\"fast2\":false}", "{\"scale\":2,\"fast2\":false}"}) {
+    const bool good = std::string(answer).find("\"scale\":2") != std::string::npos;
+    setenv("ENH_FAULT", "cpu:oom_above:50", 1);
+    Collector c;
+    g_col = &c;
+    const std::string id = good ? "oom_down" : "oom_bad";
+    const std::string r = req(id, in, "nearest4").dump();
+    enh_job* j = nullptr;
+    CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
+    CHECK(enh_job_start(j, on_event, 3) == ENH_OK);
+    CHECK(wait_for(c, ENH_EV_NEEDS_USER));
+    {
+      std::lock_guard lk(c.mu);
+      for (auto& e : c.evs)
+        if (e.type == ENH_EV_NEEDS_USER) {
+          CHECK(e.payload["code"] == "oom_downscale" && e.payload["scale"] == 4);
+          CHECK(e.payload["options"] == json::parse(R"([{"scale":2,"fast2":false},
+                                                        {"scale":2,"fast2":true}])"));
+        }
+    }
+    unsetenv("ENH_FAULT");
+    CHECK(enh_job_answer(j, answer) == ENH_OK);
+    CHECK(wait_terminal(c));
+    CHECK(enh_job_status(j) == (good ? ENH_OK : ENH_E_INVALID));
+    enh_job_destroy(j);
+    check_invariants(c);
+  }
+  CHECK(read_output(fs::join(g_work, "oom_down")).w == 460);
+  CHECK(json::parse(fs::read_text(fs::join(g_work, "oom_down/request.json")))["scale"] == 2);
+}
+
 static void test_errors(Session& se) {
   enh_job* j = nullptr;
   CHECK(enh_job_create(se.s, "not json", &j) == ENH_E_INVALID);
@@ -772,6 +857,7 @@ int main(int argc, char** argv) {
     test_pause_resume(se, slow);
     test_thermal(se, slow);
     test_needs_user(se);
+    test_oom_ladder(se);
     test_errors(se);
   }
   std::printf("test_job: %d failures\n", fails);

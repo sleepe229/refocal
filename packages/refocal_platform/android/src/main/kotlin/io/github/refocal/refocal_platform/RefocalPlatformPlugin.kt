@@ -5,10 +5,12 @@ import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
+import android.content.ComponentCallbacks2
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
@@ -61,10 +63,12 @@ class RefocalPlatformPlugin :
     events = RefocalPlatformEvents(b.binaryMessenger)
     instance = this
     context.getSystemService(PowerManager::class.java)?.addThermalStatusListener(context.mainExecutor, thermalListener)
+    context.registerComponentCallbacks(memoryCallbacks)
   }
 
   override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
     context.getSystemService(PowerManager::class.java)?.removeThermalStatusListener(thermalListener)
+    context.unregisterComponentCallbacks(memoryCallbacks)
     RefocalPlatformApi.setUp(b.binaryMessenger, null)
     events = null
     if (instance === this) instance = null
@@ -100,6 +104,45 @@ class RefocalPlatformPlugin :
             // Dart side not ready: it reads thermalLevel() when it opens the core
           }
         }
+      }
+
+  /**
+   * NFR-MEM-004: onTrimMemory as enh_set_memory_pressure levels. UI_HIDDEN says nothing about
+   * memory; API 34+ sends only it and BACKGROUND, so BACKGROUND counts as moderate.
+   */
+  @Suppress("DEPRECATION") // the RUNNING_* and MODERATE/COMPLETE levels still come before API 34
+  private fun memoryLevelOf(trim: Int): Long? =
+      when {
+        trim >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> 3L
+        trim >= ComponentCallbacks2.TRIM_MEMORY_MODERATE -> 2L
+        trim >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> 1L
+        trim == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> null
+        trim >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> 3L
+        trim >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> 2L
+        trim >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> 1L
+        else -> null
+      }
+
+  private fun sendMemoryPressure(level: Long) {
+    main.launch {
+      try {
+        events?.onMemoryPressure(level)
+      } catch (_: Exception) {
+        // Dart side not ready: no job is running
+      }
+    }
+  }
+
+  private val memoryCallbacks =
+      object : ComponentCallbacks2 {
+        override fun onTrimMemory(level: Int) {
+          memoryLevelOf(level)?.let(::sendMemoryPressure)
+        }
+
+        override fun onConfigurationChanged(newConfig: Configuration) {}
+
+        @Deprecated("Deprecated in Java")
+        override fun onLowMemory() = sendMemoryPressure(3L)
       }
 
   override fun onAttachedToActivity(b: ActivityPluginBinding) {
