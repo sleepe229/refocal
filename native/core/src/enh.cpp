@@ -134,7 +134,9 @@ void enh_set_tier(enh_session* s, int32_t tier) {
 }
 
 void enh_set_memory_pressure(enh_session* s, int32_t level) {
-  if (s) s->memory_pressure = level;
+  if (!s) return;
+  s->memory_pressure = level;
+  if (level >= 2) ++s->memory_warnings;
 }
 void enh_set_gpu_allowed(enh_session* s, int32_t allowed) {
   if (s) s->gpu_allowed = allowed ? 1 : 0;

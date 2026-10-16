@@ -1742,6 +1742,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'denoise strong'**
   String get autoDenoiseStrong;
+
+  /// No description provided for @noteTileSmaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Low on memory: processing in smaller pieces, slower'**
+  String get noteTileSmaller;
+
+  /// No description provided for @noteFaceSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced quality: face {number} could not be restored'**
+  String noteFaceSkipped(int number);
+
+  /// No description provided for @noteFacesSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced quality: faces could not be restored'**
+  String get noteFacesSkipped;
+
+  /// No description provided for @oomTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough memory'**
+  String get oomTitle;
+
+  /// No description provided for @oomBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough memory for {scale}. Process at a smaller size?'**
+  String oomBody(String scale);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

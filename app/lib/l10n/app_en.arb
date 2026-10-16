@@ -669,5 +669,24 @@
   "autoFacesOnly": "only faces",
   "autoDenoiseNone": "no denoise",
   "autoDenoiseStandard": "denoise medium",
-  "autoDenoiseStrong": "denoise strong"
+  "autoDenoiseStrong": "denoise strong",
+  "noteTileSmaller": "Low on memory: processing in smaller pieces, slower",
+  "noteFaceSkipped": "Reduced quality: face {number} could not be restored",
+  "@noteFaceSkipped": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "noteFacesSkipped": "Reduced quality: faces could not be restored",
+  "oomTitle": "Not enough memory",
+  "oomBody": "Not enough memory for {scale}. Process at a smaller size?",
+  "@oomBody": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  }
 }

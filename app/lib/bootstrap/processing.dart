@@ -5,7 +5,7 @@ import 'package:refocal_platform/refocal_platform.dart';
 
 /// Calls from the platform: actions from the processing notification (ADR-0019): "pause",
 /// "cancel", "timeout"; "an image was shared to the running app" (FR-SHARE-001); thermal level
-/// changes (NFR-THERM-002).
+/// changes (NFR-THERM-002); memory pressure (NFR-MEM-004).
 class ProcessingActions implements RefocalPlatformEvents {
   ProcessingActions._();
 
@@ -13,12 +13,16 @@ class ProcessingActions implements RefocalPlatformEvents {
   final _actions = StreamController<String>.broadcast();
   final _shared = StreamController<void>.broadcast();
   final _thermal = StreamController<int>.broadcast();
+  final _memory = StreamController<int>.broadcast();
 
   Stream<String> get stream => _actions.stream;
   Stream<void> get shared => _shared.stream;
 
   /// Thermal levels as the core takes them (NFR-THERM-002).
   Stream<int> get thermal => _thermal.stream;
+
+  /// Memory pressure levels as the core takes them (NFR-MEM-004).
+  Stream<int> get memory => _memory.stream;
 
   /// Registers the Pigeon handler; call once in main().
   static void install() => RefocalPlatformEvents.setUp(instance);
@@ -31,6 +35,9 @@ class ProcessingActions implements RefocalPlatformEvents {
 
   @override
   void onThermalLevel(int level) => _thermal.add(level);
+
+  @override
+  void onMemoryPressure(int level) => _memory.add(level);
 }
 
 final processingActionsProvider = Provider((_) => ProcessingActions.instance.stream);

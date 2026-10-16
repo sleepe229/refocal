@@ -33,7 +33,13 @@ sealed class JobEvent {
         final eta = (p['eta_ms'] as num?)?.toInt() ?? -1;
         return ProgressEvent(done, total, eta >= 0 ? Duration(milliseconds: eta) : null);
       case 3:
-        return FallbackEvent('${p['from']}', '${p['to']}', '${p['reason']}');
+        return FallbackEvent(
+          FallbackKind.fromName(p['kind'] as String?),
+          '${p['from'] ?? ''}',
+          '${p['to'] ?? ''}',
+          '${p['reason']}',
+          faceIndex: (p['index'] as num?)?.toInt(),
+        );
       case 4:
         return WarningEvent('${p['code']}', p);
       case 5:
@@ -62,9 +68,28 @@ class ProgressEvent extends JobEvent {
   double get fraction => total > 0 ? done / total : 0;
 }
 
+/// A rung of the fallback ladder (ADR-0016, enh.h ENH_EV_FALLBACK).
+enum FallbackKind {
+  /// Smaller tiles, the same pixels (slower).
+  tile,
+
+  /// Another backend.
+  backend,
+
+  /// A face ([FallbackEvent.faceIndex]) or all faces left as the SR model makes them.
+  face;
+
+  static FallbackKind fromName(String? name) =>
+      values.where((k) => k.name == name).firstOrNull ?? backend;
+}
+
 class FallbackEvent extends JobEvent {
-  const FallbackEvent(this.from, this.to, this.reason);
+  const FallbackEvent(this.kind, this.from, this.to, this.reason, {this.faceIndex});
+  final FallbackKind kind;
+
+  /// Reason: oom | memory_pressure | numeric | backend_error.
   final String from, to, reason;
+  final int? faceIndex;
 }
 
 class WarningEvent extends JobEvent {
