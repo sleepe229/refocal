@@ -90,6 +90,38 @@ void main() {
     expect(tc.value.getMaxScaleOnAxis(), 1); // back to fit
   });
 
+  testWidgets('side by side: two panels, one zoom (FR-CMP-004)', (tester) async {
+    final img = MemoryImage(_png1x1);
+    await tester.pumpWidget(app(CompareSlider(before: img, after: img, aspectRatio: 2)));
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.tap(find.byTooltip('Side by side'));
+    await tester.pump();
+    final viewers = tester.widgetList<InteractiveViewer>(find.byType(InteractiveViewer)).toList();
+    expect(viewers, hasLength(2));
+    expect(viewers[0].transformationController, same(viewers[1].transformationController));
+    expect(find.text('Original'), findsOneWidget);
+    expect(find.text('Enhanced'), findsOneWidget);
+    await tester.tap(find.byTooltip('With a border'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+  });
+
+  testWidgets('a long press shows the loupe while held (FR-CMP-006)', (tester) async {
+    final img = MemoryImage(_png1x1);
+    await tester.pumpWidget(app(CompareSlider(before: img, after: img, aspectRatio: 2)));
+    final g = await tester.startGesture(
+      tester.getTopLeft(find.byType(InteractiveViewer)) + const Offset(80, 120),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(RawMagnifier), findsOneWidget);
+    await g.moveBy(const Offset(30, 0));
+    await tester.pump();
+    expect(find.byType(RawMagnifier), findsOneWidget);
+    await g.up();
+    await tester.pump();
+    expect(find.byType(RawMagnifier), findsNothing);
+  });
+
   test('scale choices follow ADR-0014', () {
     expect(ScaleChoice.fast2.scale, 2);
     expect(ScaleChoice.fast2.fastPath, isTrue);

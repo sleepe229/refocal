@@ -740,5 +740,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "compareSideBySide": "Side by side",
+  "compareBorder": "With a border"
 }

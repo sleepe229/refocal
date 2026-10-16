@@ -297,5 +297,7 @@
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
   "close": "Закрыть",
-  "resultSeconds": "{seconds} с"
+  "resultSeconds": "{seconds} с",
+  "compareSideBySide": "Рядом",
+  "compareBorder": "С границей"
 }
