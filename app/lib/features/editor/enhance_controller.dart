@@ -123,10 +123,11 @@ class EnhanceController extends Notifier<EnhanceState> {
   }
 
   /// Runs [recipe] on [input]; the result starts at the recipe's strength (a preset's or a
-  /// history entry's, FR-PRE-002, FR-HIST-003).
-  Future<void> start(String input, Recipe recipe) async {
+  /// history entry's, FR-PRE-002, FR-HIST-003). [facesOff]: faces of this photo not to restore
+  /// (FR-FACE-007).
+  Future<void> start(String input, Recipe recipe, {List<FaceBox> facesOff = const []}) async {
     _strength = recipe.strength;
-    final request = JobRequest.of(recipe, input);
+    final request = JobRequest.of(recipe, input, facesOff: facesOff);
     AppLog.info(
       'job ${request.id}: ${request.srModel} scale ${request.scale}${request.fast2 ? ' fast' : ''}',
     );

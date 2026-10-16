@@ -1,6 +1,31 @@
 import 'recipe.dart';
 import 'tiers.dart';
 
+/// A face box in pixels of the oriented input (enh_analyze `faces.boxes`, the request's
+/// `faces_off`, FR-FACE-007).
+class FaceBox {
+  const FaceBox(this.x, this.y, this.w, this.h);
+  final double x, y, w, h;
+
+  /// Throws [FormatException] unless [j] is four non-negative numbers.
+  factory FaceBox.fromJson(Object? j) {
+    if (j case [final num x, final num y, final num w, final num h]
+        when x >= 0 && y >= 0 && w >= 0 && h >= 0) {
+      return FaceBox(x.toDouble(), y.toDouble(), w.toDouble(), h.toDouble());
+    }
+    throw FormatException('not a face box', j);
+  }
+
+  List<double> toJson() => [x, y, w, h];
+
+  @override
+  bool operator ==(Object other) =>
+      other is FaceBox && other.x == x && other.y == y && other.w == w && other.h == h;
+
+  @override
+  int get hashCode => Object.hash(x, y, w, h);
+}
+
 /// What enh_analyze reports about a photo (FR-ENH-007).
 class PhotoAnalysis {
   const PhotoAnalysis({
@@ -10,6 +35,7 @@ class PhotoAnalysis {
     required this.faces,
     required this.largestFacePx,
     required this.detector,
+    this.boxes = const [],
   });
 
   /// Throws [FormatException] for anything the core did not write.
@@ -23,6 +49,7 @@ class PhotoAnalysis {
         'count': final int count,
         'largest_px': final int largest,
         'detector': final bool detector,
+        'boxes': final List<Object?> boxes,
       },
     }) {
       return PhotoAnalysis(
@@ -32,6 +59,7 @@ class PhotoAnalysis {
         faces: count,
         largestFacePx: largest,
         detector: detector,
+        boxes: [for (final b in boxes) FaceBox.fromJson(b)],
       );
     }
     throw FormatException('not an analysis', j);
@@ -45,6 +73,9 @@ class PhotoAnalysis {
 
   /// The face detector ran (without it [faces] is 0 and says nothing).
   final bool detector;
+
+  /// The faces a job restores, largest first (FR-FACE-007).
+  final List<FaceBox> boxes;
 
   double get megapixels => width * height / 1e6;
 }

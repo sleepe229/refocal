@@ -1006,4 +1006,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faceOfferLater => 'Не сейчас';
+
+  @override
+  String get facesTapHint => 'Нажмите на лицо, чтобы оставить его как есть';
+
+  @override
+  String faceToggle(int number) {
+    return 'Лицо $number: восстанавливать';
+  }
 }

@@ -703,5 +703,14 @@
   "faceOfferTitle": "Face model for portraits",
   "faceOfferBody": "Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.",
   "faceOfferOpen": "Models",
-  "faceOfferLater": "Not now"
+  "faceOfferLater": "Not now",
+  "facesTapHint": "Tap a face to leave it as it is",
+  "faceToggle": "Face {number}: restore",
+  "@faceToggle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  }
 }
