@@ -175,6 +175,10 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 
 **Объём:** GitHub APK, F-Droid (+ Play open testing, если Q-06); паки CodeFormer, x4plus, anime_6B; 8×; side-by-side, синхронный зум, лупа; «Сообщить о плохом результате»; Weblate; RTL.
 
+**Паки x4plus и anime_6B (FR-ENH-008, FR-ENH-016):** ✅ `sr.x4plus` (T2, pad 24) и `sr.x4plus-anime6b` (T1) — `tools/models/convert_rrdb.py` (TorchScript → pnnx → ncnn fp16), в подписанном манифесте; TEST-ML-001 на каждом PR: 64.5 / 63.9 дБ к PyTorch fp32. В редакторе «Модель» (Стандартная / Высокое качество / Аниме и рисунки) — только установленные и доступные по тиру; пресет «Аниме». NFR-PERF-004 (1 МП → 4× x4plus ≤ 40 с на T2) — на устройстве.
+
+**MODELS.md (ML-REG-001, TEST-COMP-004):** ✅ запись для каждой модели; `check_manifest.py` падает без неё.
+
 **Критерии выхода:**
 - все NFR на эталонной матрице;
 - воспроизводимая F-Droid-сборка (или задокументированное отклонение);

@@ -297,5 +297,10 @@
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
   "close": "Закрыть",
-  "resultSeconds": "{seconds} с"
+  "resultSeconds": "{seconds} с",
+  "presetAnime": "Аниме",
+  "srModel": "Модель",
+  "srModelCompact": "Стандартная",
+  "srModelHq": "Высокое качество",
+  "srModelAnime": "Аниме и рисунки"
 }

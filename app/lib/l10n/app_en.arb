@@ -740,5 +740,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "presetAnime": "Anime",
+  "srModel": "Model",
+  "srModelCompact": "Standard",
+  "srModelHq": "High quality",
+  "srModelAnime": "Anime and art"
 }

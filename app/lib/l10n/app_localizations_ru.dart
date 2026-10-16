@@ -1042,4 +1042,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds с';
   }
+
+  @override
+  String get presetAnime => 'Аниме';
+
+  @override
+  String get srModel => 'Модель';
+
+  @override
+  String get srModelCompact => 'Стандартная';
+
+  @override
+  String get srModelHq => 'Высокое качество';
+
+  @override
+  String get srModelAnime => 'Аниме и рисунки';
 }

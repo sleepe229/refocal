@@ -1043,4 +1043,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get presetAnime => 'Anime';
+
+  @override
+  String get srModel => 'Model';
+
+  @override
+  String get srModelCompact => 'Standard';
+
+  @override
+  String get srModelHq => 'High quality';
+
+  @override
+  String get srModelAnime => 'Anime and art';
 }

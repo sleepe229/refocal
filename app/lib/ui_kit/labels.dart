@@ -26,6 +26,14 @@ String builtinPresetLabel(AppLocalizations l10n, BuiltinPreset p) => switch (p) 
   BuiltinPreset.quality => l10n.presetQuality,
   BuiltinPreset.portrait => l10n.presetPortrait,
   BuiltinPreset.oldPhoto => l10n.presetOldPhoto,
+  BuiltinPreset.anime => l10n.presetAnime,
+};
+
+/// "Standard", "High quality", "Anime" (FR-ENH-008).
+String srModelLabel(AppLocalizations l10n, SrModel m) => switch (m) {
+  SrModel.compact => l10n.srModelCompact,
+  SrModel.hq => l10n.srModelHq,
+  SrModel.anime => l10n.srModelAnime,
 };
 
 /// "Fast 2× · 80%", plus " · JPEG 92" when the recipe was saved.
@@ -69,7 +77,10 @@ String resultInfo(AppLocalizations l10n, JobResult r) {
     DenoiseLevel.none => '${l10n.denoise}: ${l10n.denoiseNone}',
     DenoiseLevel.standard => '${l10n.denoise}: ${l10n.denoiseStandard}',
     DenoiseLevel.strong => '${l10n.denoise}: ${l10n.denoiseStrong}',
-    null => r.model, // a face pack (region Faces) or another installed model
+    null => switch (SrModel.of(r.model)) {
+      final m? => '${l10n.srModel}: ${srModelLabel(l10n, m)}',
+      null => r.model, // a face pack (region Faces) or another installed model
+    },
   };
   final backend = switch (r.backend) {
     final b when b.startsWith('vulkan') => l10n.tierGpu,

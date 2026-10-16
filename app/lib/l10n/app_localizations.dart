@@ -1880,6 +1880,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{seconds} s'**
   String resultSeconds(int seconds);
+
+  /// No description provided for @presetAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get presetAnime;
+
+  /// No description provided for @srModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get srModel;
+
+  /// No description provided for @srModelCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get srModelCompact;
+
+  /// No description provided for @srModelHq.
+  ///
+  /// In en, this message translates to:
+  /// **'High quality'**
+  String get srModelHq;
+
+  /// No description provided for @srModelAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime and art'**
+  String get srModelAnime;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
