@@ -40,3 +40,23 @@ String recipeLabel(AppLocalizations l10n, Recipe r) {
   ];
   return parts.join(' · ');
 }
+
+/// Why Auto chose its recipe (FR-ENH-007, 06 §3.2): "4×, faces: 2, denoise medium".
+String autoExplanation(AppLocalizations l10n, PhotoAnalysis a, AutoDecision d) {
+  final r = d.recipe;
+  final parts = [
+    scaleLabel(l10n, r.scale, fast2: r.fast2),
+    if (a.detector && a.faces > 0) l10n.autoFaces(a.faces),
+    if (d.reasons.contains(AutoReason.tooManyFacesForTier))
+      l10n.autoFacesNotRestored
+    else if (a.faces > 0 && r.faceModel == null)
+      l10n.autoFacesNeedPack,
+    if (r.facesOnly) l10n.autoFacesOnly,
+    switch (DenoiseLevel.of(r.srModel)) {
+      DenoiseLevel.none => l10n.autoDenoiseNone,
+      DenoiseLevel.strong => l10n.autoDenoiseStrong,
+      DenoiseLevel.standard || null => l10n.autoDenoiseStandard,
+    },
+  ];
+  return parts.join(', ');
+}

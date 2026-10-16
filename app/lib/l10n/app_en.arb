@@ -652,5 +652,22 @@
   "tierGpu": "graphics processor",
   "tierCpu": "processor",
   "tierUnknown": "Not measured: T0, the safe one",
-  "tierMeasuring": "Measuring…"
+  "tierMeasuring": "Measuring…",
+  "autoChip": "Auto",
+  "autoAnalyzing": "Looking at the photo…",
+  "autoFailed": "Auto is unavailable: the photo could not be analysed",
+  "autoFaces": "faces: {count}",
+  "@autoFaces": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoFacesNotRestored": "not restored on this device",
+  "autoFacesNeedPack": "face model not installed",
+  "autoFacesOnly": "only faces",
+  "autoDenoiseNone": "no denoise",
+  "autoDenoiseStandard": "denoise medium",
+  "autoDenoiseStrong": "denoise strong"
 }

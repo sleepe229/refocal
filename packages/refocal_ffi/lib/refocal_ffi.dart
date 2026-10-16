@@ -324,27 +324,53 @@ class RefocalSession {
   /// The device micro-benchmark (ADR-0017, 05 §6.2) on a helper isolate (seconds): per backend
   /// time on a 128 px tile and the GPU gate, the fastest healthy backend and the tier for
   /// [ramBytes]. See native/core/src/policy/benchmark.hpp for the result.
-  Future<Map<String, Object?>> benchmark({required int ramBytes, int runs = 5}) async {
+  Future<Map<String, Object?>> benchmark({required int ramBytes, int runs = 5}) async => jsonDecode(
+    await _callJson(_benchmark, 'benchmark', jsonEncode({'runs': runs, 'ram_bytes': ramBytes})),
+  ) as Map<String, Object?>;
+
+  /// What Auto needs to know about the photo at [inputPath] (FR-ENH-007): size, noise and faces
+  /// (the bundled detector). Decodes the whole photo on a helper isolate (up to a second or
+  /// two); waits for a running job's current tile.
+  Future<PhotoAnalysis> analyze(String inputPath) async => PhotoAnalysis.fromJson(
+    jsonDecode(await _callJson(_analyze, 'analyze', inputPath)) as Map<String, Object?>,
+  );
+
+  static int _benchmark(
+    EnhBindings b,
+    Pointer<enh_session> s,
+    Pointer<Char> a,
+    Pointer<Pointer<Char>> o,
+  ) => b.enh_benchmark(s, a, o);
+
+  static int _analyze(
+    EnhBindings b,
+    Pointer<enh_session> s,
+    Pointer<Char> a,
+    Pointer<Pointer<Char>> o,
+  ) => b.enh_analyze(s, a, o);
+
+  /// Runs a `(session, const char* arg, char** out_json)` call on a helper isolate.
+  Future<String> _callJson(
+    int Function(EnhBindings, Pointer<enh_session>, Pointer<Char>, Pointer<Pointer<Char>>) call,
+    String name,
+    String arg,
+  ) {
     final libPath = _native._libPath;
     final sessionAddr = _ptr.address;
-    final json = await Isolate.run(() {
+    return Isolate.run(() {
       final b = EnhBindings(RefocalNative._open(libPath));
-      final opt = jsonEncode({'runs': runs, 'ram_bytes': ramBytes}).toNativeUtf8();
+      final a = arg.toNativeUtf8();
       final out = calloc<Pointer<Char>>();
       try {
-        RefocalNative._check(
-          b.enh_benchmark(Pointer.fromAddress(sessionAddr), opt.cast(), out),
-          'benchmark',
-        );
+        RefocalNative._check(call(b, Pointer.fromAddress(sessionAddr), a.cast(), out), name);
         final s = out.value.cast<Utf8>().toDartString();
         b.enh_free(out.value.cast());
         return s;
       } finally {
-        malloc.free(opt);
+        malloc.free(a);
         calloc.free(out);
       }
     });
-    return jsonDecode(json) as Map<String, Object?>;
   }
 
   /// 0 T0, 1 T1, 2 T2: tile size and memory budget of later jobs (ADR-0017).
