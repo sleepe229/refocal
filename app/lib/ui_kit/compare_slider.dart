@@ -81,16 +81,129 @@ class _CompareSliderState extends State<CompareSlider> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _viewer(l10n, pct, pos),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => setState(() => _original = !_original),
-            icon: Icon(_original ? Icons.auto_fix_high : Icons.image_outlined),
-            label: Text(_original ? l10n.compareShowResult : l10n.compareShowOriginal),
-          ),
+        _loupe(_sideBySide ? _pair(l10n) : _viewer(l10n, pct, pos)),
+        Row(
+          children: [
+            // FR-CMP-004: the border, or both side by side (zoomed together).
+            IconButton(
+              tooltip: _sideBySide ? l10n.compareBorder : l10n.compareSideBySide,
+              onPressed: () => setState(() => _sideBySide = !_sideBySide),
+              icon: Icon(_sideBySide ? Icons.compare : Icons.view_agenda_outlined),
+            ),
+            // Flexible: at 200% text the label wraps instead of overflowing (A11Y-GEN-004).
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _sideBySide
+                    ? null
+                    : TextButton.icon(
+                        onPressed: () => setState(() => _original = !_original),
+                        icon: Icon(_original ? Icons.auto_fix_high : Icons.image_outlined),
+                        label: Text(_original ? l10n.compareShowResult : l10n.compareShowOriginal),
+                      ),
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  bool _sideBySide = false;
+  Offset? _loupeAt;
+
+  /// FR-CMP-006: a long press shows a 2x circle above the finger (06 §5 "лупа").
+  Widget _loupe(Widget child) => GestureDetector(
+    onLongPressStart: (d) => setState(() => _loupeAt = d.localPosition),
+    onLongPressMoveUpdate: (d) => setState(() => _loupeAt = d.localPosition),
+    onLongPressEnd: (_) => setState(() => _loupeAt = null),
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        if (_loupeAt case final p?)
+          Positioned(
+            left: p.dx - _loupeSide / 2,
+            top: p.dy - _loupeSide / 2 - _loupeLift,
+            child: const IgnorePointer(
+              child: RawMagnifier(
+                size: Size.square(_loupeSide),
+                magnificationScale: 2,
+                // The circle sits above the finger and shows what is under it.
+                focalPointOffset: Offset(0, _loupeLift),
+                decoration: MagnifierDecoration(
+                  shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
+                  shadows: [BoxShadow(blurRadius: 6, color: Colors.black45)],
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  static const double _loupeSide = 120, _loupeLift = 100;
+
+  /// FR-CMP-004: original and result next to each other (above each other on a phone), one
+  /// zoom for both (06 §5: synchronous).
+  Widget _pair(AppLocalizations l10n) {
+    final wide = MediaQuery.sizeOf(context).width >= 600;
+    Widget panel(int source, String tag) => AspectRatio(
+      aspectRatio: widget.aspectRatio,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final size = Size(c.maxWidth, c.maxHeight);
+          Widget layer(int s, ImageProvider base) => _Layer(
+            source: s,
+            base: base,
+            controller: _tc,
+            size: size,
+            widget: widget,
+            cache: _cache,
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          );
+          return ClipRect(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                InteractiveViewer(
+                  transformationController: _tc,
+                  maxScale: math.max(4.0, 4 / _fitDensity(size.width)),
+                  child: SizedBox.fromSize(
+                    size: size,
+                    child: source == 1
+                        ? layer(1, widget.before)
+                        : Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (widget.strength < 1) layer(1, widget.before),
+                              Opacity(opacity: widget.strength, child: layer(0, widget.after)),
+                            ],
+                          ),
+                  ),
+                ),
+                Positioned(left: 8, top: 8, child: IgnorePointer(child: _Tag(tag))),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    final before = panel(1, l10n.tagOriginal), after = panel(0, l10n.tagEnhanced);
+    return Semantics(
+      label: l10n.compareSideBySide,
+      hint: widget.resultLabel,
+      child: ExcludeSemantics(
+        child: wide
+            ? Row(
+                children: [
+                  Expanded(child: before),
+                  const SizedBox(width: 4),
+                  Expanded(child: after),
+                ],
+              )
+            : Column(children: [before, const SizedBox(height: 4), after]),
+      ),
     );
   }
 

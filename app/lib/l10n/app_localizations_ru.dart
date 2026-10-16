@@ -1117,4 +1117,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String packUpdatesAvailable(int count) {
     return 'Обновления моделей: $count';
   }
+
+  @override
+  String get compareSideBySide => 'Рядом';
+
+  @override
+  String get compareBorder => 'С границей';
 }

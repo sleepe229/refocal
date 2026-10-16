@@ -2018,6 +2018,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Model updates: {count}'**
   String packUpdatesAvailable(int count);
+
+  /// No description provided for @compareSideBySide.
+  ///
+  /// In en, this message translates to:
+  /// **'Side by side'**
+  String get compareSideBySide;
+
+  /// No description provided for @compareBorder.
+  ///
+  /// In en, this message translates to:
+  /// **'With a border'**
+  String get compareBorder;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
