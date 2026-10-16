@@ -1043,4 +1043,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get compareSideBySide => 'Side by side';
+
+  @override
+  String get compareBorder => 'With a border';
 }

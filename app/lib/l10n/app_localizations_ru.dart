@@ -1042,4 +1042,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds с';
   }
+
+  @override
+  String get compareSideBySide => 'Рядом';
+
+  @override
+  String get compareBorder => 'С границей';
 }
