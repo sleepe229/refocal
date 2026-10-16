@@ -17,6 +17,7 @@ import '../../bootstrap/settings.dart';
 /// Output scale choices (ADR-0014). Fast 2x runs x4 on a half-size input: 4x cheaper; 1x runs
 /// x4 and scales back down: noise and blur removal without enlarging (FR-ENH-004).
 enum ScaleChoice {
+  x8(8, false),
   x4(4, false),
   x2(2, false),
   fast2(2, true),

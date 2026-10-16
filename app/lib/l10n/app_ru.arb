@@ -17,6 +17,7 @@
   "jobReadyNotSaved": "{scale} · готово, не сохранено",
   "jobPausedAt": "{scale} · пауза на {percent}%",
   "jobOriginalGone": "{scale} · оригинал удалён, продолжить нельзя",
+  "scaleX8": "8×",
   "scaleX4": "4×",
   "scaleX2": "2×",
   "scaleFast2": "Быстрый 2×",

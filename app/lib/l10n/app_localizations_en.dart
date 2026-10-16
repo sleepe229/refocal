@@ -73,6 +73,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get scaleX8 => '8×';
+
+  @override
   String get scaleX4 => '4×';
 
   @override

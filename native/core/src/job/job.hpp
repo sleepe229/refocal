@@ -14,7 +14,7 @@ struct JobRequest {
   std::string job_id;  // [A-Za-z0-9_-]{1,64}; job dir = work_dir/<job_id>
   std::string input;   // JPEG/PNG/WebP, or HEIC/AVIF/... via the platform decoder
   std::string sr_model = "sr.general-x4v3";
-  int scale = 4;                 // 4 | 2 | 1 (ADR-0014)
+  int scale = 4;                 // 8 | 4 | 2 | 1 (ADR-0014; 8: x4 twice, input <= 1.5 MP)
   bool fast2 = false;            // scale 2 only: input x0.5 -> x4 (4x cheaper)
   int tile = 0;                  // 0 = auto (tier/backend, S2/S3)
   std::string backend = "auto";  // auto | cpu | vulkan
@@ -48,5 +48,7 @@ inline constexpr const char* kSourceExifFile = "source.exif";  // TIFF block of 
 inline constexpr const char* kSourceIccFile = "source.icc";
 // FR-IMP-007: the input's alpha, oriented, 1 byte per pixel (result.json "alpha" has its size).
 inline constexpr const char* kAlphaFile = "alpha.raw";
-
+// FR-ENH-003: the first pass of 8x (x4), a band store of its own; removed when the job is done.
+inline constexpr const char* kX8Dir = "x8";
+inline constexpr double kMaxX8InputPx = 1.5e6;  // ADR-0014
 }  // namespace enh
