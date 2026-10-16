@@ -459,7 +459,8 @@ static void test_lanczos() {
   CHECK(all);
 }
 
-// PNG input runs through the same pipeline (alpha is composited onto white).
+// PNG input runs through the same pipeline: the SR model sees it on white; its alpha is kept
+// and comes back in PNG and WebP exports, not in JPEG (FR-IMP-007).
 static void test_png_input(Session& se) {
   const int w = 90, h = 70;
   Rgb8 src = texture(w, h);
@@ -484,11 +485,65 @@ static void test_png_input(Session& se) {
   CHECK(rr.payload["input"]["format"] == "png");
   bool warned = false;
   for (auto& e : c.evs)
-    warned |= e.type == ENH_EV_WARNING && e.payload.value("code", "") == "alpha_flattened";
+    warned |= e.type == ENH_EV_WARNING && e.payload.value("code", "") == "alpha_kept";
   CHECK(warned);
+  CHECK(rr.payload["alpha"]["width"] == w && rr.payload["alpha"]["height"] == h);
   Rgb8 out = read_output(fs::join(g_work, "png1"));
   src.px[0] = src.px[1] = src.px[2] = 255;
   CHECK(out.w == w && out.h == h && out.px == src.px);
+
+  const std::string dir = fs::join(g_work, "png1");
+  auto export_to = [&](const std::string& opts, const std::string& name) {
+    const std::string dst = fs::join(g_root, name);
+    char* o = nullptr;
+    CHECK(enh_export(se.s, dir.c_str(), opts.c_str(), dst.c_str(), &o) == ENH_OK);
+    const bool alpha = o && json::parse(o)["metadata"]["alpha"].get<bool>();
+    enh_free(o);
+    return std::pair{dst, alpha};
+  };
+  // PNG: the alpha back, exactly at 1x (the transparent pixel 0, the rest 255).
+  {
+    const auto [dst, alpha] = export_to(R"({"format":"png"})", "alpha.png");
+    CHECK(alpha);
+    png_image rd{};
+    rd.version = PNG_IMAGE_VERSION;
+    CHECK(png_image_begin_read_from_file(&rd, dst.c_str()));
+    CHECK(rd.format & PNG_FORMAT_FLAG_ALPHA);
+    rd.format = PNG_FORMAT_RGBA;
+    std::vector<uint8_t> px(PNG_IMAGE_SIZE(rd));
+    CHECK(png_image_finish_read(&rd, nullptr, px.data(), 0, nullptr));
+    bool rest = true;
+    for (int i = 1; i < w * h; ++i) rest &= px[size_t(i) * 4 + 3] == 255;
+    CHECK(px[3] == 0 && rest);
+  }
+  // WebP lossless: the same alpha; JPEG: none.
+  {
+    const auto [dst, alpha] = export_to(R"({"format":"webp","lossless":true})", "alpha.webp");
+    CHECK(alpha);
+    ImageInfo info;
+    SourceMeta meta;
+    decode_image(dst, &info, &meta);
+    CHECK(info.alpha && meta.alpha.size() == size_t(w) * h && meta.alpha[0] == 0 &&
+          meta.alpha[1] == 255);
+  }
+  CHECK(!export_to(R"({"format":"jpeg"})", "alpha.jpg").second);
+
+  // 4x: the alpha is scaled with the image (a transparent 8x8 block stays transparent inside).
+  for (int y = 20; y < 28; ++y)
+    for (int x = 30; x < 38; ++x) rgba[(size_t(y) * w + x) * 4 + 3] = 0;
+  CHECK(png_image_write_to_file(&im, in.c_str(), 0, rgba.data(), 0, nullptr));
+  Collector c4;
+  CHECK(run_job(se, req("png4", in, "nearest4"), c4).status == ENH_OK);
+  const std::string d4 = fs::join(g_work, "png4"), dst4 = fs::join(g_root, "alpha4.png");
+  CHECK(enh_export(se.s, d4.c_str(), R"({"format":"png"})", dst4.c_str(), nullptr) == ENH_OK);
+  ImageInfo i4;
+  SourceMeta m4;
+  decode_image(dst4, &i4, &m4);
+  CHECK(i4.w == w * 4 && m4.alpha.size() == size_t(w) * h * 16);
+  if (m4.alpha.size() == size_t(w) * h * 16) {
+    CHECK(m4.alpha[size_t(4 * 24) * w * 4 + 4 * 34] == 0);    // inside the block
+    CHECK(m4.alpha[size_t(4 * 50) * w * 4 + 4 * 70] == 255);  // far from it
+  }
 }
 
 // A well-formed ICC v2 display profile: header, one tag ("cprt") with non-trivial data, so

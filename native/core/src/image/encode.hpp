@@ -21,11 +21,13 @@ inline constexpr double kWebpLosslessMaxPixels = 24e6;
 
 class PngWriter {
  public:
-  PngWriter(const std::string& path, int w, int h, const OutputMeta* meta = nullptr);
+  // [alpha]: RGBA output; write_rows then takes the alpha rows (1 B/px) too (FR-IMP-007).
+  PngWriter(const std::string& path, int w, int h, const OutputMeta* meta = nullptr,
+            bool alpha = false);
   ~PngWriter();
   PngWriter(const PngWriter&) = delete;
   PngWriter& operator=(const PngWriter&) = delete;
-  void write_rows(const uint8_t* rgb, int rows);
+  void write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha = nullptr);
   void finish();
 
  private:
@@ -37,12 +39,13 @@ class PngWriter {
 // `quality` 1..100 is the lossy quality; lossless uses a fixed effort (preset 3).
 class WebpWriter {
  public:
+  // [alpha]: as PngWriter (RGBA collected: 4 B/px instead of 3).
   WebpWriter(const std::string& path, int w, int h, int quality, bool lossless,
-             const OutputMeta* meta = nullptr);
+             const OutputMeta* meta = nullptr, bool alpha = false);
   ~WebpWriter();
   WebpWriter(const WebpWriter&) = delete;
   WebpWriter& operator=(const WebpWriter&) = delete;
-  void write_rows(const uint8_t* rgb, int rows);
+  void write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha = nullptr);
   void finish();
 
  private:

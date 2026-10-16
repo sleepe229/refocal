@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:refocal_core/refocal_core.dart';
 
 import '../bootstrap/presets.dart';
@@ -59,4 +61,26 @@ String autoExplanation(AppLocalizations l10n, PhotoAnalysis a, AutoDecision d) {
     },
   ];
   return parts.join(', ');
+}
+
+/// What made the result (FR-CMP-007): "Denoise: Normal · graphics processor · 12 s".
+String resultInfo(AppLocalizations l10n, JobResult r) {
+  final model = switch (DenoiseLevel.of(r.model)) {
+    DenoiseLevel.none => '${l10n.denoise}: ${l10n.denoiseNone}',
+    DenoiseLevel.standard => '${l10n.denoise}: ${l10n.denoiseStandard}',
+    DenoiseLevel.strong => '${l10n.denoise}: ${l10n.denoiseStrong}',
+    null => r.model, // a face pack (region Faces) or another installed model
+  };
+  final backend = switch (r.backend) {
+    final b when b.startsWith('vulkan') => l10n.tierGpu,
+    final b when b.startsWith('cpu') => l10n.tierCpu,
+    'lanczos' => l10n.regionFaces,
+    final b => b,
+  };
+  return [
+    model,
+    backend,
+    if (r.duration case final d?)
+      l10n.resultSeconds(math.max(1, (d.inMilliseconds / 1000).round())),
+  ].join(' · ');
 }

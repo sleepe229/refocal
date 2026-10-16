@@ -333,11 +333,11 @@ abstract class AppLocalizations {
   /// **'Switched to {backend}'**
   String noteSwitchedTo(String backend);
 
-  /// No description provided for @noteAlphaFlattened.
+  /// No description provided for @noteAlphaKept.
   ///
   /// In en, this message translates to:
-  /// **'Transparent areas become white'**
-  String get noteAlphaFlattened;
+  /// **'Transparency is kept in PNG and WebP; in JPEG it becomes white'**
+  String get noteAlphaKept;
 
   /// No description provided for @noteFirstFrame.
   ///
@@ -1832,6 +1832,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Face {number}: restore'**
   String faceToggle(int number);
+
+  /// No description provided for @resultSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String resultSeconds(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
