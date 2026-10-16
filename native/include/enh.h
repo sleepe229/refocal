@@ -32,7 +32,7 @@ extern "C" {
 #pragma GCC visibility push(default) /* the core is built with -fvisibility=hidden */
 #endif
 
-#define ENH_ABI_VERSION 4
+#define ENH_ABI_VERSION 5
 
 typedef struct enh_session enh_session;
 typedef struct enh_job enh_job;
@@ -148,6 +148,19 @@ void enh_set_gpu_allowed(enh_session* s, int32_t allowed); /* iOS lifecycle gate
  * serious: a pause between tiles and half the CPU threads; critical: the job waits before its next
  * tile until the level is fair or lower (WARNING "thermal_wait", then "thermal_resumed"). */
 void enh_set_thermal(enh_session* s, int32_t level);
+
+/* ---- CompareViewer tiles (06 §5) ---- */
+typedef struct enh_viewer enh_viewer;
+/* A finished job's result (and its input) for zooming: tiles are rendered on demand from the
+ * BandStore, nothing is stored. Reads result.json and request.json of [job_dir]. */
+enh_status enh_viewer_open(const char* job_dir, enh_viewer** out);
+/* [x, y, w, h] of the result (source 0) or of the original scaled to the result's size
+ * (source 1), reduced by the integer [factor] (area mean; the original is sampled bilinearly
+ * where it has fewer pixels), into [rgba]: ceil(w/factor) x ceil(h/factor) RGBA8, each side
+ * <= 1024. Thread-safe; the original is decoded on first use (ENH_E_IO when it is gone). */
+enh_status enh_viewer_render(enh_viewer* v, int32_t source, int64_t x, int64_t y, int64_t w,
+                             int64_t h, int32_t factor, uint8_t* rgba, int64_t rgba_size);
+void enh_viewer_close(enh_viewer* v);
 
 /* ---- jobs ---- */
 enh_status enh_job_create(enh_session* s, const char* request_json, enh_job** out);
