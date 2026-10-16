@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:refocal_core/refocal_core.dart';
@@ -480,4 +481,109 @@ class JobFailure implements Exception {
   @override
   String toString() =>
       'JobFailure(${status.name}${event.message == null ? '' : ': ${event.message}'})';
+}
+
+/// One tile of a [RefocalViewer]: [width] x [height] RGBA8.
+class ViewerTile {
+  const ViewerTile(this.width, this.height, this.rgba);
+  final int width, height;
+  final Uint8List rgba;
+}
+
+/// Tiles of a finished job for the CompareViewer (06 §5): regions of the result (source 0)
+/// and of the original scaled to it (source 1), rendered by the core from the BandStore on a
+/// dedicated isolate, in the order asked. See `enh_viewer_render` in enh.h.
+class RefocalViewer {
+  RefocalViewer._(this._requests, this._replies, this._exit);
+
+  final SendPort _requests;
+  final ReceivePort _replies, _exit;
+  final _pending = <int, Completer<ViewerTile>>{};
+  int _next = 0;
+  bool _closed = false;
+
+  /// Throws [EnhException] when [jobDir] has no finished result.
+  static Future<RefocalViewer> open(RefocalNative native, String jobDir) async {
+    final b = native._b;
+    final dir = jobDir.toNativeUtf8();
+    final out = calloc<Pointer<enh_viewer>>();
+    final int addr;
+    try {
+      RefocalNative._check(b.enh_viewer_open(dir.cast(), out), 'viewer_open');
+      addr = out.value.address;
+    } finally {
+      malloc.free(dir);
+      calloc.free(out);
+    }
+    final replies = ReceivePort('refocal-viewer'), exit = ReceivePort('refocal-viewer-exit');
+    final ready = Completer<SendPort>();
+    late final RefocalViewer viewer;
+    replies.listen((m) {
+      if (m is SendPort) return ready.complete(m);
+      final [int id, int status, int w, int h, TransferableTypedData? data] = m as List;
+      final c = viewer._pending.remove(id);
+      if (c == null) return;
+      if (status == ENH_OK) {
+        c.complete(ViewerTile(w, h, data!.materialize().asUint8List()));
+      } else {
+        c.completeError(EnhException(EnhStatus.fromCode(status), 'viewer_render'));
+      }
+    });
+    await Isolate.spawn(_worker, (replies.sendPort, native._libPath, addr), onExit: exit.sendPort);
+    viewer = RefocalViewer._(await ready.future, replies, exit);
+    return viewer;
+  }
+
+  /// [x], [y], [w], [h] in result pixels, reduced by [factor]. Throws [EnhException].
+  Future<ViewerTile> render(int source, int x, int y, int w, int h, int factor) {
+    if (_closed) throw StateError('viewer closed');
+    final id = _next++;
+    final c = _pending[id] = Completer<ViewerTile>();
+    _requests.send([id, source, x, y, w, h, factor]);
+    return c.future;
+  }
+
+  /// Finishes the tiles asked for, then frees the core's viewer.
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    _requests.send(null);
+    await _exit.first;
+    _replies.close();
+    _exit.close();
+    for (final c in _pending.values) {
+      c.completeError(StateError('viewer closed'));
+    }
+    _pending.clear();
+  }
+
+  static void _worker((SendPort, String?, int) args) {
+    final (replies, libPath, addr) = args;
+    final b = EnhBindings(RefocalNative._open(libPath));
+    final v = Pointer<enh_viewer>.fromAddress(addr);
+    final requests = ReceivePort();
+    replies.send(requests.sendPort);
+    requests.listen((m) {
+      if (m == null) {
+        b.enh_viewer_close(v);
+        requests.close();
+        return;
+      }
+      final [int id, int src, int x, int y, int w, int h, int f] = m as List;
+      final ow = (w + f - 1) ~/ f, oh = (h + f - 1) ~/ f, n = ow * oh * 4;
+      final buf = malloc<Uint8>(n);
+      try {
+        final st = b.enh_viewer_render(v, src, x, y, w, h, f, buf, n);
+        replies.send([
+          id,
+          st,
+          ow,
+          oh,
+          if (st == ENH_OK) TransferableTypedData.fromList([buf.asTypedList(n)]) else null,
+        ]);
+      } finally {
+        malloc.free(buf);
+      }
+    });
+  }
 }

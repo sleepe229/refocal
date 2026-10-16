@@ -205,6 +205,7 @@ set(ENH_SOURCES
   core/src/backend/ncnn_backend.cpp
   core/src/job/events.cpp
   core/src/job/job.cpp
+  core/src/job/viewer.cpp
   core/src/job/export.cpp
   core/src/policy/analyze.cpp
   core/src/policy/benchmark.cpp

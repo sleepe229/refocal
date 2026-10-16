@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +22,8 @@ void main() {
     await tester.pumpWidget(app(CompareSlider(before: img, after: img, aspectRatio: 1)));
     expect(find.text('Original'), findsOneWidget);
     expect(find.text('Enhanced'), findsOneWidget);
-    await tester.drag(find.byType(CompareSlider), const Offset(100, 0));
-    await tester.pump();
+    await tester.drag(find.byType(CompareSlider), const Offset(100, 0)); // the border's handle
+    await tester.pump(const Duration(milliseconds: 400)); // past the double-tap timeout
   });
 
   testWidgets('strength below 100% previews the blend over the original', (tester) async {
@@ -39,12 +41,71 @@ void main() {
     expect(find.byWidgetPredicate((w) => w is Image && w.image == before), findsNWidgets(2));
   });
 
+  testWidgets('zoom: tiles only past the preview, of the visible part (FR-CMP-005)', (
+    tester,
+  ) async {
+    final tiles = _FakeTiles();
+    final img = MemoryImage(_png1x1);
+    await tester.pumpWidget(
+      app(
+        CompareSlider(
+          before: img,
+          after: img,
+          aspectRatio: 2,
+          tiles: tiles,
+          resultWidth: 8000,
+          resultHeight: 4000,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tiles.asked, isEmpty); // fit: the 2048 px previews are enough
+    final viewer = find.byType(InteractiveViewer);
+    // Off the border's handle (in the middle): a double tap there zooms to 1:1 under it.
+    final at = tester.getTopLeft(viewer) + const Offset(100, 130);
+    final target = (100 / 400 * 8000, 130 / 200 * 4000); // in result pixels
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final tc = tester.widget<InteractiveViewer>(viewer).transformationController!;
+    expect(tc.value.getMaxScaleOnAxis(), greaterThan(2));
+    expect(tiles.asked, isNotEmpty);
+    expect(tiles.asked.map((t) => t.$6).toSet(), {1}); // 1:1 of the result
+    expect(tiles.asked.map((t) => t.$1).toSet(), {0, 1}); // result and original
+    for (final (_, x, y, w, h, _) in tiles.asked) {
+      expect(x >= 0 && y >= 0 && x + w <= 8000 && y + h <= 4000, isTrue);
+      // around where the tap was: only what is visible
+      expect((x - target.$1).abs() < 1500 && (y - target.$2).abs() < 1000, isTrue);
+    }
+    expect(tiles.asked.length, lessThan(2 * 6 * 4)); // two sides x the visible grid
+    final asked = tiles.asked.length;
+    await tester.pump(); // the same tiles are not asked again while they load
+    expect(tiles.asked.length, asked);
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tc.value.getMaxScaleOnAxis(), 1); // back to fit
+  });
+
   test('scale choices follow ADR-0014', () {
     expect(ScaleChoice.fast2.scale, 2);
     expect(ScaleChoice.fast2.fastPath, isTrue);
     expect(ScaleChoice.x1.scale, 1);
     expect(ProviderContainer().read(enhanceProvider), isA<Idle>());
   });
+}
+
+class _FakeTiles implements CompareTiles {
+  final asked = <(int, int, int, int, int, int)>[];
+
+  @override
+  Future<ui.Image> tile(int source, int x, int y, int w, int h, int factor) {
+    asked.add((source, x, y, w, h, factor));
+    return Completer<ui.Image>().future; // still loading: the preview is drawn
+  }
 }
 
 final _png1x1 = Uint8List.fromList(const [
