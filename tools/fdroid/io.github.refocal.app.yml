@@ -1,0 +1,45 @@
+# Draft of metadata/io.github.refocal.app.yml for fdroiddata (COMP-FDR-*). Kept here so it
+# changes with the build; the merge request to gitlab.com/fdroid/fdroiddata copies it.
+#
+# Reproducible build (COMP-FDR-004, S8): F-Droid builds the tag and compares with the APK from
+# GitHub Releases (Binaries); if equal, it publishes our signed APK. Flutter is the repo's own
+# submodule (pinned, S8). Open points for S8b, to settle in the merge request review:
+# - bundled model weights (sr.general-x4v3 BSD-3, YuNet MIT) are not in git; prebuild fetches
+#   them from our GitHub releases and checks the SHA-256 pins in tools/models/models.lock;
+# - the F-Droid server's JDK may differ from tools/rebuilder (OpenJDK 21, Debian trixie).
+Categories:
+  - Graphics
+  - Multimedia
+License: Apache-2.0
+AuthorName: Refocal contributors
+SourceCode: https://github.com/sleepe229/refocal
+IssueTracker: https://github.com/sleepe229/refocal/issues
+Changelog: https://github.com/sleepe229/refocal/blob/HEAD/CHANGELOG.md
+
+AutoName: Refocal
+
+RepoType: git
+Repo: https://github.com/sleepe229/refocal.git
+Binaries: https://github.com/sleepe229/refocal/releases/download/v%v/refocal-v%v-arm64-v8a.apk
+
+Builds:
+  - versionName: 0.3.0-beta.1
+    versionCode: 7
+    commit: v0.3.0-beta.1
+    subdir: app
+    submodules: true
+    output: build/app/outputs/flutter-apk/app-fdroid-release.apk
+    prebuild:
+      - ../tools/models/fetch.sh
+    build:
+      - export PATH="$PWD/../flutter/bin:$PATH"
+      - flutter config --no-analytics
+      - flutter build apk --release --flavor fdroid --target-platform android-arm64 --split-debug-info=build/symbols
+    ndk: 28.2.13676358
+
+AllowedAPKSigningKeys: 6574411b1c52eddc4255da82d4af122840e377207931ddc75d0d4485cca4c7d8
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+(-[a-z]+\.[0-9]+)?$
+CurrentVersion: 0.3.0-beta.1
+CurrentVersionCode: 7

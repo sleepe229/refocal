@@ -1,0 +1,22 @@
+<p>Refocal enhances photos with neural networks, <b>entirely on your phone</b>. Photos never leave the device: there are no servers, no accounts, no ads and no analytics.</p>
+
+<p><b>What it does</b></p>
+<ul>
+<li>Upscales 2× and 4× (8× for small photos on fast phones)</li>
+<li>Removes noise, with a choice of denoise level</li>
+<li>Restores faces in old and blurry photos (optional model, downloaded separately)</li>
+<li>"Auto" picks the scale, denoise and face restoration for each photo and says why</li>
+<li>Batch processing in the background, which survives a restart</li>
+<li>Before/after comparison: slider, side by side, zoom to real pixels, loupe</li>
+<li>Preview a part of the photo before processing the whole of it</li>
+<li>Saves JPEG, PNG and WebP; keeps transparency, removes the location by default</li>
+<li>Presets, history, "Share to" and "Edit with" from other apps</li>
+</ul>
+
+<p><b>Honest results</b><br>
+AI invents details that are not in the original: the result is an interpretation, not an exact copy, and facial features may change. You control the strength of the effect and of face restoration. Saved results are marked as AI-edited in their metadata.</p>
+
+<p><b>Models and network</b><br>
+The general model is built in. Extra models (denoise levels, x4plus, anime, face restoration) are downloaded only when you ask, from GitHub, and are checked against a signed list; they can also be imported from a file without internet. The optional face-restoration models are licensed for <b>non-commercial use</b> by their authors; the license is shown before download. Checking for model updates is off by default.</p>
+
+<p>Speed depends on the phone. Free and open source (Apache-2.0).</p>

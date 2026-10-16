@@ -286,6 +286,19 @@ jobs:
               ccache -s | grep -iE 'hits|misses' | head -2"
           done
           ls -l app/build/app/outputs/flutter-apk/
+      # COMP-FDR-001/007, COMP-AND-012: no Google Play services or Firebase in the fdroid APK,
+      # neither in the merged manifest (e.g. Photo Picker backport ModuleDependencies) nor in dex.
+      - name: No GMS/Firebase in the fdroid APK
+        run: |
+          docker run --rm -v "$PWD/app/build/app/outputs/flutter-apk:/a" refocal-rebuilder:ci bash -euc '
+            /opt/android-sdk/build-tools/36.0.0/aapt2 dump xmltree --file AndroidManifest.xml \
+              /a/app-fdroid-release.apk > /tmp/manifest.txt
+            cd /tmp && unzip -qo /a/app-fdroid-release.apk "classes*.dex"
+            if grep -iE "com\.google\.android\.gms|com\.google\.firebase" /tmp/manifest.txt; then
+              echo "::error::GMS/Firebase in the merged manifest"; exit 1; fi
+            if grep -lE "Lcom/google/android/gms/|Lcom/google/firebase/" /tmp/classes*.dex; then
+              echo "::error::GMS/Firebase classes in dex"; exit 1; fi
+            echo "clean"'
       - name: Preview APK (throwaway CI key, for device checks only)
         run: |
           # Not a release: signed with a key generated per run, so it installs on a phone but
