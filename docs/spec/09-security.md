@@ -22,7 +22,7 @@
 | T7 | Утечка фото через логи / отчёты / бэкап | Info disclosure | Экспорт лога, облачный бэкап | PRIV-LOG-001, исключение из бэкапа | PRIV-* |
 | T8 | Утечка геолокации в результате | Info disclosure | Share | Удаление GPS по умолчанию | PRIV-META-001 |
 | T9 | Компрометация CI / зависимостей (supply chain) | Tampering | Вредоносный PR, зависимость, action | Закреплённые версии и SHA actions, Dependabot, ревью, attestations, SBOM | SEC-CI-* |
-| T10 | Кража ключей подписи релизов | Spoofing | Утечка секретов CI | Play App Signing, App Store Connect API key с минимальными правами, environments с ревьюерами | SEC-CI-003 |
+| T10 | Кража ключей подписи релизов | Spoofing | Утечка секретов CI | Play App Signing, App Store Connect API key с минимальными правами, environment `release` только для тегов `v*`, которые создаёт только администратор | SEC-CI-003 |
 | T11 | DoS через гигантское изображение | DoS | 50000×50000 PNG | Лимит размеров до декодирования (по заголовку), лимит тира | SEC-INP-002 |
 
 ## 3. Требования
@@ -63,7 +63,7 @@
 |---|---|---|---|
 | SEC-CI-001 | GitHub Actions закреплены по commit SHA; `permissions:` минимальны по умолчанию (`contents: read`) | Must | R0.1 |
 | SEC-CI-002 | Workflow для PR из форков не имеют доступа к секретам; `pull_request_target` не используется с checkout кода PR | Must | R0.1 |
-| SEC-CI-003 | Секреты подписи — в GitHub Environments `release` с обязательным ревьюером; Play App Signing; App Store Connect API key с ролью App Manager | Must | R0.3 |
+| SEC-CI-003 | Секреты подписи — в GitHub Environment `release`, доступном только тегам `v*`; создавать, менять и удалять теги `v*` может только администратор репозитория (ruleset «release tags»). Обязательный ревьюер — когда мейнтейнеров больше одного (поправка 2026-10-16: при одном мейнтейнере ревьюер — тот же человек, что ставит тег). Play App Signing; App Store Connect API key с ролью App Manager | Must | R0.3 |
 | SEC-CI-004 | SBOM (CycloneDX) и build provenance attestations (`actions/attest-build-provenance`) для каждого релиза | Must | R0.5 |
 | SEC-CI-005 | Защита ветки `main`: обязательные проверки, ревью ≥ 1 мейнтейнера, подписанные коммиты для мейнтейнеров (рекомендуется) | Must | R0.1 |
 | SEC-CI-006 | Сканирование секретов (GitHub secret scanning + push protection) | Must | R0.1 |
