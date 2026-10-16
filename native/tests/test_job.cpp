@@ -327,6 +327,43 @@ static void test_viewer(Session& se) {
   enh_viewer_close(nullptr);
 }
 
+// FR-ENH-015: a fragment preview runs on its crop only; the viewer's original side follows.
+static void test_crop(Session& se) {
+  std::string in = make_jpeg("crop.jpg", 150, 101);
+  Rgb8 src = jpeg_decode(in);
+  const Rgb8 part = crop(src, 40, 30, 64, 48);
+  Collector c;
+  json q = req("crop", in, "nearest4");
+  q["crop"] = {40, 30, 64, 48};
+  auto r = run_job(se, q, c);
+  CHECK(r.status == ENH_OK);
+  const Rgb8 out = read_output(fs::join(g_work, "crop"));
+  CHECK(out.w == 256 && out.h == 192 && out.px == nearest_up(part, 4).px);
+  enh_viewer* v = nullptr;
+  CHECK(enh_viewer_open(fs::join(g_work, "crop").c_str(), &v) == ENH_OK);
+  if (v) {
+    std::vector<uint8_t> t(64 * 48 * 4);
+    CHECK(enh_viewer_render(v, 1, 0, 0, 256, 192, 4, t.data(), int64_t(t.size())) == ENH_OK);
+    bool same = true;
+    for (size_t i = 0; i < size_t(64) * 48; ++i)
+      for (int k = 0; k < 3; ++k) same &= t[i * 4 + k] == part.px[i * 3 + k];
+    CHECK(same);
+    enh_viewer_close(v);
+  }
+  // Outside the photo: the job fails; sizes outside 16..2048 are refused at once.
+  Collector c2;
+  q["job_id"] = "crop_out";
+  q["crop"] = {100, 60, 64, 48};
+  CHECK(run_job(se, q, c2).status == ENH_E_INVALID);
+  enh_job* j = nullptr;
+  for (const char* bad : {"[0,0,8,64]", "[0,0,64,4096]", "[-1,0,64,64]", "[0,0,64]"}) {
+    q["job_id"] = "crop_bad";
+    q["crop"] = json::parse(bad);
+    const std::string rq = q.dump();
+    CHECK(enh_job_create(se.s, rq.c_str(), &j) == ENH_E_INVALID);
+  }
+}
+
 static void test_tiled_equals_whole(Session& se) {
   std::string in = make_jpeg("b.jpg", 230, 170);
   Collector c1, c2;
@@ -992,6 +1029,7 @@ int main(int argc, char** argv) {
     test_nearest_exact(se);
     test_tiled_equals_whole(se);
     test_viewer(se);
+    test_crop(se);
     test_orientation(se);
     test_export(se);
     test_lanczos();

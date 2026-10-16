@@ -67,10 +67,17 @@ class JobStore {
 
   String dirOf(String jobId) => '$jobsDir/$jobId';
 
+  /// Fragment previews (FR-ENH-015): never listed, removed when their sheet closes or at the
+  /// next start.
+  static const previewPrefix = 'preview-';
+
+  static String _name(Directory d) => d.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+
   /// Newest first.
   Future<List<JobEntry>> list() async {
     final out = <JobEntry>[];
     for (final d in await _children<Directory>(jobsDir)) {
+      if (_name(d).startsWith(previewPrefix)) continue;
       if (await _read(d) case final e?) out.add(e);
     }
     out.sort((a, b) => b.modified.compareTo(a.modified));
@@ -142,8 +149,12 @@ class JobStore {
   }) async {
     final t = now ?? DateTime.now();
     for (final d in await _children<Directory>(jobsDir)) {
-      if (keepJobs.contains(d.uri.pathSegments.lastWhere((s) => s.isNotEmpty))) continue;
+      if (keepJobs.contains(_name(d))) continue;
       await _bestEffort(() async {
+        if (_name(d).startsWith(previewPrefix)) {
+          await d.delete(recursive: true);
+          return;
+        }
         final e = await _read(d);
         final age = t.difference(e?.modified ?? (await d.stat()).modified);
         if (age > maxAge || (e == null && age > partialAge)) await d.delete(recursive: true);

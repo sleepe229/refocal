@@ -1832,6 +1832,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Face {number}: restore'**
   String faceToggle(int number);
+
+  /// No description provided for @fragmentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview of a part'**
+  String get fragmentTitle;
+
+  /// No description provided for @fragmentRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhancing a part of the photo…'**
+  String get fragmentRunning;
+
+  /// No description provided for @fragmentInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Part {width} × {height} px in {seconds} s'**
+  String fragmentInfo(int width, int height, String seconds);
+
+  /// No description provided for @fragmentEnhanceAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance the whole photo'**
+  String get fragmentEnhanceAll;
+
+  /// No description provided for @fragmentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview a part'**
+  String get fragmentAction;
+
+  /// No description provided for @fragmentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the photo to choose the part'**
+  String get fragmentHint;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

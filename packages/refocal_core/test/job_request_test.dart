@@ -73,4 +73,13 @@ void main() {
     );
     expect(() => JobRequest.fromJson({...q.toJson(), 'faces_off': 'x'}), throwsFormatException);
   });
+
+  test('a fragment preview crops (FR-ENH-015)', () {
+    final r = Recipe(scale: 4, srModel: 'sr.x');
+    final q = JobRequest.of(r, '/in.jpg', crop: (x: 10, y: 20, w: 128, h: 96));
+    expect(q.toJson()['crop'], [10, 20, 128, 96]);
+    expect(JobRequest.fromJson(q.toJson()).crop, (10, 20, 128, 96));
+    expect(JobRequest.of(r, '/in.jpg').toJson(), isNot(contains('crop')));
+    expect(() => JobRequest.of(r, '/in.jpg', crop: (x: 0, y: 0, w: 8, h: 8)), throwsArgumentError);
+  });
 }

@@ -16,7 +16,12 @@ class JobRequest {
     this.faceStrength = Recipe.defaultFaceStrength,
     this.facesOnly = false,
     this.facesOff = const [],
+    this.crop,
   }) : id = id ?? 'job-${newId()}' {
+    if (crop case (final x, final y, final w, final h)
+        when x < 0 || y < 0 || w < 16 || h < 16 || w > 2048 || h > 2048) {
+      throw ArgumentError.value(crop, 'crop', 'outside 16..2048');
+    }
     if (!_id.hasMatch(this.id)) throw ArgumentError.value(this.id, 'id', 'not a job id');
     recipe(); // the same parameter rules as a recipe
   }
@@ -28,6 +33,7 @@ class JobRequest {
     String input, {
     String? id,
     List<FaceBox> facesOff = const [],
+    ({int x, int y, int w, int h})? crop,
   }) => JobRequest(
     id: id,
     input: input,
@@ -38,6 +44,7 @@ class JobRequest {
     faceStrength: recipe.faceStrength,
     facesOnly: recipe.facesOnly,
     facesOff: facesOff,
+    crop: crop == null ? null : (crop.x, crop.y, crop.w, crop.h),
   );
 
   /// The job directory name under AppSupport/jobs (`[A-Za-z0-9_-]{1,64}` in the core).
@@ -59,6 +66,9 @@ class JobRequest {
 
   /// FR-FACE-007: faces left as the SR model makes them (boxes from enh_analyze).
   final List<FaceBox> facesOff;
+
+  /// FR-ENH-015 fragment preview: only this part (x, y, w, h) of the oriented input.
+  final (int, int, int, int)? crop;
 
   static final _id = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
@@ -88,6 +98,7 @@ class JobRequest {
       if (facesOnly) 'background': 'lanczos',
       if (facesOff.isNotEmpty) 'faces_off': [for (final b in facesOff) b.toJson()],
     },
+    if (crop case (final x, final y, final w, final h)) 'crop': [x, y, w, h],
   };
 
   /// Reads request.json as the core rewrote it (it adds its own fields, e.g. `tile`, and may
@@ -121,6 +132,11 @@ class JobRequest {
             null => const [],
             final List<Object?> l => [for (final b in l) FaceBox.fromJson(b)],
             final other => throw FormatException('bad faces_off', other),
+          },
+          crop: switch (j['crop']) {
+            null => null,
+            [final int x, final int y, final int w, final int h] => (x, y, w, h),
+            final other => throw FormatException('bad crop', other),
           },
         );
       } on ArgumentError catch (e) {
