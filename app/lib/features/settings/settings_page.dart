@@ -120,6 +120,12 @@ class SettingsPage extends ConsumerWidget {
             ListTile(title: Text(l10n.historyTitle), onTap: () => context.push('/history')),
             ListTile(title: Text(l10n.presetsTitle), onTap: () => context.push('/presets')),
             ListTile(title: Text(l10n.settingsModels), onTap: () => context.push('/models')),
+            SwitchListTile(
+              title: Text(l10n.settingsPackUpdates),
+              subtitle: Text(l10n.settingsPackUpdatesHint),
+              value: s.packUpdateCheck,
+              onChanged: (v) => change((c) => c.copyWith(packUpdateCheck: v)),
+            ),
             _TierTile(chosen: s.tierOverride, change: change),
             ListTile(title: Text(l10n.settingsStorage), onTap: () => context.push('/storage')),
             const Divider(),

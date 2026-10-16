@@ -297,5 +297,8 @@
   "fragmentAction": "Предпросмотр участка",
   "fragmentHint": "Нажмите на фото, чтобы выбрать участок",
   "close": "Закрыть",
-  "resultSeconds": "{seconds} с"
+  "resultSeconds": "{seconds} с",
+  "settingsPackUpdates": "Проверять обновления моделей",
+  "settingsPackUpdatesHint": "Раз в день Refocal скачивает подписанный список моделей, чтобы узнать, есть ли обновления у ваших. О вас и ваших фото ничего не отправляется.",
+  "packUpdatesAvailable": "Обновления моделей: {count}"
 }

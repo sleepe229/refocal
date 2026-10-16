@@ -30,6 +30,8 @@ void main() {
       onboardingDone: true,
       historyEnabled: false,
       faceOfferDismissed: true,
+      packUpdateCheck: true,
+      packUpdateCheckedAt: () => DateTime.fromMillisecondsSinceEpoch(1760000000000),
     );
     expect(
       Settings.fromStore(s.toStore().map((k, v) => MapEntry(k, v ?? ''))).faceOfferDismissed,

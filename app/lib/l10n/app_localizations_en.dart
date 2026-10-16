@@ -1043,4 +1043,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get settingsPackUpdates => 'Check for model updates';
+
+  @override
+  String get settingsPackUpdatesHint =>
+      'Once a day, Refocal downloads the signed list of models to see if yours have updates. Nothing about you or your photos is sent.';
+
+  @override
+  String packUpdatesAvailable(int count) {
+    return 'Model updates: $count';
+  }
 }
