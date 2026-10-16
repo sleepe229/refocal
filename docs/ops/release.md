@@ -20,8 +20,19 @@ keytool -genkeypair -v -keystore refocal-release.jks -alias refocal \
 
 ### 2. GitHub Environment `release`
 
-Repository → Settings → Environments → New environment `release`; add yourself as a required
-reviewer and restrict deployments to tags `v*`. Then:
+Repository → Settings → Environments → New environment `release`; restrict deployments to tags
+`v*` (SEC-CI-003). Only admins may create, move or delete those tags (ruleset "release tags"):
+
+```sh
+gh api -X POST repos/OWNER/refocal/rulesets --input - <<'JSON'
+{"name": "release tags", "target": "tag", "enforcement": "active",
+ "conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
+ "rules": [{"type": "creation"}, {"type": "update"}, {"type": "deletion"}],
+ "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]}
+JSON
+```
+
+With more than one maintainer, also add the other maintainers as required reviewers. Then:
 
 ```sh
 gh secret set ANDROID_KEYSTORE_B64 --env release < <(base64 -w0 refocal-release.jks)
