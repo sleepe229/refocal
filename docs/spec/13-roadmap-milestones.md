@@ -146,6 +146,8 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 - NFR по T1/T2 выполнены на ≥ 80% матрицы;
 - фаззинг 1 ч без падений.
 
+**Детерминизм (NFR-REL-006, TEST-ML-005):** ✅ `test_golden`: один вход, рецепт и бэкенд (CPU, 4 потока, тайлы 128) — побайтово один результат на настоящей модели (CI с golden-весами).
+
 ## 0.5 — Public beta
 
 **Объём:** GitHub APK, F-Droid (+ Play open testing, если Q-06); паки CodeFormer, x4plus, anime_6B; 8×; side-by-side, синхронный зум, лупа; «Сообщить о плохом результате»; Weblate; RTL.
