@@ -824,6 +824,24 @@ static void test_errors(Session& se) {
           ENH_E_NUMERIC);
     unsetenv("ENH_FAULT");
   }
+  {  // FR-FACE-007: faces_off boxes are four finite non-negative numbers, at most 32
+    json q = req("fo", make_jpeg("fo.jpg", 40, 40), "nearest4");
+    for (const char* bad : {"[[1,2,3]]", "[[1,2,3,-4]]", "[\"x\"]", "[[1,2,3,1e999]]"}) {
+      q["faces_off"] = json::parse(bad, nullptr, false);
+      const std::string r = q.dump();
+      CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_E_INVALID);
+    }
+    q["faces_off"] = json::array();
+    for (int i = 0; i < 33; ++i) q["faces_off"].push_back({i, i, 10, 10});
+    std::string r = q.dump();
+    CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_E_INVALID);
+    q["faces_off"] = json::array({{1.5, 2, 30, 30}});
+    r = q.dump();
+    CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
+    CHECK(json::parse(fs::read_text(fs::join(g_work, "fo/request.json")))["faces_off"][0][0] ==
+          1.5);
+    enh_job_destroy(j);
+  }
   enh_job_destroy(nullptr);
   enh_job_cancel(nullptr);
   CHECK(enh_job_status(nullptr) == ENH_E_INVALID);

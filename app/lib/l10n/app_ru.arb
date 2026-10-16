@@ -283,5 +283,7 @@
   "modelsImport": "Импортировать файл .rfpack",
   "modelsImported": "Установлено: {name}",
   "modelsErrorNotAPack": "Это не пакет моделей Refocal, или файл повреждён",
-  "modelsErrorStorage": "Не удалось прочитать файл"
+  "modelsErrorStorage": "Не удалось прочитать файл",
+  "facesTapHint": "Нажмите на лицо, чтобы оставить его как есть",
+  "faceToggle": "Лицо {number}: восстанавливать"
 }

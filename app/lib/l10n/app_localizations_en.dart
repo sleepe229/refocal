@@ -994,4 +994,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modelsErrorStorage => 'The file could not be read';
+
+  @override
+  String get facesTapHint => 'Tap a face to leave it as it is';
+
+  @override
+  String faceToggle(int number) {
+    return 'Face $number: restore';
+  }
 }
