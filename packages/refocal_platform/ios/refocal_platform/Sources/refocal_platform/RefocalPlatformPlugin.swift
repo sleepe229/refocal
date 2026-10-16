@@ -50,6 +50,16 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
   // ADR-0019: iOS pauses on willResignActive instead of a background service (TODO with S5).
   func requestNotificationPermission() async throws -> Bool { true }
 
+  func deviceInfo() throws -> DeviceInfo {
+    var u = utsname()
+    uname(&u)
+    let machine = withUnsafeBytes(of: &u.machine) { raw in
+      String(decoding: raw.prefix(while: { $0 != 0 }), as: UTF8.self)
+    }
+    let p = ProcessInfo.processInfo
+    return DeviceInfo(totalRamBytes: Int64(p.physicalMemory), osBuild: p.operatingSystemVersionString, soc: machine)
+  }
+
   /// NFR-THERM-002: ProcessInfo.thermalState as enh_set_thermal levels. Change notifications
   /// (thermalStateDidChangeNotification -> onThermalLevel) come with the iOS build.
   func thermalLevel() throws -> Int64 {

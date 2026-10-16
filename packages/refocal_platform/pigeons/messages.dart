@@ -23,6 +23,20 @@ class AppDirs {
   String cache;
 }
 
+/// Static device signals for the tier (05 §6.1, ADR-0017).
+class DeviceInfo {
+  DeviceInfo({required this.totalRamBytes, required this.osBuild, this.soc});
+
+  /// Android ActivityManager.MemoryInfo.totalMem; iOS ProcessInfo.physicalMemory.
+  int totalRamBytes;
+
+  /// Changes with every OS update (Android Build.FINGERPRINT; iOS the OS version and build).
+  String osBuild;
+
+  /// Android Build.SOC_MODEL (API 31+) or Build.HARDWARE; iOS utsname.machine.
+  String? soc;
+}
+
 /// Images copied into the inbox, and how many of the selection could not be.
 class PickedImages {
   PickedImages({required this.images, required this.failed, this.failure});
@@ -114,6 +128,8 @@ abstract class RefocalPlatformApi {
   /// The device's thermal level as `enh_set_thermal` takes it: 0 nominal, 1 light, 2 fair,
   /// 3 serious, 4 critical (NFR-THERM-002). Changes arrive as onThermalLevel.
   int thermalLevel();
+
+  DeviceInfo deviceInfo();
 
   /// Stops the service. A non-null [finishedText] is left as a tappable notification when the
   /// app is not in the foreground (e.g. "Photo ready").

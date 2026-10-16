@@ -70,6 +70,13 @@ class RefocalPlatformPlugin :
     if (instance === this) instance = null
   }
 
+  override fun deviceInfo(): DeviceInfo {
+    val mem = ActivityManager.MemoryInfo()
+    context.getSystemService(ActivityManager::class.java)?.getMemoryInfo(mem)
+    val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeUnless { it == Build.UNKNOWN } else null
+    return DeviceInfo(totalRamBytes = mem.totalMem, osBuild = Build.FINGERPRINT, soc = soc ?: Build.HARDWARE)
+  }
+
   override fun thermalLevel(): Long =
       levelOf(context.getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE)
 

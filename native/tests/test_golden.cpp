@@ -9,10 +9,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
 #include "backend/backend.hpp"
+#include "enh.h"
 #include "mini_test.hpp"
 #include "util/fs.hpp"
 
@@ -81,6 +83,25 @@ int main(int argc, char** argv) {
   if (vulkan_default_device() >= 0) {
     CHECK(run({BackendKind::vulkan, vulkan_default_device(), true, 0}, m, in, ref) >= 35);
   }
+  // ADR-0017 micro-benchmark on the real weights: CPU always runs; a tier comes out.
+  enh_session_config cfg{};
+  cfg.struct_size = sizeof cfg;
+  cfg.models_dir = argv[1];
+  cfg.work_dir = argv[1];
+  enh_session* s = nullptr;
+  CHECK(enh_session_create(&cfg, &s) == ENH_OK);
+  char* out = nullptr;
+  CHECK(enh_benchmark(s, R"({"runs": 3, "ram_bytes": 8589934592})", &out) == ENH_OK);
+  if (out) {
+    const auto b = nlohmann::json::parse(out);
+    enh_free(out);
+    std::printf("benchmark: %s\n", b.dump().c_str());
+    CHECK(b["backends"][0]["kind"] == "cpu" && b["backends"][0]["status"] == "ok");
+    CHECK(b["tile128_ms"].get<double>() > 0);
+    const std::string tier = b["tier"];
+    CHECK(tier == "T0" || tier == "T1" || tier == "T2");
+  }
+  enh_session_destroy(s);
   std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
   return mini::failures() ? 1 : 0;
 }

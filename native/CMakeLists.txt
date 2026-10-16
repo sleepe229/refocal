@@ -205,6 +205,8 @@ set(ENH_SOURCES
   core/src/job/events.cpp
   core/src/job/job.cpp
   core/src/job/export.cpp
+  core/src/policy/analyze.cpp
+  core/src/policy/benchmark.cpp
   core/src/policy/blocklist.cpp
   core/src/policy/builtin_blocklist.cpp
   core/src/policy/gpu_gate.cpp
@@ -276,6 +278,7 @@ if(ENH_BUILD_TESTS)
   set(ENH_GOLDEN_DIR "${CMAKE_BINARY_DIR}/golden" CACHE PATH "golden weights and references")
   add_executable(test_golden tests/test_golden.cpp)
   target_link_libraries(test_golden PRIVATE enh_core)
+  target_include_directories(test_golden PRIVATE third_party/json/single_include)
   add_test(NAME golden COMMAND test_golden ${ENH_GOLDEN_DIR})
   set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(test_faces tests/test_faces.cpp)

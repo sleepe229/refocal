@@ -632,5 +632,25 @@
     }
   },
   "regionAll": "Whole photo",
-  "regionFaces": "Only faces"
+  "regionFaces": "Only faces",
+  "tierTitle": "Device class",
+  "tierAuto": "Auto",
+  "tierMeasured": "{tier} by the speed test: {backend}, {ms} ms per tile",
+  "@tierMeasured": {
+    "placeholders": {
+      "tier": {
+        "type": "String"
+      },
+      "backend": {
+        "type": "String"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "tierGpu": "graphics processor",
+  "tierCpu": "processor",
+  "tierUnknown": "Not measured: T0, the safe one",
+  "tierMeasuring": "Measuring…"
 }

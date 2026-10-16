@@ -18,6 +18,7 @@
 #include "image/decode.hpp"
 #include "mini_test.hpp"
 #include "pipeline/faces.hpp"
+#include "policy/analyze.hpp"
 #include "util/fs.hpp"
 
 using namespace enh;
@@ -249,6 +250,60 @@ TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
     // Box within IoU 0.85 and landmarks within 4% of the face width for at least 90%.
     CHECK(strict * 10 >= rows.size() * 9);
   }
+}
+
+TEST("noise estimate (Immerkaer) recovers the sigma of added Gaussian noise") {
+  // A smooth image (the operator ignores linear content) plus N(0, sigma) per channel.
+  uint32_t seed = 12345;
+  auto gauss = [&] {  // Box-Muller from a LCG
+    auto u = [&] {
+      seed = seed * 1664525u + 1013904223u;
+      return (seed >> 8) / 16777216.0 + 1e-12;
+    };
+    return std::sqrt(-2 * std::log(u())) * std::cos(2 * M_PI * u());
+  };
+  for (const double sigma : {0.0, 5.0, 10.0, 20.0}) {
+    Rgb8 img;
+    img.w = 600;
+    img.h = 400;
+    img.px.resize(size_t(img.w) * img.h * 3);
+    for (int y = 0; y < img.h; ++y)
+      for (int x = 0; x < img.w; ++x) {
+        const double base = 60 + 0.15 * x + 0.1 * y;
+        // The same noise on all channels: luma noise = sigma.
+        const double n = sigma * gauss();
+        for (int c = 0; c < 3; ++c)
+          img.row(y)[3 * x + c] = uint8_t(std::clamp(base + n + 0.5, 0.0, 255.0));
+      }
+    const double est = estimate_noise(img);
+    std::printf("  sigma %.0f -> %.2f\n", sigma, est);
+    CHECK(std::abs(est - sigma) <= std::max(0.8, 0.12 * sigma));
+  }
+}
+
+TEST("analyze: size, faces with the detector, noise") {
+  if (g_models.empty() || !fs::exists(fs::join(g_models, "det.yunet-2023mar/model.ncnn.bin"))) {
+    std::printf("  no detector weights: skipped\n");
+    return;
+  }
+  enh_session_config cfg{};
+  cfg.struct_size = sizeof cfg;
+  cfg.models_dir = g_models.c_str();
+  cfg.work_dir = g_work.c_str();
+  enh_session* s = nullptr;
+  CHECK(enh_session_create(&cfg, &s) == ENH_OK);
+  char* out = nullptr;
+  CHECK(enh_analyze(s, fs::join(g_data, "einstein.jpg").c_str(), &out) == ENH_OK);
+  if (out) {
+    const auto a = nlohmann::json::parse(out);
+    enh_free(out);
+    std::printf("  %s\n", a.dump().c_str());
+    CHECK(a["width"] == 675 && a["height"] == 900);
+    CHECK(a["faces"]["count"] == 1 && a["faces"]["detector"] == true);
+    CHECK(a["noise_sigma"].get<double>() >= 0);
+  }
+  CHECK(enh_analyze(s, "/nonexistent.jpg", &out) != ENH_OK);
+  enh_session_destroy(s);
 }
 
 TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4)") {

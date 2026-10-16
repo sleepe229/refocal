@@ -257,5 +257,12 @@
   "stageFaces": "Восстановление лиц… {percent}%",
   "noteFacesFound": "Найдено лиц: {count}",
   "regionAll": "Всё фото",
-  "regionFaces": "Только лица"
+  "regionFaces": "Только лица",
+  "tierTitle": "Класс устройства",
+  "tierAuto": "Авто",
+  "tierMeasured": "{tier} по тесту скорости: {backend}, {ms} мс на тайл",
+  "tierGpu": "графический процессор",
+  "tierCpu": "процессор",
+  "tierUnknown": "Не измерен: T0, самый осторожный",
+  "tierMeasuring": "Измеряем…"
 }
