@@ -1124,4 +1124,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get compareBorder => 'With a border';
+
+  @override
+  String get presetAnime => 'Anime';
+
+  @override
+  String get srModel => 'Model';
+
+  @override
+  String get srModelCompact => 'Standard';
+
+  @override
+  String get srModelHq => 'High quality';
+
+  @override
+  String get srModelAnime => 'Anime and art';
 }

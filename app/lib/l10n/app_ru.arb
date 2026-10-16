@@ -322,5 +322,10 @@
   "settingsPackUpdatesHint": "Раз в день Refocal скачивает подписанный список моделей, чтобы узнать, есть ли обновления у ваших. О вас и ваших фото ничего не отправляется.",
   "packUpdatesAvailable": "Обновления моделей: {count}",
   "compareSideBySide": "Рядом",
-  "compareBorder": "С границей"
+  "compareBorder": "С границей",
+  "presetAnime": "Аниме",
+  "srModel": "Модель",
+  "srModelCompact": "Стандартная",
+  "srModelHq": "Высокое качество",
+  "srModelAnime": "Аниме и рисунки"
 }

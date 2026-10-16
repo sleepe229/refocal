@@ -779,5 +779,10 @@
     }
   },
   "compareSideBySide": "Side by side",
-  "compareBorder": "With a border"
+  "compareBorder": "With a border",
+  "presetAnime": "Anime",
+  "srModel": "Model",
+  "srModelCompact": "Standard",
+  "srModelHq": "High quality",
+  "srModelAnime": "Anime and art"
 }

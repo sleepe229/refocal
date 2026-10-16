@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Checks tools/models/manifest.json before it is signed (ADR-0011): the schema
 (docs/spec/appendix/manifest.schema.json), a serial above the published one, and every file of
-every pack downloaded from every mirror with its size and SHA-256, the license texts too.
+every pack downloaded from every mirror with its size and SHA-256, the license texts too; and a
+MODELS.md row for every pack and every bundled model (ML-REG-001, TEST-COMP-004).
 
   tools/models/check_manifest.py [--published PATH]   # PATH: the manifest now in release `models`
 
@@ -40,6 +41,14 @@ def sha256(p: pathlib.Path) -> str:
     return h.hexdigest()
 
 
+def unregistered(m: dict) -> list[str]:
+    """Pack and bundled model ids without a `| `id` |` row in MODELS.md."""
+    rows = set(re.findall(r"^\| `([^`]+)` \|", (ROOT / "MODELS.md").read_text(), re.M))
+    lock = (ROOT / "tools/models/models.lock").read_text().splitlines()
+    ids = [p["id"] for p in m["packs"]] + [l.split()[0] for l in lock if l.strip() and l[0] != "#"]
+    return sorted({i for i in ids if i not in rows})
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--published")
@@ -52,7 +61,7 @@ def main() -> int:
         old = json.loads(pathlib.Path(a.published).read_text())
         if m["serial"] <= old["serial"] and m != old:
             sys.exit(f"serial {m['serial']} must be above the published {old['serial']}")
-    errors = []
+    errors = [f"{i}: no row in MODELS.md" for i in unregistered(m)]
     with tempfile.TemporaryDirectory() as tmp:
         dst = pathlib.Path(tmp) / "f"
         for p in m["packs"]:

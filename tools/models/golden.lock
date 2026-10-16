@@ -3,3 +3,9 @@
 # spikes/_shared/convert_sr.py. Planar float32 RGB, values 0..1. Hosted with the model weights.
 sr.general-x4v3 golden_in_3x160x160.f32 0f68674089b23528516fa65b1927fca2b0e057ef1df901cf8ae2868f77f8603d https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/golden_in_3x160x160.f32
 sr.general-x4v3 golden_out_dn050_3x640x640.f32 cc2c1b01f30d00d939d8ef78a931eebb9197bd3b65e3364af1d6714a9065c826 https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-v1/golden_out_dn050_3x640x640.f32
+# The RRDBNet packs (sr.x4plus, sr.x4plus-anime6b): a 96x96 tile and its PyTorch fp32 output, written
+# by tools/models/convert_rrdb.py; the packs themselves come from tools/models/fetch_pack.py.
+sr.x4plus golden_in_3x96x96.f32 25a49c9efdb68076cd6fcf2277e129f86a03415019f34ee8e05a3f1dd8faae15 https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/golden_in_3x96x96.f32
+sr.x4plus golden_out_3x384x384.f32 14d486d8aadc09d40eb1743b88a9211eb336778b800104ecc6c1950aa237eb95 https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/golden_out_3x384x384.f32
+sr.x4plus-anime6b golden_in_3x96x96.f32 25a49c9efdb68076cd6fcf2277e129f86a03415019f34ee8e05a3f1dd8faae15 https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/golden_in_3x96x96.f32
+sr.x4plus-anime6b golden_out_3x384x384.f32 4c6982aa9fb113f91f48578b7faafab5a5d59bd1b8c9a3887e8c0b8407c0d41f https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/golden_out_3x384x384.f32

@@ -1,7 +1,9 @@
 // TEST-ML-001: the bundled SR model on ncnn CPU against its PyTorch fp32 output on a golden tile
 // (tools/models/golden.lock): PSNR >= 40 dB. Vulkan joins where a GPU exists (>= 35 dB). Without
 // the weights (they are not in git) the test is skipped: tools/models/fetch.sh with
-// DEST=<build>/golden and LOCK=tools/models/golden.lock puts them there.
+// DEST=<build>/golden and LOCK=tools/models/golden.lock puts them there. The RRDBNet packs
+// (sr.x4plus, sr.x4plus-anime6b) are checked the same way when tools/models/fetch_pack.py has
+// put them there with their golden pair (tools/models/convert_rrdb.py).
 // TEST-ML-005 (NFR-REL-006): the same input, recipe and backend give a byte-identical result.
 //   test_golden GOLDEN_DIR      (GOLDEN_DIR/sr.general-x4v3/{model.ncnn.*, golden_*.f32})
 // SPDX-License-Identifier: Apache-2.0
@@ -28,6 +30,7 @@ namespace {
 
 constexpr int kSkip = 77;  // ctest SKIP_RETURN_CODE
 constexpr int kIn = 160, kScale = 4, kOut = kIn * kScale;
+constexpr int kRrdbIn = 96;  // convert_rrdb.py GOLDEN_IN
 
 std::vector<float> read_f32(const std::string& path, size_t n) {
   std::vector<float> v(n);
@@ -39,34 +42,53 @@ std::vector<float> read_f32(const std::string& path, size_t n) {
 }
 
 double psnr(const ncnn::Mat& out, const std::vector<float>& ref) {
+  const int n = out.w * out.h;
   double se = 0;
   for (int c = 0; c < 3; ++c) {
     const float* o = out.channel(c);
-    const float* r = ref.data() + size_t(c) * kOut * kOut;
-    for (int i = 0; i < kOut * kOut; ++i) {
+    const float* r = ref.data() + size_t(c) * n;
+    for (int i = 0; i < n; ++i) {
       const double d = std::fmin(std::fmax(o[i], 0.f), 1.f) - r[i];
       se += d * d;
     }
   }
-  const double mse = se / (3.0 * kOut * kOut);
+  const double mse = se / (3.0 * n);
   return mse == 0 ? 99 : 10 * std::log10(1 / mse);
 }
 
-double run(const BackendConfig& cfg, const ModelInfo& m, const std::vector<float>& in,
+// PSNR of [m] on the [size]x[size] tile [in] against [ref] (its fp32 output, x[m.scale]).
+double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::vector<float>& in,
            const std::vector<float>& ref) {
   auto be = make_ncnn_backend(cfg);
   be->load(m);
-  ncnn::Mat x(kIn, kIn, 3);
+  ncnn::Mat x(size, size, 3);
   for (int c = 0; c < 3; ++c) {
-    std::copy_n(in.data() + size_t(c) * kIn * kIn, kIn * kIn, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + size_t(c) * size * size, size * size,
+                static_cast<float*>(x.channel(c)));
   }
   ncnn::Mat y;
   be->run(x, y);
-  CHECK(y.w == kOut && y.h == kOut && y.c == 3);
-  if (y.w != kOut || y.h != kOut || y.c != 3) return 0;
+  const int out = size * m.scale;
+  CHECK(y.w == out && y.h == out && y.c == 3);
+  if (y.w != out || y.h != out || y.c != 3) return 0;
   const double db = psnr(y, ref);
-  std::printf("golden %s: %.2f dB\n", be->name().c_str(), db);
+  std::printf("golden %s %s: %.2f dB\n", m.id.c_str(), be->name().c_str(), db);
   return db;
+}
+
+// TEST-ML-001 for an RRDBNet pack, when its weights and golden pair are in [root].
+void rrdb(const std::string& root, const std::string& id) {
+  const std::string dir = fs::join(root, id);
+  const int out = kRrdbIn * kScale;
+  const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * out * out);
+  if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
+    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    return;
+  }
+  const ModelInfo m = resolve_model(root, id);
+  CHECK(m.scale == kScale);
+  CHECK(run({BackendKind::cpu, 0, true, 0}, m, kRrdbIn, in, ref) >= 40);
 }
 
 // Runs a job to its end on [s]; its result's bands, concatenated, and its recipe hash.
@@ -108,10 +130,12 @@ int main(int argc, char** argv) {
   }
   const ModelInfo m = resolve_model(argv[1], "sr.general-x4v3");
   CHECK(m.scale == kScale);
-  CHECK(run({BackendKind::cpu, 0, true, 0}, m, in, ref) >= 40);
+  CHECK(run({BackendKind::cpu, 0, true, 0}, m, kIn, in, ref) >= 40);
   if (vulkan_default_device() >= 0) {
-    CHECK(run({BackendKind::vulkan, vulkan_default_device(), true, 0}, m, in, ref) >= 35);
+    CHECK(run({BackendKind::vulkan, vulkan_default_device(), true, 0}, m, kIn, in, ref) >= 35);
   }
+  rrdb(argv[1], "sr.x4plus");
+  rrdb(argv[1], "sr.x4plus-anime6b");
   // ADR-0017 micro-benchmark on the real weights: CPU always runs; a tier comes out.
   enh_session_config cfg{};
   cfg.struct_size = sizeof cfg;

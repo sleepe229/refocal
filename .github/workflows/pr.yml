@@ -170,8 +170,8 @@ jobs:
           git ls-files 'native/core/*.cpp' 'native/core/*.hpp' 'native/include/*.h' \
             'native/tests/*.cpp' 'native/tests/*.hpp' 'tools/refocal-cli/*.cpp' \
             | xargs ~/.local/bin/clang-format --dry-run --Werror
-      # TEST-ML-001: the real weights and their PyTorch fp32 references (GitHub release assets;
-      # a private repository needs the token). The sanitizer builds skip the golden test.
+      # TEST-ML-001: the real weights (the bundled model and the RRDBNet packs) and their PyTorch
+      # fp32 references (GitHub release assets). The sanitizer builds skip the golden test.
       - name: Golden weights and references
         if: matrix.sanitize == ''
         env:
@@ -179,6 +179,8 @@ jobs:
         run: |
           DEST=native/build-ci/golden tools/models/fetch.sh
           LOCK=tools/models/golden.lock DEST=native/build-ci/golden tools/models/fetch.sh
+          python3 tools/models/fetch_pack.py sr.x4plus native/build-ci/golden
+          python3 tools/models/fetch_pack.py sr.x4plus-anime6b native/build-ci/golden
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
