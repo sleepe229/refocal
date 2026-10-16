@@ -195,6 +195,12 @@ abstract class AppLocalizations {
   /// **'{scale} · the original is gone, cannot continue'**
   String jobOriginalGone(String scale);
 
+  /// No description provided for @scaleX8.
+  ///
+  /// In en, this message translates to:
+  /// **'8×'**
+  String get scaleX8;
+
   /// No description provided for @scaleX4.
   ///
   /// In en, this message translates to:

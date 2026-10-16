@@ -15,6 +15,7 @@ import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/tier.dart';
 import '../../bootstrap/viewer.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
@@ -172,6 +173,16 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _faces = r.faceModel != null;
     _faceStrength = r.faceStrength;
     _facesOnly = r.facesOnly;
+  }
+
+  /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
+  /// it elsewhere: the core then asks for a smaller scale).
+  bool get _x8Allowed {
+    final size = _size;
+    final tier = ref.watch(tierProvider).value?.tier;
+    return tier == DeviceTier.t2 &&
+        size != null &&
+        size.width * size.height <= Recipe.maxX8InputPx;
   }
 
   bool _matches(Recipe r) =>
@@ -540,6 +551,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         SegmentedButton<ScaleChoice>(
           segments: [
             for (final c in ScaleChoice.values)
+              if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
               ButtonSegment(
                 value: c,
                 label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
