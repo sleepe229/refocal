@@ -81,7 +81,7 @@ class Recipe {
     String? faceModel,
     double faceStrength,
   ) {
-    if (!scales.contains(scale)) return 'scale must be 1, 2 or 4, got $scale';
+    if (!scales.contains(scale)) return 'scale must be 1, 2, 4 or 8, got $scale';
     if (fast2 && scale != 2) return 'fast2 needs scale 2';
     if (srModel.isEmpty) return 'no SR model';
     if (!(strength >= 0 && strength <= 1)) return 'strength must be 0..1, got $strength';
@@ -99,8 +99,12 @@ class Recipe {
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
 
-  /// Output scales of the bundled SR model (ADR-0014); 8x is 0.5.
-  static const scales = {1, 2, 4};
+  /// Output scales (ADR-0014): x4 models, area-downscaled for 2x and 1x; 8x runs x4 twice
+  /// (input at most [maxX8InputPx], T2).
+  static const scales = {1, 2, 4, 8};
+
+  /// ADR-0014: the largest input 8x runs on (the core asks for a smaller scale above it).
+  static const maxX8InputPx = 1500000;
 
   final int scale;
 

@@ -87,7 +87,8 @@ JobRequest parse_job_request(const std::string& text) {
   static const std::regex id_re("[A-Za-z0-9_-]{1,64}");
   if (!std::regex_match(r.job_id, id_re)) fail(ENH_E_INVALID, "bad job_id");
   if (r.input.empty()) fail(ENH_E_INVALID, "empty input");
-  if (r.scale != 1 && r.scale != 2 && r.scale != 4) fail(ENH_E_INVALID, "scale must be 1, 2 or 4");
+  if (r.scale != 1 && r.scale != 2 && r.scale != 4 && r.scale != 8)
+    fail(ENH_E_INVALID, "scale must be 1, 2, 4 or 8");
   if (r.fast2 && r.scale != 2) fail(ENH_E_INVALID, "fast2 requires scale 2");
   if (r.tile != 0 && (r.tile < 32 || r.tile > 1024)) fail(ENH_E_INVALID, "tile out of range");
   if (r.backend != "auto" && r.backend != "cpu" && r.backend != "vulkan")
@@ -455,8 +456,9 @@ int auto_tile(const enh_session& s, const BackendConfig& first) {
   return s.tier_level.load() >= 1 ? 256 : 128;
 }
 
+// [stage]: "" for the pass that makes the result, "1" for the first pass of 8x.
 std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const Geometry& g,
-                        const JobRequest& r) {
+                        const JobRequest& r, const std::string& stage) {
   Sha256 h;
   std::string model_sha = Sha256::of_file(m.param_path) + Sha256::of_file(m.bin_path);
   std::string s = "v1;in=" + input_sha + ";model=" + model_sha +
@@ -467,6 +469,7 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
     s += ";crop=" + std::to_string(r.crop_x) + "," + std::to_string(r.crop_y) + "," +
          std::to_string(r.crop_w) + "," + std::to_string(r.crop_h);
   }
+  if (!stage.empty()) s += ";stage=" + stage;
   return Sha256::of_string(s);
 }
 
@@ -640,6 +643,7 @@ bool enh_job::retry_smaller() {
   }
   nlohmann::json opts = nlohmann::json::array();
   if (req.background != "lanczos") {
+    if (req.scale == 8) opts.push_back({{"scale", 4}, {"fast2", false}});
     if (req.scale == 4) opts.push_back({{"scale", 2}, {"fast2", false}});
     if (req.scale >= 2 && !req.fast2) opts.push_back({{"scale", 2}, {"fast2", true}});
     if (!req.face_model.empty())
@@ -695,25 +699,32 @@ void enh_job::run_impl(nlohmann::json& result) {
   sink.emit(ENH_EV_STAGE, kStageDecode, 0, 0, {{"stage", "decode"}});
   ImageInfo info = probe_image(req.input);
   ModelInfo model = resolve_model(s->models_dir, req.sr_model);
+  if (req.scale == 8 && model.scale != 4) fail(ENH_E_INVALID, "8x needs a x4 model");
+  // ADR-0014: 8x only on an input of at most 1.5 MP; above, it is a smaller scale's turn.
+  const double in_px = req.crop_w ? double(req.crop_w) * req.crop_h : double(info.w) * info.h;
 
   auto out_mp = [&](const JobRequest& r) {  // fast 2x: (w/2)*4 = 2w
     if (r.fast2) return std::floor(info.w / 2.0) * 4 * std::floor(info.h / 2.0) * 4 / 1e6;
     return double(info.w) * r.scale * double(info.h) * r.scale / 1e6;
   };
-  while (out_mp(req) > req.max_output_mp) {
+  auto too_large = [&](const JobRequest& r) {
+    return out_mp(r) > req.max_output_mp || (r.scale == 8 && in_px > kMaxX8InputPx);
+  };
+  while (too_large(req)) {
     nlohmann::json opts = nlohmann::json::array();
-    for (auto [sc, f2] : {std::pair{2, true}, std::pair{2, false}, std::pair{1, false}}) {
+    for (auto [sc, f2] :
+         {std::pair{4, false}, std::pair{2, true}, std::pair{2, false}, std::pair{1, false}}) {
       JobRequest t = req;
       t.scale = sc;
       t.fast2 = f2;
-      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) &&
-          out_mp(t) <= req.max_output_mp)
+      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) && !too_large(t))
         opts.push_back({{"scale", sc}, {"fast2", f2}});
     }
     if (opts.empty()) fail(ENH_E_LIMIT, "input too large for any scale");
     nlohmann::json a = wait_answer({{"code", "downscale_required"},
                                     {"output_mp", out_mp(req)},
                                     {"max_output_mp", req.max_output_mp},
+                                    {"input_mp", in_px / 1e6},
                                     {"options", opts}});
     req.scale = a.value("scale", req.scale);
     req.fast2 = a.value("fast2", false) && req.scale == 2;
@@ -872,21 +883,27 @@ void enh_job::run_impl(nlohmann::json& result) {
     }
   }
   const int tile = req.tile > 0 ? req.tile : auto_tile(*s, ladder[rung]);
-  const int down = req.fast2 ? 1 : model.scale / req.scale;
+  // 8x (FR-ENH-003, ADR-0014): x4 into x8/ (a band store of its own, so a resume skips it),
+  // then x4 of that with an area /2. Other scales: one pass.
+  const bool x8 = req.scale == 8;
+  Geometry g1;
+  if (x8) g1 = Geometry::make(img.w, img.h, tile, model.pad, model.scale, 1);
+  const int down = x8 ? 2 : req.fast2 ? 1 : model.scale / req.scale;
   if (down < 1) fail(ENH_E_INVALID, "scale exceeds model scale");
-  Geometry g = Geometry::make(img.w, img.h, tile, model.pad, model.scale, down);
+  Geometry g = x8 ? Geometry::make(g1.out_w, g1.out_h, tile, model.pad, model.scale, down)
+                  : Geometry::make(img.w, img.h, tile, model.pad, model.scale, down);
 
-  // ---- GPU correctness gate (ADR-0017, S3) ----
+  // ---- GPU correctness gate (ADR-0017, S3), for each network input size the job runs ----
   SentinelGuard sentinel(*s, lad.gpu, model.id, g.tw);
-  if (ladder[rung].kind == BackendKind::vulkan) {
+  auto gate = [&](const Geometry& gg) {
     std::unique_ptr<GateCache> cache;
     if (!s->cache_dir.empty())
       cache = std::make_unique<GateCache>(fs::join(s->cache_dir, "gpu/gate.json"));
-    const ncnn::Mat in = gate_input(g.net_in_w(), g.net_in_h());
+    const ncnn::Mat in = gate_input(gg.net_in_w(), gg.net_in_h());
     ncnn::Mat ref;
     while (ladder[rung].kind == BackendKind::vulkan) {
       const std::string key = sentinel.key() + "|" + backend_kind_name(ladder[rung]) + "|" +
-                              std::to_string(g.net_in_w()) + "x" + std::to_string(g.net_in_h());
+                              std::to_string(gg.net_in_w()) + "x" + std::to_string(gg.net_in_h());
       std::string verdict = cache ? cache->get(key) : "";
       GateMetrics m;
       if (verdict.empty()) {
@@ -922,36 +939,54 @@ void enh_job::run_impl(nlohmann::json& result) {
       be->load(model);
     }
     if (stop()) throw Stopped{};
-  }
+  };
+  gate(g);
+  if (x8 && (g1.net_in_w() != g.net_in_w() || g1.net_in_h() != g.net_in_h())) gate(g1);
 
-  BandStore store(dir);
-  Checkpoint ck;
-  ck.bands_total = g.bands();
-  ck.out_w = g.out_w;
-  ck.out_h = g.out_h;
-  ck.recipe_hash = recipe_hash(input_sha, model, g, req);
-
-  int start_band = 0;
-  Checkpoint old;
-  if (resume && store.load_checkpoint(old) && old.recipe_hash == ck.recipe_hash &&
-      old.bands_total == ck.bands_total) {
-    bool ok = true;
-    for (int b = 0; b <= old.band_idx && ok; ++b)
-      ok = fs::file_size(store.band_path(b)) == int64_t(g.band_out_rows(b)) * g.out_w * 3;
-    if (ok) {
-      start_band = old.band_idx + 1;
-      store.discard_after(old.band_idx, g.bands());
+  // The band store of a pass: the band to start from (its checkpoint matches and its bands are
+  // whole), else emptied after a check for [need] bytes free (NFR-SIZE-004).
+  auto open_store = [&](BandStore& store, const Geometry& gg, const Checkpoint& ck, bool may_resume,
+                        double need) {
+    Checkpoint old;
+    if (may_resume && store.load_checkpoint(old) && old.recipe_hash == ck.recipe_hash &&
+        old.bands_total == ck.bands_total) {
+      bool ok = true;
+      for (int b = 0; b <= old.band_idx && ok; ++b)
+        ok = fs::file_size(store.band_path(b)) == int64_t(gg.band_out_rows(b)) * gg.out_w * 3;
+      if (ok) {
+        store.discard_after(old.band_idx, gg.bands());
+        return old.band_idx + 1;
+      }
     }
-  }
-  if (start_band == 0) {
-    if (resume) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "resume_restarted"}});
+    if (may_resume) sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "resume_restarted"}});
     store.reset();
-    const double need = double(g.out_w) * g.out_h * 3 * 1.2;  // NFR-SIZE-004: estimate + 20%
     const int64_t avail = fs::free_bytes(dir);
     if (avail >= 0 && double(avail) < need) {
       fail(ENH_E_DISK_FULL, "need " + std::to_string(int64_t(need / 1e6)) + " MB free");
     }
+    return 0;
+  };
+  auto checkpoint = [&](const Geometry& gg, const std::string& stage) {
+    Checkpoint ck;
+    ck.bands_total = gg.bands();
+    ck.out_w = gg.out_w;
+    ck.out_h = gg.out_h;
+    ck.recipe_hash = recipe_hash(input_sha, model, gg, req, stage);
+    return ck;
+  };
+  auto bytes = [](const Geometry& gg) { return double(gg.out_w) * gg.out_h * 3 * 1.2; };
+
+  BandStore store1(fs::join(dir, kX8Dir));
+  Checkpoint ck1;
+  int start1 = 0;
+  if (x8) {
+    ck1 = checkpoint(g1, "1");
+    start1 = open_store(store1, g1, ck1, resume, bytes(g1) + bytes(g));
   }
+  const bool pass1_done = !x8 || start1 == g1.bands();
+  BandStore store(dir);
+  Checkpoint ck = checkpoint(g, "");
+  const int start_band = open_store(store, g, ck, resume && pass1_done, bytes(g));
 
   PreviewAccumulator preview;
   preview.init(g.out_w, g.out_h, req.preview_max);
@@ -965,10 +1000,11 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   // ---- SR banded ----
   if (ladder[rung].kind == BackendKind::vulkan) sentinel.arm();
-  sink.emit(ENH_EV_STAGE, kStageUpscale, 0, g.tiles(), {{"stage", "upscale"}});
-  const int tpb = g.tiles_per_band();
-  const int64_t total_tiles = g.tiles();
-  std::atomic<int64_t> done_tiles{int64_t(start_band) * tpb};
+  const int64_t total_tiles = (x8 ? g1.tiles() : 0) + g.tiles();
+  std::atomic<int64_t> done_tiles{x8 && !pass1_done ? int64_t(start1) * g1.tiles_per_band()
+                                                    : (x8 ? g1.tiles() : 0) +
+                                                          int64_t(start_band) * g.tiles_per_band()};
+  sink.emit(ENH_EV_STAGE, kStageUpscale, 0, total_tiles, {{"stage", "upscale"}});
   const int64_t resumed_tiles = done_tiles.load();
   sink.progress(kStageUpscale, done_tiles, total_tiles, -1, true);
   const auto t_sr = steady_clock::now();
@@ -988,133 +1024,161 @@ void enh_job::run_impl(nlohmann::json& result) {
     };
   };
 
-  std::thread prep(guarded([&] {
-    const int P = g.pad, itw = g.net_in_w(), ith = g.net_in_h();
-    std::vector<int> colidx(static_cast<size_t>(itw));
-    for (int b = start_band; b < g.bands() && !stop(); ++b) {
-      for (int j = 0; j < tpb && !stop(); ++j) {
-        TileIn t{b, j, ncnn::Mat(itw, ith, 3)};
-        const int x0 = g.xs[j];
-        for (int xx = 0; xx < itw; ++xx) colidx[xx] = reflect101(x0 - P + xx, g.in_w);
-        for (int yy = 0; yy < ith; ++yy) {
-          const uint8_t* src = img.row(reflect101(g.ys[b] - P + yy, g.in_h));
-          float* r = t.in.channel(0).row(yy);
-          float* gg = t.in.channel(1).row(yy);
-          float* bl = t.in.channel(2).row(yy);
-          for (int xx = 0; xx < itw; ++xx) {
-            const uint8_t* p = src + colidx[xx] * 3;
-            r[xx] = p[0] * (1.f / 255.f);
-            gg[xx] = p[1] * (1.f / 255.f);
-            bl[xx] = p[2] * (1.f / 255.f);
+  // One pass over [src] from band [first] into [st]; the last pass pastes the faces and feeds
+  // the preview.
+  auto sr_pass = [&](const Rgb8& src, const Geometry& g, BandStore& st, const Checkpoint& ck,
+                     int first, bool last) {
+    q1.reset();
+    q2.reset();
+    const int tpb = g.tiles_per_band();
+    std::thread prep(guarded([&] {
+      const int P = g.pad, itw = g.net_in_w(), ith = g.net_in_h();
+      std::vector<int> colidx(static_cast<size_t>(itw));
+      for (int b = first; b < g.bands() && !stop(); ++b) {
+        for (int j = 0; j < tpb && !stop(); ++j) {
+          TileIn t{b, j, ncnn::Mat(itw, ith, 3)};
+          const int x0 = g.xs[j];
+          for (int xx = 0; xx < itw; ++xx) colidx[xx] = reflect101(x0 - P + xx, g.in_w);
+          for (int yy = 0; yy < ith; ++yy) {
+            const uint8_t* row = src.row(reflect101(g.ys[b] - P + yy, g.in_h));
+            float* r = t.in.channel(0).row(yy);
+            float* gg = t.in.channel(1).row(yy);
+            float* bl = t.in.channel(2).row(yy);
+            for (int xx = 0; xx < itw; ++xx) {
+              const uint8_t* p = row + colidx[xx] * 3;
+              r[xx] = p[0] * (1.f / 255.f);
+              gg[xx] = p[1] * (1.f / 255.f);
+              bl[xx] = p[2] * (1.f / 255.f);
+            }
+          }
+          if (!q1.push(std::move(t))) return;
+        }
+      }
+      q1.close();
+    }));
+    std::thread infer(guarded([&] {
+      while (auto t = q1.pop()) {
+        if (stop()) break;
+        if (ladder[rung].kind == BackendKind::vulkan && !s->gpu_allowed.load()) {
+          pause = true;  // iOS background: GPU work is not allowed (ADR-0019)
+          request_stop();
+          break;
+        }
+        if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
+        memory_gate(g, done_tiles.load(), total_tiles, fallbacks);
+        TileOut o{t->band, t->j, {}};
+        for (;;) {
+          try {
+            run_tile(*be, t->in, o.out, g.pad, g.model_scale, split);
+            break;
+          } catch (const Error& e) {
+            // ADR-0016: out of memory -> a smaller tile first, then the next backend.
+            if (e.status() == ENH_E_OOM &&
+                smaller_tile(g, "oom", done_tiles.load(), total_tiles, fallbacks))
+              continue;
+            if (!recoverable(e.status()) || rung + 1 >= ladder.size()) throw;
+            std::string from = backend_kind_name(ladder[rung]);
+            ++rung;
+            std::string to = backend_kind_name(ladder[rung]);
+            sink.emit(ENH_EV_FALLBACK, kStageUpscale, done_tiles, total_tiles,
+                      {{"kind", "backend"},
+                       {"from", from},
+                       {"to", to},
+                       {"reason", fallback_reason(e.status())}});
+            fallbacks.push_back(from + "->" + to);
+            if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
+            be.reset();
+            be = make_ncnn_backend(ladder[rung]);
+            be->load(model);
+            throttled = false;  // a new backend runs unthrottled: the next gate applies it again
           }
         }
-        if (!q1.push(std::move(t))) return;
-      }
-    }
-    q1.close();
-  }));
-
-  std::thread infer(guarded([&] {
-    while (auto t = q1.pop()) {
-      if (stop()) break;
-      if (ladder[rung].kind == BackendKind::vulkan && !s->gpu_allowed.load()) {
-        pause = true;  // iOS background: GPU work is not allowed (ADR-0019)
-        request_stop();
-        break;
-      }
-      if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
-      memory_gate(g, done_tiles.load(), total_tiles, fallbacks);
-      TileOut o{t->band, t->j, {}};
-      for (;;) {
-        try {
-          run_tile(*be, t->in, o.out, g.pad, g.model_scale, split);
-          break;
-        } catch (const Error& e) {
-          // ADR-0016: out of memory -> a smaller tile first, then the next backend.
-          if (e.status() == ENH_E_OOM &&
-              smaller_tile(g, "oom", done_tiles.load(), total_tiles, fallbacks))
-            continue;
-          if (!recoverable(e.status()) || rung + 1 >= ladder.size()) throw;
-          std::string from = backend_kind_name(ladder[rung]);
-          ++rung;
-          std::string to = backend_kind_name(ladder[rung]);
-          sink.emit(ENH_EV_FALLBACK, kStageUpscale, done_tiles, total_tiles,
-                    {{"kind", "backend"},
-                     {"from", from},
-                     {"to", to},
-                     {"reason", fallback_reason(e.status())}});
-          fallbacks.push_back(from + "->" + to);
-          if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
-          be.reset();
-          be = make_ncnn_backend(ladder[rung]);
-          be->load(model);
-          throttled = false;  // a new backend runs unthrottled: the next gate applies it again
+        const int S = g.model_scale;
+        if (o.out.w != S * g.net_in_w() || o.out.h != S * g.net_in_h() || o.out.c != 3) {
+          fail(ENH_E_MODEL, "unexpected model output shape");
         }
+        if (!q2.push(std::move(o))) return;
       }
-      const int S = g.model_scale;
-      if (o.out.w != S * g.net_in_w() || o.out.h != S * g.net_in_h() || o.out.c != 3) {
-        fail(ENH_E_MODEL, "unexpected model output shape");
-      }
-      if (!q2.push(std::move(o))) return;
-    }
-    q2.close();
-  }));
+      q2.close();
+    }));
 
-  std::thread post(guarded([&] {
-    const int S = g.model_scale, P = g.pad;
-    std::vector<uint8_t> band, down_buf;
-    auto q = [](float v) -> uint8_t {
-      v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
-      return uint8_t(v * 255.f + 0.5f);
-    };
-    while (auto t = q2.pop()) {
-      if (stop()) break;
-      const int b = t->band, j = t->j;
-      const int rows = g.band_sr_rows(b);
-      if (j == 0) band.assign(size_t(rows) * g.sr_w * 3, 0);
-      const int Y0 = S * g.band_in_y0(b);
-      const int tyoff = S * (g.ys[b] - P);
-      const int X0 = S * owned_start(g.xs, j, g.tw);
-      const int X1 = j + 1 < tpb ? S * owned_start(g.xs, j + 1, g.tw) : g.sr_w;
-      const int txoff = S * (g.xs[j] - P);
-      for (int r = 0; r < rows; ++r) {
-        const int ty = Y0 + r - tyoff;
-        const float* c0 = t->out.channel(0).row(ty);
-        const float* c1 = t->out.channel(1).row(ty);
-        const float* c2 = t->out.channel(2).row(ty);
-        uint8_t* dst = band.data() + size_t(r) * g.sr_w * 3;
-        for (int X = X0; X < X1; ++X) {
-          const int tx = X - txoff;
-          dst[X * 3] = q(c0[tx]);
-          dst[X * 3 + 1] = q(c1[tx]);
-          dst[X * 3 + 2] = q(c2[tx]);
+    std::thread post(guarded([&] {
+      const int S = g.model_scale, P = g.pad;
+      std::vector<uint8_t> band, down_buf;
+      auto q = [](float v) -> uint8_t {
+        v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
+        return uint8_t(v * 255.f + 0.5f);
+      };
+      while (auto t = q2.pop()) {
+        if (stop()) break;
+        const int b = t->band, j = t->j;
+        const int rows = g.band_sr_rows(b);
+        if (j == 0) band.assign(size_t(rows) * g.sr_w * 3, 0);
+        const int Y0 = S * g.band_in_y0(b);
+        const int tyoff = S * (g.ys[b] - P);
+        const int X0 = S * owned_start(g.xs, j, g.tw);
+        const int X1 = j + 1 < tpb ? S * owned_start(g.xs, j + 1, g.tw) : g.sr_w;
+        const int txoff = S * (g.xs[j] - P);
+        for (int r = 0; r < rows; ++r) {
+          const int ty = Y0 + r - tyoff;
+          const float* c0 = t->out.channel(0).row(ty);
+          const float* c1 = t->out.channel(1).row(ty);
+          const float* c2 = t->out.channel(2).row(ty);
+          uint8_t* dst = band.data() + size_t(r) * g.sr_w * 3;
+          for (int X = X0; X < X1; ++X) {
+            const int tx = X - txoff;
+            dst[X * 3] = q(c0[tx]);
+            dst[X * 3 + 1] = q(c1[tx]);
+            dst[X * 3 + 2] = q(c2[tx]);
+          }
         }
-      }
-      const int64_t done = ++done_tiles;
-      if (j + 1 == tpb) {
-        uint8_t* out = band.data();
-        const int orows = g.band_out_rows(b);
-        if (g.down > 1) {
-          down_buf.resize(size_t(orows) * g.out_w * 3);
-          area_down(band.data(), g.sr_w, rows, g.down, down_buf.data());
-          out = down_buf.data();
+        const int64_t done = ++done_tiles;
+        if (j + 1 == tpb) {
+          uint8_t* out = band.data();
+          const int orows = g.band_out_rows(b);
+          if (g.down > 1) {
+            down_buf.resize(size_t(orows) * g.out_w * 3);
+            area_down(band.data(), g.sr_w, rows, g.down, down_buf.data());
+            out = down_buf.data();
+          }
+          if (last && !faces.empty()) paste_faces(out, g.out_w, g.band_out_y0(b), orows, faces);
+          if (last) preview.add_rows(out, g.band_out_y0(b), orows);
+          st.commit(b, out, size_t(orows) * g.out_w * 3, ck);
         }
-        if (!faces.empty()) paste_faces(out, g.out_w, g.band_out_y0(b), orows, faces);
-        preview.add_rows(out, g.band_out_y0(b), orows);
-        store.commit(b, out, size_t(orows) * g.out_w * 3, ck);
+        const double el = duration<double>(steady_clock::now() - t_sr).count();
+        const int64_t here = done - resumed_tiles;
+        const int64_t eta = here > 0 ? int64_t(el / here * (total_tiles - done) * 1000) : -1;
+        sink.progress(kStageUpscale, done, total_tiles, eta, done == total_tiles);
       }
-      const double el = duration<double>(steady_clock::now() - t_sr).count();
-      const int64_t here = done - resumed_tiles;
-      const int64_t eta = here > 0 ? int64_t(el / here * (total_tiles - done) * 1000) : -1;
-      sink.progress(kStageUpscale, done, total_tiles, eta, done == total_tiles);
-    }
-  }));
+    }));
 
-  prep.join();
-  infer.join();
-  post.join();
+    prep.join();
+    infer.join();
+    post.join();
+  };
+
+  if (x8 && !pass1_done) {
+    sr_pass(img, g1, store1, ck1, start1, false);
+    if (stop()) throw Stopped{};
+  }
+  if (x8) {  // the second pass's input: the first pass's bands
+    Rgb8 mid;
+    mid.w = g1.out_w;
+    mid.h = g1.out_h;
+    mid.px.resize(size_t(mid.w) * mid.h * 3);
+    img = Rgb8{};
+    std::vector<uint8_t> buf;
+    for (int b = 0; b < g1.bands(); ++b) {
+      const size_t n = size_t(g1.band_out_rows(b)) * g1.out_w * 3;
+      store1.read_band(b, buf, n);
+      std::memcpy(mid.row(g1.band_out_y0(b)), buf.data(), n);
+    }
+    img = std::move(mid);
+  }
+  sr_pass(img, g, store, ck, start_band, true);
   sentinel.disarm();
   if (stop()) throw Stopped{};
+  if (x8) fs::remove_tree(fs::join(dir, kX8Dir));
   const double sr_s = duration<double>(steady_clock::now() - t_sr).count();
   const std::string backend_name = be->name();
   be.reset();

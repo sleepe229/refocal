@@ -25,6 +25,7 @@
 #include "image/jpeg.hpp"
 #include "image/metaio.hpp"
 #include "image/ops.hpp"
+#include "job/events.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 
@@ -251,6 +252,21 @@ static void test_nearest_exact(Session& se) {
     CHECK(run_job(se, q, c).status == ENH_OK);
     Rgb8 out = read_output(fs::join(g_work, "nf2"));
     CHECK(out.w == 300 && out.h == 200 && out.px == nearest_up(area_down(src, 2), 4).px);
+  }
+  {  // 8x (ADR-0014): x4, x4 again, area /2 = nearest x8; the first pass's store is removed
+    Collector c;
+    json q = req("n8", in, "nearest4");
+    q["scale"] = 8;
+    auto r = run_job(se, q, c);
+    CHECK(r.status == ENH_OK && r.payload["scale"] == 8);
+    Rgb8 out = read_output(fs::join(g_work, "n8"));
+    CHECK(out.w == 1200 && out.h == 808 && out.px == nearest_up(src, 8).px);
+    CHECK(!fs::exists(fs::join(g_work, "n8/x8")));
+    std::lock_guard lk(c.mu);
+    int64_t last = 0, total = 0;
+    for (auto& e : c.evs)
+      if (e.type == ENH_EV_PROGRESS && e.stage == kStageUpscale) last = e.done, total = e.total;
+    CHECK(total > 0 && last == total);  // one progress over both passes
   }
 }
 
@@ -775,6 +791,70 @@ static void test_pause_resume(Session& se, const std::string& in) {
   CHECK(enh_job_resume(se.s, "/etc", &j2) != ENH_OK);
 }
 
+// 8x resumes in either pass with the same bytes. Paused in the second pass: the first is not
+// run again. Killed in the first (its checkpoint at band 1, no result bands yet): it goes on
+// from band 2 of the first pass.
+static void test_x8_resume(Session& se) {
+  const std::string in = make_jpeg("x8.jpg", 200, 150);
+  auto q = [&](const std::string& id) {
+    json r = slow_req(id, in);
+    r["scale"] = 8;
+    return r;
+  };
+  Collector ref;
+  CHECK(run_job(se, q("x8_ref"), ref).status == ENH_OK);
+  const int64_t tpb1 = (200 + 31) / 32, pass1 = tpb1 * ((150 + 31) / 32);  // 32 px tiles
+
+  for (bool in_pass1 : {false, true}) {
+    const std::string id = in_pass1 ? "x8_p1" : "x8_p2", dir = fs::join(g_work, id);
+    {  // paused some way into the second pass
+      Collector c;
+      g_col = &c;
+      enh_job* j = nullptr;
+      CHECK(enh_job_create(se.s, q(id).dump().c_str(), &j) == ENH_OK);
+      CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
+      {
+        std::unique_lock lk(c.mu);
+        c.cv.wait_for(lk, std::chrono::seconds(60), [&] {
+          for (auto& e : c.evs)
+            if (e.type == ENH_EV_PROGRESS && e.done > pass1 + 50) return true;
+          return false;
+        });
+      }
+      enh_job_pause(j);
+      CHECK(wait_terminal(c, 10));
+      CHECK(enh_job_status(j) == ENH_E_PAUSED);
+      enh_job_destroy(j);
+      CHECK(fs::exists(fs::join(dir, "x8/checkpoint.json")));
+    }
+    if (in_pass1) {  // as a kill after band 1 of the first pass leaves it
+      json ck = json::parse(fs::read_text(fs::join(dir, "x8/checkpoint.json")));
+      ck["band_idx"] = 1;
+      fs::write_atomic(fs::join(dir, "x8/checkpoint.json"), ck.dump());
+      fs::remove_tree(fs::join(dir, "bands"));
+      std::remove(fs::join(dir, "checkpoint.json").c_str());
+    }
+    Collector c;
+    g_col = &c;
+    enh_job* j = nullptr;
+    CHECK(enh_job_resume(se.s, dir.c_str(), &j) == ENH_OK);
+    CHECK(enh_job_start(j, on_event, 2) == ENH_OK);
+    CHECK(wait_terminal(c));
+    enh_job_destroy(j);
+    check_invariants(c);
+    std::lock_guard lk(c.mu);
+    CHECK(c.evs.back().type == ENH_EV_DONE);
+    int64_t first = -1;
+    for (auto& e : c.evs) {
+      if (e.type == ENH_EV_PROGRESS && first < 0) first = e.done;
+      CHECK(!(e.type == ENH_EV_WARNING && e.payload.value("code", "") == "resume_restarted"));
+    }
+    CHECK(in_pass1 ? first == 2 * tpb1 : first > pass1);
+    CHECK(read_output(dir).px == read_output(fs::join(g_work, "x8_ref")).px);
+    CHECK(!fs::exists(fs::join(dir, "x8")));
+  }
+}
+
 // NFR-THERM-002: critical holds the job before its next tile until fair; serious throttles.
 static void test_thermal(Session& se, const std::string& in) {
   auto warnings = [](Collector& c) {
@@ -877,6 +957,32 @@ static void test_needs_user(Session& se) {
     check_invariants(c);
   }
   CHECK(read_output(fs::join(g_work, "nu")).w == 400);  // fast 2x: (200 / 2) * 4
+}
+
+// 8x on an input above 1.5 MP (ADR-0014) asks for a smaller scale, 4x first (the batch queue
+// answers the first option).
+static void test_x8_too_large(Session& se) {
+  Collector c;
+  g_col = &c;
+  json q = req("x8big", make_jpeg("x8big.jpg", 1300, 1200), "nearest4");
+  q["scale"] = 8;
+  enh_job* j = nullptr;
+  CHECK(enh_job_create(se.s, q.dump().c_str(), &j) == ENH_OK);
+  CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
+  CHECK(wait_for(c, ENH_EV_NEEDS_USER));
+  {
+    std::lock_guard lk(c.mu);
+    for (auto& e : c.evs)
+      if (e.type == ENH_EV_NEEDS_USER) {
+        CHECK(e.payload["code"] == "downscale_required");
+        CHECK(e.payload["options"].size() >= 1 &&
+              e.payload["options"][0] == json::parse(R"({"scale":4,"fast2":false})"));
+      }
+  }
+  enh_job_cancel(j);
+  CHECK(wait_terminal(c));
+  enh_job_destroy(j);
+  check_invariants(c);
 }
 
 // TEST-FAULT-001 (ADR-0016, NFR-MEM-004, FR-ENH-014): out of memory or a memory warning ->
@@ -1011,6 +1117,15 @@ static void test_errors(Session& se) {
   enh_job_cancel(nullptr);
   CHECK(enh_job_status(nullptr) == ENH_E_INVALID);
   // Destroying a never-started job is fine.
+  {  // 8x: not with fast 2x
+    json q = req("x8f", txt, "nearest4");
+    q["scale"] = 8;
+    q["fast2"] = true;
+    CHECK(enh_job_create(se.s, q.dump().c_str(), &j) == ENH_E_INVALID);
+    q["fast2"] = false;
+    q["scale"] = 3;
+    CHECK(enh_job_create(se.s, q.dump().c_str(), &j) == ENH_E_INVALID);
+  }
   CHECK(enh_job_create(se.s, req("e3", txt, "nearest4").dump().c_str(), &j) == ENH_OK);
   enh_job_destroy(j);
 }
@@ -1041,6 +1156,8 @@ int main(int argc, char** argv) {
     test_cancel(se, make_jpeg("slower.jpg", 2048, 1536));
     test_pause_resume(se, slow);
     test_thermal(se, slow);
+    test_x8_resume(se);
+    test_x8_too_large(se);
     test_needs_user(se);
     test_oom_ladder(se);
     test_errors(se);
