@@ -1832,6 +1832,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Face {number}: restore'**
   String faceToggle(int number);
+
+  /// No description provided for @resultSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String resultSeconds(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

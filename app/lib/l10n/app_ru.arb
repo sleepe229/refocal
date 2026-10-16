@@ -289,5 +289,6 @@
   "faceOfferOpen": "Модели",
   "faceOfferLater": "Не сейчас",
   "facesTapHint": "Нажмите на лицо, чтобы оставить его как есть",
-  "faceToggle": "Лицо {number}: восстанавливать"
+  "faceToggle": "Лицо {number}: восстанавливать",
+  "resultSeconds": "{seconds} с"
 }

@@ -1015,4 +1015,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String faceToggle(int number) {
     return 'Face $number: restore';
   }
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds s';
+  }
 }

@@ -712,5 +712,13 @@
         "type": "int"
       }
     }
+  },
+  "resultSeconds": "{seconds} s",
+  "@resultSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
   }
 }
