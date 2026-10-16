@@ -317,5 +317,8 @@
   "presetsExport": "Экспортировать ваши пресеты",
   "presetsExported": "Пресеты сохранены",
   "presetsImported": "Добавлено пресетов: {count}",
-  "presetsNotAFile": "Это не файл пресетов Refocal или он от более новой версии"
+  "presetsNotAFile": "Это не файл пресетов Refocal или он от более новой версии",
+  "settingsPackUpdates": "Проверять обновления моделей",
+  "settingsPackUpdatesHint": "Раз в день Refocal скачивает подписанный список моделей, чтобы узнать, есть ли обновления у ваших. О вас и ваших фото ничего не отправляется.",
+  "packUpdatesAvailable": "Обновления моделей: {count}"
 }

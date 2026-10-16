@@ -322,4 +322,18 @@ void main() {
       expect(File('../tools/models/keys/$name.pub').readAsLinesSync()[1], manifestKeys[i]);
     }
   });
+
+  test('updates: installed packs with a newer version in the manifest (FR-MODEL-008)', () {
+    final m = Manifest.parse(
+      manifest(3, [
+        {...pack('sr.a'), 'version': '1.10.0'},
+        {...pack('sr.b'), 'version': '2.0.0'},
+        pack('sr.c'),
+      ]),
+    );
+    InstalledPack i(String id, String v) =>
+        InstalledPack(id: id, version: v, path: 'models/$id', size: 1, installedAt: DateTime(2026));
+    final up = packUpdates(m, [i('sr.a', '1.9.0'), i('sr.b', '2.0.0'), i('sr.x', '0.1.0')]);
+    expect(up.map((p) => p.id), ['sr.a']); // 1.10 > 1.9 numerically; same version; not listed
+  });
 }

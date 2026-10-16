@@ -24,6 +24,8 @@ class Settings {
     this.batchAutosave = true,
     this.faceNoticeSeen = false,
     this.faceOfferDismissed = false,
+    this.packUpdateCheck = false,
+    this.packUpdateCheckedAt,
     this.tierOverride,
   });
 
@@ -56,6 +58,10 @@ class Settings {
   /// FR-ONB-003: the home screen's offer of the face model was dismissed.
   final bool faceOfferDismissed;
 
+  /// FR-SET-005: look for pack updates at most once a day (network, off by default, ADR-0020).
+  final bool packUpdateCheck;
+  final DateTime? packUpdateCheckedAt;
+
   /// FR-SET-003: "T0".."T2" chosen by the user; null: the benchmark decides.
   final String? tierOverride;
 
@@ -70,6 +76,8 @@ class Settings {
     bool? batchAutosave,
     bool? faceNoticeSeen,
     bool? faceOfferDismissed,
+    bool? packUpdateCheck,
+    DateTime? Function()? packUpdateCheckedAt,
     String? Function()? tierOverride,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
@@ -82,6 +90,10 @@ class Settings {
     batchAutosave: batchAutosave ?? this.batchAutosave,
     faceNoticeSeen: faceNoticeSeen ?? this.faceNoticeSeen,
     faceOfferDismissed: faceOfferDismissed ?? this.faceOfferDismissed,
+    packUpdateCheck: packUpdateCheck ?? this.packUpdateCheck,
+    packUpdateCheckedAt: packUpdateCheckedAt != null
+        ? packUpdateCheckedAt()
+        : this.packUpdateCheckedAt,
     tierOverride: tierOverride != null ? tierOverride() : this.tierOverride,
   );
 
@@ -97,6 +109,8 @@ class Settings {
     'batch_autosave': '$batchAutosave',
     'face_notice_seen': '$faceNoticeSeen',
     'face_offer_dismissed': '$faceOfferDismissed',
+    'pack_update_check': '$packUpdateCheck',
+    'pack_update_checked_at': packUpdateCheckedAt?.millisecondsSinceEpoch.toString(),
     'tier_override': tierOverride,
   };
 
@@ -121,6 +135,11 @@ class Settings {
       batchAutosave: flag('batch_autosave', d.batchAutosave),
       faceNoticeSeen: flag('face_notice_seen', d.faceNoticeSeen),
       faceOfferDismissed: flag('face_offer_dismissed', d.faceOfferDismissed),
+      packUpdateCheck: flag('pack_update_check', d.packUpdateCheck),
+      packUpdateCheckedAt: switch (int.tryParse(m['pack_update_checked_at'] ?? '')) {
+        final ms? when ms > 0 => DateTime.fromMillisecondsSinceEpoch(ms),
+        _ => null,
+      },
       tierOverride: const {'T0', 'T1', 'T2'}.contains(m['tier_override'])
           ? m['tier_override']
           : null,
