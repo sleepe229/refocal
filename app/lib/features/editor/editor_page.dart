@@ -180,9 +180,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   bool get _x8Allowed {
     final size = _size;
     final tier = ref.watch(tierProvider).value?.tier;
-    return tier == DeviceTier.t2 &&
-        size != null &&
-        size.width * size.height <= Recipe.maxX8InputPx;
+    return tier == DeviceTier.t2 && size != null && size.width * size.height <= Recipe.maxX8InputPx;
   }
 
   bool _matches(Recipe r) =>
@@ -552,10 +550,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           segments: [
             for (final c in ScaleChoice.values)
               if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
-              ButtonSegment(
-                value: c,
-                label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
-              ),
+                ButtonSegment(
+                  value: c,
+                  label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
+                ),
           ],
           selected: {?_choice},
           emptySelectionAllowed: true,
