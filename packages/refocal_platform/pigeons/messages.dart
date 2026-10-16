@@ -93,6 +93,12 @@ abstract class RefocalPlatformApi {
   @async
   PickedImages pickImages(String inboxDir, int maxCount);
 
+  /// Asks for a file (Android: ACTION_OPEN_DOCUMENT, any type: an offline pack .rfpack,
+  /// FR-MODEL-006) and copies it into [dstDir]. Returns the copy's path, or null when
+  /// cancelled. Error "limit" when it is larger than [maxBytes].
+  @async
+  String? pickFile(String dstDir, int maxBytes);
+
   /// Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI.
   @async
   String saveToGallery(String path, String displayName, String mimeType);

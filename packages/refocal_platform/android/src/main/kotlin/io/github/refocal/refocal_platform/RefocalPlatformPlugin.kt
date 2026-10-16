@@ -53,6 +53,7 @@ class RefocalPlatformPlugin :
   private var binding: ActivityPluginBinding? = null
   private var pending: CompletableDeferred<List<Uri>>? = null
   private var pendingCreate: CompletableDeferred<Uri?>? = null
+  private var pendingOpen: CompletableDeferred<Uri?>? = null
   private var shared: List<Uri> = emptyList()
   private var pendingPermission: CompletableDeferred<Boolean>? = null
   private var events: RefocalPlatformEvents? = null
@@ -208,6 +209,11 @@ class RefocalPlatformPlugin :
         pendingCreate = null
         d.complete(if (resultCode == Activity.RESULT_OK) data?.data else null)
       }
+      REQUEST_OPEN -> {
+        val d = pendingOpen ?: return true
+        pendingOpen = null
+        d.complete(if (resultCode == Activity.RESULT_OK) data?.data else null)
+      }
       else -> return false
     }
     return true
@@ -308,6 +314,42 @@ class RefocalPlatformPlugin :
       }
     }
     return uri.toString()
+  }
+
+  override suspend fun pickFile(dstDir: String, maxBytes: Long): String? {
+    val activity = binding?.activity ?: throw FlutterError("no_activity", "No foreground activity")
+    if (pendingOpen != null) throw FlutterError("busy", "A file picker is already open")
+    val deferred = CompletableDeferred<Uri?>()
+    pendingOpen = deferred
+    // .rfpack has no registered MIME type: any file, the core decides what it is.
+    activity.startActivityForResult(
+        Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),
+        REQUEST_OPEN)
+    val uri = deferred.await() ?: return null
+    return withContext(Dispatchers.IO) {
+      val dir = File(dstDir)
+      if (!dir.isDirectory && !dir.mkdirs()) throw IOException("cannot create $dstDir")
+      val dst = File(dir, "import-${UUID.randomUUID()}.rfpack")
+      try {
+        (context.contentResolver.openInputStream(uri) ?: throw IOException("cannot open file")).use { input ->
+          dst.outputStream().use { out ->
+            val buf = ByteArray(1 shl 16)
+            var total = 0L
+            while (true) {
+              val n = input.read(buf)
+              if (n < 0) break
+              total += n
+              if (total > maxBytes) throw FlutterError("limit", "File is larger than $maxBytes bytes")
+              out.write(buf, 0, n)
+            }
+          }
+        }
+        dst.absolutePath
+      } catch (e: Exception) {
+        dst.delete()
+        throw e
+      }
+    }
   }
 
   private fun pickerIntent(maxCount: Int): Intent {
@@ -467,6 +509,7 @@ class RefocalPlatformPlugin :
     private const val REQUEST_PICK = 0x5EF0
     private const val REQUEST_NOTIFICATIONS = 0x5EF1
     private const val REQUEST_CREATE = 0x5EF2
+    private const val REQUEST_OPEN = 0x5EF3
     // SEC-INP-002, as in the core (native/core/src/image/decode.hpp: kMaxSide, kMaxPixels).
     private const val MAX_SIDE = 30000L
     private const val MAX_PIXELS = 200_000_000L

@@ -53,6 +53,29 @@ class RefocalNative {
     });
   }
 
+  /// Unpacks [entry] of the offline pack [rfpackPath] to [dstPath] on a helper isolate, after
+  /// the core has checked the archive's whole directory (SEC-INP-005). Throws [EnhException]:
+  /// invalid (malformed or forbidden archive, no such entry), limit (over [maxBytes] or the
+  /// archive limits), io.
+  Future<void> rfpackExtract(String rfpackPath, String entry, String dstPath, int maxBytes) {
+    final libPath = _libPath;
+    return Isolate.run(() {
+      final b = EnhBindings(RefocalNative._open(libPath));
+      final r = rfpackPath.toNativeUtf8(), e = entry.toNativeUtf8(), d = dstPath.toNativeUtf8();
+      try {
+        RefocalNative._check(
+          b.enh_rfpack_extract(r.cast(), e.cast(), d.cast(), maxBytes),
+          'rfpack_extract',
+        );
+      } finally {
+        malloc
+          ..free(r)
+          ..free(e)
+          ..free(d);
+      }
+    });
+  }
+
   /// Throws [EnhException] unless [sigPath] is a minisign signature of [msgPath] by one of
   /// [publicKeys] (the key lines of minisign .pub files, ADR-0011).
   void verifyMinisign(String msgPath, String sigPath, List<String> publicKeys) {

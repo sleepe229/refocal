@@ -539,6 +539,12 @@ interface RefocalPlatformApi {
    * into [inboxDir] in the order picked. Empty when cancelled.
    */
   suspend fun pickImages(inboxDir: String, maxCount: Long): PickedImages
+  /**
+   * Asks for a file (Android: ACTION_OPEN_DOCUMENT, any type: an offline pack .rfpack,
+   * FR-MODEL-006) and copies it into [dstDir]. Returns the copy's path, or null when
+   * cancelled. Error "limit" when it is larger than [maxBytes].
+   */
+  suspend fun pickFile(dstDir: String, maxBytes: Long): String?
   /** Adds [path] to the gallery (Android: MediaStore Pictures/Refocal). Returns its URI. */
   suspend fun saveToGallery(path: String, displayName: String, mimeType: String): String
   /**
@@ -631,6 +637,26 @@ interface RefocalPlatformApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.pickImages(inboxDirArg, maxCountArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.pickFile$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val dstDirArg = args[0] as String
+            val maxBytesArg = args[1] as Long
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.pickFile(dstDirArg, maxBytesArg))
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }

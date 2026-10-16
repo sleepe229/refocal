@@ -32,7 +32,7 @@ extern "C" {
 #pragma GCC visibility push(default) /* the core is built with -fvisibility=hidden */
 #endif
 
-#define ENH_ABI_VERSION 3
+#define ENH_ABI_VERSION 4
 
 typedef struct enh_session enh_session;
 typedef struct enh_job enh_job;
@@ -175,6 +175,12 @@ enh_status enh_export(enh_session* s, const char* job_dir, const char* output_js
 /* ---- integrity ---- */
 enh_status enh_verify_file(const char* path, const char* sha256_hex);
 enh_status enh_verify_minisign(const char* msg_path, const char* sig_path, const char* pubkeys_csv);
+/* Offline pack (.rfpack, ADR-0011, SEC-INP-005): checks the archive's whole directory (flat
+ * names, no symlinks or directories, <= 2 GB unpacked, ratio <= 100, no overlaps) and unpacks
+ * the one entry [entry] to [dst_path] (via dst_path.part), if it is at most [max_bytes].
+ * ENH_E_INVALID: malformed or forbidden archive, or no such entry; ENH_E_LIMIT: over a limit. */
+enh_status enh_rfpack_extract(const char* rfpack_path, const char* entry, const char* dst_path,
+                              int64_t max_bytes);
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC visibility pop
