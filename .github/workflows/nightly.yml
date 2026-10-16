@@ -13,6 +13,19 @@ permissions:
   contents: read
 
 jobs:
+  # Known vulnerabilities in dependencies (SEC-INP-006), tools/osv/check.sh.
+  osv:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: osv-scanner v2.6.0 (pinned by SHA-256)
+        run: |
+          curl -sSfL -o /tmp/osv-scanner https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64
+          echo "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108  /tmp/osv-scanner" | sha256sum -c
+          chmod +x /tmp/osv-scanner
+      - run: tools/osv/check.sh /tmp/osv-scanner
+
   fuzz:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
