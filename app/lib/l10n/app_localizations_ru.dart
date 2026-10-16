@@ -1037,4 +1037,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get close => 'Закрыть';
+
+  @override
+  String resultSeconds(int seconds) {
+    return '$seconds с';
+  }
 }
