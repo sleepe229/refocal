@@ -83,7 +83,7 @@ class _CompareSliderState extends State<CompareSlider> {
       children: [
         _viewer(l10n, pct, pos),
         Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: TextButton.icon(
             onPressed: () => setState(() => _original = !_original),
             icon: Icon(_original ? Icons.auto_fix_high : Icons.image_outlined),
@@ -208,6 +208,8 @@ class _CompareSliderState extends State<CompareSlider> {
                         ),
                       ),
                     ),
+                    // Sides of the photo, not of the text: the original is left of the
+                    // border in right-to-left languages too (the photo is not mirrored).
                     Positioned(
                       left: 8,
                       top: 8,
