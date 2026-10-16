@@ -254,6 +254,79 @@ static void test_nearest_exact(Session& se) {
   }
 }
 
+// CompareViewer tiles (06 §5): regions of the result from the BandStore and of the original
+// scaled to the result. nearest4 makes both exact: at factor 4 each is the input itself.
+static void test_viewer(Session& se) {
+  std::string in = make_jpeg("v.jpg", 150, 101);
+  Rgb8 src = jpeg_decode(in);
+  Collector c;
+  json q = req("view", in, "nearest4");
+  q["tile"] = 32;  // several bands: rows cross band boundaries
+  CHECK(run_job(se, q, c).status == ENH_OK);
+  const std::string dir = fs::join(g_work, "view");
+  const Rgb8 out = read_output(dir);
+  enh_viewer* v = nullptr;
+  CHECK(enh_viewer_open(dir.c_str(), &v) == ENH_OK);
+  if (!v) return;
+  auto render = [&](int source, int x, int y, int w, int h, int f) {
+    const int ow = (w + f - 1) / f, oh = (h + f - 1) / f;
+    std::vector<uint8_t> rgba(size_t(ow) * oh * 4);
+    const enh_status st =
+        enh_viewer_render(v, source, x, y, w, h, f, rgba.data(), int64_t(rgba.size()));
+    CHECK(st == ENH_OK);
+    return rgba;
+  };
+  auto rgb_at = [](const Rgb8& im, int x, int y, int k) {
+    return im.px[(size_t(y) * im.w + x) * 3 + k];
+  };
+  // factor 1: the result's pixels, across bands (rows 100..299 of 404)
+  {
+    const auto t = render(0, 37, 100, 200, 200, 1);
+    bool same = true;
+    for (int y = 0; y < 200; ++y)
+      for (int x = 0; x < 200; ++x)
+        for (int k = 0; k < 3; ++k)
+          same &= t[(size_t(y) * 200 + x) * 4 + k] == rgb_at(out, 37 + x, 100 + y, k);
+    CHECK(same && t[3] == 255);
+  }
+  // factor 4 over the whole image: result and original both give the input back
+  for (int source : {0, 1}) {
+    const auto t = render(source, 0, 0, 600, 404, 4);
+    bool same = true;
+    for (int y = 0; y < 101; ++y)
+      for (int x = 0; x < 150; ++x)
+        for (int k = 0; k < 3; ++k)
+          same &= t[(size_t(y) * 150 + x) * 4 + k] == rgb_at(src, x, y, k);
+    CHECK(same);
+  }
+  // an edge tile that does not divide: ceil size, partial means
+  CHECK(render(0, 590, 400, 10, 4, 4).size() == size_t(3 * 1 * 4));
+  // the original zoomed past its own size (bilinear) and the limits
+  CHECK(render(1, 0, 0, 256, 256, 1).size() == size_t(256 * 256 * 4));
+  std::vector<uint8_t> buf(16);
+  CHECK(enh_viewer_render(v, 0, 0, 0, 601, 1, 1, buf.data(), 16) ==
+        ENH_E_INVALID);  // past the edge
+  CHECK(enh_viewer_render(v, 0, 0, 0, 4, 4, 1, buf.data(), 16) ==
+        ENH_E_INVALID);  // buffer too small
+  CHECK(enh_viewer_render(v, 2, 0, 0, 1, 1, 1, buf.data(), 16) == ENH_E_INVALID);  // no such source
+  CHECK(enh_viewer_render(v, 0, 0, 0, 600, 404, 0, buf.data(), 16) == ENH_E_INVALID);
+  enh_viewer_close(v);
+  CHECK(enh_viewer_open(fs::join(g_work, "nope").c_str(), &v) != ENH_OK);
+  // The original gone (saved and released): its tiles fail, the result's still work.
+  std::string in2 = make_jpeg("v2.jpg", 64, 64);
+  Collector c2;
+  CHECK(run_job(se, req("view2", in2, "nearest4"), c2).status == ENH_OK);
+  std::remove(in2.c_str());
+  CHECK(enh_viewer_open(fs::join(g_work, "view2").c_str(), &v) == ENH_OK);
+  if (v) {
+    std::vector<uint8_t> t(64 * 64 * 4);
+    CHECK(enh_viewer_render(v, 1, 0, 0, 256, 256, 4, t.data(), int64_t(t.size())) == ENH_E_IO);
+    CHECK(enh_viewer_render(v, 0, 0, 0, 256, 256, 4, t.data(), int64_t(t.size())) == ENH_OK);
+    enh_viewer_close(v);
+  }
+  enh_viewer_close(nullptr);
+}
+
 static void test_tiled_equals_whole(Session& se) {
   std::string in = make_jpeg("b.jpg", 230, 170);
   Collector c1, c2;
@@ -845,6 +918,7 @@ int main(int argc, char** argv) {
     Session se;
     test_nearest_exact(se);
     test_tiled_equals_whole(se);
+    test_viewer(se);
     test_orientation(se);
     test_export(se);
     test_lanczos();
