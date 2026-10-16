@@ -95,6 +95,24 @@ void main() {
     await expectLater(session.analyze('${root.path}/missing.jpg'), throwsA(isA<EnhException>()));
   }, skip: skip);
 
+  test('viewer tiles on a worker isolate (06 §5)', () async {
+    final result = await session.start(req('vw')).done;
+    final v = await RefocalViewer.open(native, result.jobDir);
+    final t = await v.render(0, 0, 0, 388, 244, 4); // the whole result at 1/4: the input
+    expect((t.width, t.height, t.rgba.length), (97, 61, 97 * 61 * 4));
+    final o = await v.render(1, 100, 50, 256, 128, 1);
+    expect((o.width, o.height), (256, 128));
+    await expectLater(v.render(0, 0, 0, 389, 1, 1), throwsA(isA<EnhException>()));
+    final late = v.render(0, 0, 0, 64, 64, 1); // still answered: close finishes the queue
+    await v.close();
+    expect((await late).width, 64);
+    expect(() => v.render(0, 0, 0, 1, 1, 1), throwsStateError);
+    await expectLater(
+      RefocalViewer.open(native, '${root.path}/none'),
+      throwsA(isA<EnhException>()),
+    );
+  }, skip: skip);
+
   test('NEEDS_USER answer path', () async {
     final job = session.start(req('nu', extra: {'max_output_mp': 0.05}));
     job.events.listen((e) {

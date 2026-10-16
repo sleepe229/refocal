@@ -194,7 +194,7 @@ class PlatformCodec {        // реализуется на Android (JNI) и iOS
 | `enh-worker` | native core | Один активный джоб: стадии, оркестрация |
 | `enh-prep` / `enh-post` | native core | Подготовка тайлов (CPU) и бленд/запись полос |
 | GPU-очередь | бэкенд | Инференс (Vulkan queue / Core ML) |
-| `enh-io` | native core | Запись BandStore, пирамиды, загрузка паков (Dart HTTP) — отдельно |
+| `enh-io` | native core | Запись BandStore, тайлы просмотра по запросу (`enh_viewer_*`), загрузка паков (Dart HTTP) — отдельно |
 
 - Внутри джоба — конвейер `prep → infer → post`, очереди глубиной 2 тайла.
 - Одновременно выполняется **один** GPU-джоб; очередь сериализуется в `QueueOrchestrator`.
@@ -252,7 +252,7 @@ sequenceDiagram
     N->>B: load(SR) / run × tiles
     N-->>F: events (stage, progress, fallback)
     F-->>C: Stream<JobEvent>
-    N-->>F: DONE {preview, pyramid}
+    N-->>F: DONE {preview, band_rows}
     UI->>C: export(jpeg, meta)
     C->>F: enh_export
     F->>N: encode из BandStore + metaio
@@ -314,7 +314,7 @@ sequenceDiagram
 | `AppSupport/db.sqlite` | drift, без бэкапа: история, очередь, паки, согласия, бенчмарк |
 | `prefs.sqlite` (каталог с бэкапом) | drift: настройки, пользовательские пресеты (PRIV-DATA-005) |
 | `AppSupport/models/<id>@<ver>/` | файлы моделей + `pack.json` |
-| `AppSupport/jobs/<id>/` | `bands/`, `faces/`, `pyramid/`, `checkpoint.json`, `preview.jpg` |
+| `AppSupport/jobs/<id>/` | `bands/`, `checkpoint.json`, `result.json`, `preview.jpg` (тайлы CompareViewer не хранятся: `enh_viewer_render` читает строки полос по запросу — поправка 2026-10-16, 0.3) |
 | `AppSupport/inbox/` | копии входных файлов (квота) |
 | `AppSupport/history/` | превью истории ≤ 512 px (не `Cache/`: запись живёт дольше кэша) |
 | `AppSupport/logs/` | ротируемый лог ≤ 5 МБ |
