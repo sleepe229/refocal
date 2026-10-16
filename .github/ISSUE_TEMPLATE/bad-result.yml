@@ -1,0 +1,26 @@
+name: Bad result
+description: The enhancement made a photo worse (artifacts, a different-looking face, colours).
+labels: [bad-result]
+body:
+  - type: markdown
+    attributes:
+      value: The app's "Report a bad result" fills this in for you. Photos you attach here are **public**.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options: [A face looks like someone else, Artifacts, Colours, Bias, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details (device, OS, version, model, mode, parameters, backend)
+    validations:
+      required: true
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Photos
+      options:
+        - label: If I attach a photo, I have the right to share it and agree that it is public.

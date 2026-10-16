@@ -105,6 +105,11 @@ jobs:
         run: cd packages/refocal_core && dart test
       - name: app widget tests
         run: cd app && flutter test
+      - name: SBOM builds (release.yml, OPS-REL-002)
+        run: |
+          git submodule update --init --depth 1 native/third_party/ncnn
+          (cd app && flutter --suppress-analytics pub deps --json) > "$RUNNER_TEMP/deps.json"
+          tools/sbom/make_sbom.py 0.0.0 "$RUNNER_TEMP/deps.json" "$RUNNER_TEMP/sbom.spdx.json"
 
   native:
     needs: changes

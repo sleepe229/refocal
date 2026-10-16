@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/sleepe229/refocal/security/advisories/new
+    about: Report privately (SECURITY.md), not in a public issue.

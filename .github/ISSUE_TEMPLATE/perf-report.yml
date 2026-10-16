@@ -1,0 +1,21 @@
+name: Performance report
+description: Benchmark results from your phone for the device matrix.
+labels: [perf-report]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device, chip, RAM, OS
+    validations:
+      required: true
+  - type: input
+    id: tier
+    attributes:
+      label: Device class (Settings → Device class), as shown
+      placeholder: T1 by the speed test, graphics processor, 62 ms per tile
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Timings you measured (e.g. 1 MP → 4×), heat, battery
