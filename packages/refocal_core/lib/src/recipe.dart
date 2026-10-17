@@ -67,9 +67,13 @@ class Recipe {
     this.strength = 1,
     this.faceModel,
     this.faceStrength = defaultFaceStrength,
+    this.faceFidelity = defaultFaceFidelity,
     this.facesOnly = false,
     this.output,
   }) {
+    if (!(faceFidelity >= 0 && faceFidelity <= 1)) {
+      throw ArgumentError('faceFidelity must be 0..1, got $faceFidelity');
+    }
     if (facesOnly && faceModel == null) throw ArgumentError('facesOnly needs a face model');
     if (_invalid(scale, fast2, srModel, strength, faceModel, faceStrength) case final why?) {
       throw ArgumentError(why);
@@ -102,6 +106,10 @@ class Recipe {
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
 
+  /// FR-FACE-005: CodeFormer's fidelity w (0 more detail from its codebook .. 1 closer to the
+  /// photo), 0.7 by default as upstream recommends.
+  static const defaultFaceFidelity = 0.7;
+
   /// Output scales (ADR-0014): x4 models, area-downscaled for 2x and 1x; 8x runs x4 twice
   /// (input at most [maxX8InputPx], T2).
   static const scales = {1, 2, 4, 8};
@@ -126,6 +134,9 @@ class Recipe {
   /// How much of the restored face is blended in, 0..1 (FR-FACE-004).
   final double faceStrength;
 
+  /// FR-FACE-005: CodeFormer's fidelity w, 0..1; face models without it ignore it.
+  final double faceFidelity;
+
   /// FR-FACE-006 region "Faces": only faces are restored, the rest is a Lanczos upscale (the
   /// SR model does not run). Region "Background" is [faceModel] null; "All" is the default.
   final bool facesOnly;
@@ -137,6 +148,7 @@ class Recipe {
     double? strength,
     String? Function()? faceModel,
     double? faceStrength,
+    double? faceFidelity,
     bool? facesOnly,
     OutputSpec? Function()? output,
   }) => Recipe(
@@ -146,6 +158,7 @@ class Recipe {
     strength: strength ?? this.strength,
     faceModel: faceModel != null ? faceModel() : this.faceModel,
     faceStrength: faceStrength ?? this.faceStrength,
+    faceFidelity: faceFidelity ?? this.faceFidelity,
     facesOnly:
         (faceModel != null ? faceModel() : this.faceModel) != null && (facesOnly ?? this.facesOnly),
     output: output != null ? output() : this.output,
@@ -160,6 +173,7 @@ class Recipe {
     if (faceModel case final f?) ...{
       'face_model': f,
       'face_strength': faceStrength,
+      if (faceFidelity != defaultFaceFidelity) 'face_fidelity': faceFidelity,
       if (facesOnly) 'faces_only': true,
     },
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
@@ -187,6 +201,11 @@ class Recipe {
         final num v when schema >= 2 => v.toDouble(),
         final other => throw FormatException('bad face_strength', other),
       };
+      final faceFidelity = switch (j['face_fidelity']) {
+        null => defaultFaceFidelity,
+        final num v when schema >= 2 && v >= 0 && v <= 1 => v.toDouble(),
+        final other => throw FormatException('bad face_fidelity', other),
+      };
       if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
           case final why?) {
         throw FormatException(why, j);
@@ -198,6 +217,7 @@ class Recipe {
         strength: strength.toDouble(),
         faceModel: faceModel,
         faceStrength: faceStrength,
+        faceFidelity: faceFidelity,
         facesOnly: switch (j['faces_only']) {
           null => false,
           true when faceModel != null => true,
@@ -233,10 +253,20 @@ class Recipe {
       other.strength == strength &&
       other.faceModel == faceModel &&
       other.faceStrength == faceStrength &&
+      other.faceFidelity == faceFidelity &&
       other.facesOnly == facesOnly &&
       other.output == output;
 
   @override
-  int get hashCode =>
-      Object.hash(scale, fast2, srModel, strength, faceModel, faceStrength, facesOnly, output);
+  int get hashCode => Object.hash(
+    scale,
+    fast2,
+    srModel,
+    strength,
+    faceModel,
+    faceStrength,
+    faceFidelity,
+    facesOnly,
+    output,
+  );
 }

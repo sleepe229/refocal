@@ -507,6 +507,12 @@ final packUpdatesProvider = FutureProvider<List<PackInfo>>((ref) async {
 /// The face pack the app uses (FR-FACE-002: GFPGAN 1.4 by default).
 const defaultFacePack = 'face.gfpgan-1.4';
 
+/// CodeFormer (FR-FACE-005): optional, with a fidelity control (ADR-0024).
+const codeformerPack = 'face.codeformer';
+
+/// Face packs in the order the editor offers them.
+const facePacks = [defaultFacePack, codeformerPack];
+
 /// Whether [r] can run with [available] models (faces need the detector as well).
 bool canRun(Recipe r, Set<String> available) =>
     available.contains(r.srModel) &&

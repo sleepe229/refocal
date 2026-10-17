@@ -16,6 +16,10 @@
 
 namespace enh {
 
+std::vector<ncnn::Mat> InferenceBackend::run_outputs(const ncnn::Mat& in) {
+  return run_inputs({in});
+}
+
 ModelInfo resolve_model(const std::string& models_dir, const std::string& id) {
   if (id.empty() || id.find('/') != std::string::npos || id.find("..") != std::string::npos) {
     fail(ENH_E_INVALID, "bad model id");
@@ -109,12 +113,20 @@ class NcnnBackend final : public InferenceBackend {
 
   void set_threads(int n) override { threads_ = n; }
 
-  std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in) override {
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>& in,
+                                    const std::vector<std::string>& outputs = {}) override {
     net_.opt.num_threads = threads_ > 0 ? threads_ : loaded_threads_;
     ncnn::Extractor ex = net_.create_extractor();
-    if (ex.input(in_name_.c_str(), in) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
+    const auto& names = net_.input_names();
+    if (in.size() != names.size()) fail(ENH_E_MODEL, "model inputs do not match");
+    for (size_t i = 0; i < in.size(); ++i) {
+      if (ex.input(names[i], in[i]) != 0) fail(ENH_E_BACKEND, "ncnn input failed");
+    }
     std::vector<ncnn::Mat> outs;
-    for (const char* name : net_.output_names()) {
+    std::vector<const char*> out_names;
+    for (const auto& o : outputs) out_names.push_back(o.c_str());
+    if (out_names.empty()) out_names = net_.output_names();
+    for (const char* name : out_names) {
       ncnn::Mat m;
       check_extract(ex.extract(name, m), m);
       for (int c = 0; c < m.c; ++c) {

@@ -39,8 +39,12 @@ class InferenceBackend {
   // Throws enh::Error: ENH_E_MODEL (load), ENH_E_BACKEND (run), ENH_E_NUMERIC (NaN/Inf output).
   virtual void load(const ModelInfo& m) = 0;
   virtual void run(const ncnn::Mat& in, ncnn::Mat& out) = 0;
-  // All outputs in the network's declared order (multi-head models, e.g. YuNet's 12).
-  virtual std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in) = 0;
+  // All outputs in the network's declared order (multi-head models, e.g. YuNet's 12), for
+  // inputs in its declared order (multi-input graphs, e.g. the CodeFormer generator, ADR-0024).
+  // [outputs]: these blobs in this order instead (ncnn lists pnnx's out0..outN in any order).
+  virtual std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>& in,
+                                            const std::vector<std::string>& outputs = {}) = 0;
+  std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in);  // one input
   // CPU threads of the next runs (thermal throttling, NFR-THERM-002); 0: as loaded.
   virtual void set_threads(int n) = 0;
   // CPU threads it was loaded with.
