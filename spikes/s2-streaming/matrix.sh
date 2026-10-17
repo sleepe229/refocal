@@ -4,7 +4,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 IN=${IN:-data/avignon_12mp.jpg}
 OUT=out/matrix; mkdir -p "$OUT"
-LOCK="flock /tmp/claude-1000/refocal-bench.lock"
+LOCK="flock /tmp/refocal-bench.lock"
 run() { # name args...
   local n=$1; shift
   if [[ -f "$OUT/$n.json" ]]; then echo "skip $n"; return; fi

@@ -31,7 +31,7 @@ The golden face pair (GFPGAN, 2 x 3 MB, gitignored) is exported from the S1 arti
 On the shared spike machine every timed run goes through the bench lock:
 
 ```bash
-flock /tmp/claude-1000/refocal-bench.lock build/refocal-probe probe --threads 6 --face
+flock /tmp/refocal-bench.lock build/refocal-probe probe --threads 6 --face
 ```
 
 ## CLI

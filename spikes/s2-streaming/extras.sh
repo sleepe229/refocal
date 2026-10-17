@@ -2,7 +2,7 @@
 # Follow-up experiments after matrix.sh.
 set -uo pipefail
 cd "$(dirname "$0")"
-LOCK="flock /tmp/claude-1000/refocal-bench.lock"
+LOCK="flock /tmp/refocal-bench.lock"
 OUT=out/matrix
 # cold-read export: band files evicted from the page cache after commit
 rm -rf out/job_m

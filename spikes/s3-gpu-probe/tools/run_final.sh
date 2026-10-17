@@ -3,7 +3,7 @@
 set -u
 cd "$(dirname "$0")/.."
 P=build/refocal-probe
-L="flock /tmp/claude-1000/refocal-bench.lock"
+L="flock /tmp/refocal-bench.lock"
 rm -rf data/runs/garbage2
 $L $P probe --work-dir data/runs/garbage2 --face-only --face-model gfpgan14 --threads 6 --face-runs 1 \
    --backends vk0-fp16,vk1-fp16 --record-wrong-output 2>&1 | grep '^\[probe\]'

@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 BE=${1:-cpu}; FP=${2:-0}
 IN=data/stockholm_1mp.jpg
 OUT=out/seams_${BE}_fp${FP}; mkdir -p "$OUT"
-LOCK="flock /tmp/claude-1000/refocal-bench.lock"
+LOCK="flock /tmp/refocal-bench.lock"
 run() { # name args...
   local n=$1; shift
   $LOCK build/s2_stream --input $IN --job "$OUT/job" --backend $BE --fp16 $FP --threads 8 \

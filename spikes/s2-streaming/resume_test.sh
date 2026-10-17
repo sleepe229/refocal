@@ -45,5 +45,5 @@ inner() {
   rm -f "$D"/*.png
 }
 export -f inner; export D IN
-flock /tmp/claude-1000/refocal-bench.lock bash -c 'inner "$@"' _ "$@"
+flock /tmp/refocal-bench.lock bash -c 'inner "$@"' _ "$@"
 cat "$D/kill.txt"
