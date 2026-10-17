@@ -30,6 +30,7 @@
 #include "pipeline/bandstore.hpp"
 #include "pipeline/faces.hpp"
 #include "pipeline/geometry.hpp"
+#include "pipeline/jpeg_clean.hpp"
 #include "policy/gpu_gate.hpp"
 #include "policy/gpu_identity.hpp"
 #include "util/error.hpp"
@@ -64,6 +65,8 @@ JobRequest parse_job_request(const std::string& text) {
     r.face_fidelity = j.value("face_fidelity", r.face_fidelity);
     r.face_color_match = j.value("face_color_match", r.face_color_match);
     r.background = j.value("background", r.background);
+    r.jpeg_model = j.value("jpeg_model", r.jpeg_model);
+    r.jpeg_qf = j.value("jpeg_qf", r.jpeg_qf);
     for (const auto& b : j.value("faces_off", nlohmann::json::array())) {
       const auto v = b.get<std::vector<float>>();
       if (v.size() != 4 ||
@@ -99,6 +102,7 @@ JobRequest parse_job_request(const std::string& text) {
   if (!(r.face_fidelity >= 0 && r.face_fidelity <= 1)) fail(ENH_E_INVALID, "bad face_fidelity");
   if (!r.face_model.empty() && r.det_model.empty()) fail(ENH_E_INVALID, "faces need det_model");
   if (r.background != "sr" && r.background != "lanczos") fail(ENH_E_INVALID, "bad background");
+  if (!std::isfinite(r.jpeg_qf) || r.jpeg_qf > 1) fail(ENH_E_INVALID, "bad jpeg_qf");
   if (r.background == "lanczos" && r.face_model.empty()) {
     fail(ENH_E_INVALID, "a Lanczos background is the Faces region: it needs face_model");
   }
@@ -122,6 +126,8 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
                       {"face_fidelity", r.face_fidelity},
                       {"face_color_match", r.face_color_match},
                       {"background", r.background},
+                      {"jpeg_model", r.jpeg_model},
+                      {"jpeg_qf", r.jpeg_qf},
                       {"faces_off", [&] {
                          nlohmann::json a = nlohmann::json::array();
                          for (const FaceBox& b : r.faces_off) a.push_back({b.x, b.y, b.w, b.h});
@@ -387,6 +393,7 @@ struct enh_job {
   // kMinFacePx are left alone; a face larger than 512 px in the input gets half the strength
   // (FR-FACE-009).
   std::vector<RestoredFace> restore_faces(const JobRequest& req, const Rgb8& img);
+  Rgb8 clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality);
 
   void run();
   void run_impl(nlohmann::json& result);
@@ -472,11 +479,49 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
     s += ";crop=" + std::to_string(r.crop_x) + "," + std::to_string(r.crop_y) + "," +
          std::to_string(r.crop_w) + "," + std::to_string(r.crop_h);
   }
+  if (!r.jpeg_model.empty()) s += ";jpeg=" + r.jpeg_model + "," + std::to_string(r.jpeg_qf);
   if (!stage.empty()) s += ";stage=" + stage;
   return Sha256::of_string(s);
 }
 
 }  // namespace
+
+// S9: FBCNN restore graph, 1x, before faces and SR. A model that fails on every backend leaves
+// the image as it is, with a FALLBACK event (ADR-0016), as for faces.
+Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
+  const float qf = req.jpeg_qf >= 0 ? float(req.jpeg_qf) : jpeg_qf_of_quality(jpeg_quality);
+  sink.emit(ENH_EV_STAGE, kStageJpeg, 0, 0, {{"stage", "jpeg_clean"}, {"qf", qf}});
+  const ModelInfo m = resolve_model(s->models_dir, req.jpeg_model);
+  Ladder lad = backend_ladder(*s, req, req.jpeg_model);
+  if (lad.rungs.back().kind == BackendKind::cpu)
+    lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
+  // Tiles multiple of 8 (three stride-2 levels); 256 like SR on T1/T2 (S2/S3).
+  constexpr int kTile = 256;
+  for (size_t rung = 0; rung < lad.rungs.size(); ++rung) {
+    enh_status st = ENH_OK;
+    try {
+      auto be = make_ncnn_backend(lad.rungs[rung]);
+      be->load(m);
+      return jpeg_clean(*be, img, qf, kTile, m.pad, [&](int done, int total) {
+        sink.progress(kStageJpeg, done, total, -1, done == total);
+        return !stop();
+      });
+    } catch (const Error& e) {
+      if (e.status() == ENH_E_CANCELLED && stop()) throw Stopped{};
+      if (e.status() == ENH_E_MODEL || !recoverable(e.status())) throw;
+      st = e.status();
+    } catch (const std::bad_alloc&) {
+      st = ENH_E_OOM;
+    }
+    const bool last = rung + 1 >= lad.rungs.size();
+    nlohmann::json p = {{"kind", last ? "jpeg" : "backend"},
+                        {"from", backend_kind_name(lad.rungs[rung])},
+                        {"reason", fallback_reason(st)}};
+    p["to"] = last ? "skipped" : backend_kind_name(lad.rungs[rung + 1]);
+    sink.emit(ENH_EV_FALLBACK, kStageJpeg, 0, 0, p);
+  }
+  return img;
+}
 
 std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rgb8& img) {
   sink.emit(ENH_EV_STAGE, kStageFaces, 0, 0, {{"stage", "restore_faces"}});
@@ -786,6 +831,12 @@ void enh_job::run_impl(nlohmann::json& result) {
   }
   const int src_w = img.w, src_h = img.h;
   if (stop()) throw Stopped{};
+
+  // ---- JPEG cleanup (S9): the whole (cropped) photo, before faces see it ----
+  if (!req.jpeg_model.empty()) {
+    img = clean_jpeg(req, std::move(img), info.jpeg_quality);
+    if (stop()) throw Stopped{};
+  }
 
   // ---- faces (ADR-0012): before the SR model is loaded, so one heavy model is in memory ----
   std::vector<RestoredFace> faces;

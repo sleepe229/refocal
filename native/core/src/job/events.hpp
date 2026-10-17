@@ -17,7 +17,8 @@ enum Stage : int32_t {
   kStageDecode = 1,
   kStageUpscale = 2,
   kStageFinalize = 3,
-  kStageFaces = 4  // DetectFaces + RestoreFaces (ADR-0012)
+  kStageFaces = 4,  // DetectFaces + RestoreFaces (ADR-0012)
+  kStageJpeg = 5    // JPEG cleanup before SR (S9)
 };
 const char* stage_name(int32_t stage);
 

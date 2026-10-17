@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -86,11 +87,13 @@ static void check_invariants(Collector& c) {
   std::lock_guard lk(c.mu);
   CHECK(c.terminals == 1);
   CHECK(!c.evs.empty() && (c.evs.back().type == ENH_EV_DONE || c.evs.back().type == ENH_EV_ERROR));
-  int64_t last = -1;
+  // Monotonic within a stage (JPEG cleanup and SR count their own tiles).
+  std::map<int32_t, int64_t> last;
   for (auto& e : c.evs)
     if (e.type == ENH_EV_PROGRESS) {
-      CHECK(e.done >= last && e.done <= e.total);
-      last = e.done;
+      auto it = last.try_emplace(e.stage, -1).first;
+      CHECK(e.done >= it->second && e.done <= e.total);
+      it->second = e.done;
     }
 }
 
@@ -397,6 +400,42 @@ static void test_tiled_equals_whole(Session& se) {
   CHECK(a.px.size() == b.px.size());
   std::printf("bilinear tiled vs whole: max diff %d\n", maxd);
   CHECK(maxd == 0);
+}
+
+// S9: with an identity JPEG pack the result is the plain one; the pass reports its stage and
+// the quality factor read from the input (make_jpeg writes quality 95 -> qf 0.05).
+static void test_jpeg_clean(Session& se) {
+  const std::string dir = fs::join(g_models, "jpeg.identity");
+  fs::mkdirs(dir);
+  fs::write_atomic(fs::join(dir, "model.ncnn.param"),
+                   std::string("7767517\n3 3\nInput in0 0 1 in0\nInput in1 0 1 in1\n"
+                               "Noop id 1 1 in0 out0\n"));
+  fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
+  fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":1,\"pad\":8}"));
+  const std::string in = make_jpeg("jc.jpg", 301, 157);
+  Collector plain, clean;
+  CHECK(run_job(se, req("jp", in, "nearest4"), plain).status == ENH_OK);
+  json q = req("jc", in, "nearest4");
+  q["jpeg_model"] = "jpeg.identity";
+  CHECK(run_job(se, q, clean).status == ENH_OK);
+  CHECK(read_output(fs::join(g_work, "jc")).px == read_output(fs::join(g_work, "jp")).px);
+  bool staged = false, progressed = false;
+  {
+    std::lock_guard lk(clean.mu);
+    for (const auto& e : clean.evs) {
+      if (e.type == ENH_EV_STAGE && e.stage == 5) {
+        staged = true;
+        CHECK(std::fabs(e.payload.value("qf", -1.0) - 0.05) < 0.011);
+      }
+      progressed |= e.type == ENH_EV_PROGRESS && e.stage == 5 && e.done == e.total;
+    }
+  }
+  CHECK(staged && progressed);
+  Collector bad;
+  json b = req("jb", in, "nearest4");
+  b["jpeg_model"] = "jpeg.identity";
+  b["jpeg_qf"] = 1.5;
+  CHECK(run_job(se, b, bad).status != ENH_OK);
 }
 
 static void test_orientation(Session& se) {
@@ -1173,6 +1212,7 @@ int main(int argc, char** argv) {
     test_viewer(se);
     test_crop(se);
     test_orientation(se);
+    test_jpeg_clean(se);
     test_export(se);
     test_lanczos();
     test_icc_validation();

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <mat.h>
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,7 @@
 #include "image/ops.hpp"
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
+#include "pipeline/jpeg_clean.hpp"
 #include "policy/gpu_gate.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -164,6 +166,62 @@ static void test_gpu_gate() {
   CHECK(!compare_tiles(small, ref).pass);
 }
 
+// S9: the JPEG cleanup pass with an identity network: every pixel comes back from the tile that
+// owns it, network inputs are multiples of 8, and the qf input reaches the network.
+class IdentityNet final : public InferenceBackend {
+ public:
+  std::string name() const override { return "identity"; }
+  const BackendConfig& config() const override { return cfg_; }
+  void load(const ModelInfo&) override {}
+  void run(const ncnn::Mat& in, ncnn::Mat& out) override { out = in.clone(); }
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>& in,
+                                    const std::vector<std::string>& = {}) override {
+    if (in.at(0).w % kJpegCleanMultiple || in.at(0).h % kJpegCleanMultiple) ++bad_shape;
+    qf = in.at(1)[0];
+    ++calls;
+    return {in.at(0).clone()};
+  }
+  void set_threads(int) override {}
+  int threads() const override { return 1; }
+  int calls = 0, bad_shape = 0;
+  float qf = -1;
+
+ private:
+  BackendConfig cfg_;
+};
+
+static void test_jpeg_clean() {
+  CHECK(std::fabs(jpeg_qf_of_quality(30) - 0.7f) < 1e-6f);
+  CHECK(std::fabs(jpeg_qf_of_quality(0) - 0.5f) < 1e-6f);
+  for (auto [w, h, tile, pad] :
+       {std::array{37, 23, 16, 4}, std::array{5, 3, 64, 16}, std::array{100, 64, 32, 8}}) {
+    Rgb8 img;
+    img.w = w;
+    img.h = h;
+    img.px.resize(size_t(w) * h * 3);
+    for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 31 % 253);
+    IdentityNet net;
+    int ticks = 0;
+    const Rgb8 out = jpeg_clean(net, img, 0.7f, tile, pad, [&](int, int) { return ++ticks > 0; });
+    CHECK(out.w == w && out.h == h && out.px == img.px);
+    CHECK(net.bad_shape == 0);
+    CHECK(std::fabs(net.qf - 0.7f) < 1e-6f);
+    CHECK(ticks == net.calls && net.calls >= 1);
+  }
+  // Stopping from the tick ends it with ENH_E_CANCELLED.
+  Rgb8 img;
+  img.w = img.h = 40;
+  img.px.assign(size_t(40) * 40 * 3, 9);
+  IdentityNet net;
+  bool cancelled = false;
+  try {
+    (void)jpeg_clean(net, img, 0.5f, 16, 4, [](int, int) { return false; });
+  } catch (const Error& e) {
+    cancelled = e.status() == ENH_E_CANCELLED;
+  }
+  CHECK(cancelled && net.calls == 1);
+}
+
 int main(int argc, char** argv) {
   std::string dir = argc > 1 ? argv[1] : "test-work";
   fs::remove_tree(dir);
@@ -175,6 +233,7 @@ int main(int argc, char** argv) {
   test_jpeg(dir);
   test_bandstore(dir);
   test_gpu_gate();
+  test_jpeg_clean();
   std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;
 }

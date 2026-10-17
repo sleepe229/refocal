@@ -26,6 +26,7 @@ struct ImageInfo {
   std::string format;     // jpeg | png | webp | heif | avif | gif | bmp | other
   bool alpha = false;     // had transparency (composited onto white; SourceMeta::alpha)
   bool animated = false;  // first frame only
+  int jpeg_quality = 0;   // JPEG: IJG quality of the luminance table (S9); 0 otherwise
 };
 
 // Metadata carried to the result (ADR-0018). exif is a bare TIFF block.

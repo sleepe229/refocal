@@ -32,6 +32,8 @@ const char* stage_name(int32_t s) {
       return "upscale";
     case kStageFinalize:
       return "finalize";
+    case kStageJpeg:
+      return "jpeg_clean";
     default:
       return "unknown";
   }
