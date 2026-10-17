@@ -38,6 +38,7 @@ final autoProvider = Provider.autoDispose.family<AsyncValue<AutoProposal>, Strin
     facePack: available.contains(defaultFacePack) && available.contains(bundledDetector)
         ? defaultFacePack
         : null,
+    jpegPack: available.contains(jpegPack) ? jpegPack : null,
   );
   final analysis = ref.watch(photoAnalysisProvider(input));
   final tier = switch (ref.watch(tierProvider)) {

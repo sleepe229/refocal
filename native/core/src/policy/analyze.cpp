@@ -74,6 +74,7 @@ nlohmann::json analyze_image(enh_session& s, const std::string& path,
           {"height", h},
           {"megapixels", double(w) * h / 1e6},
           {"noise_sigma", estimate_noise(small)},
+          {"jpeg_quality", info.jpeg_quality},  // S9: 0 when not a JPEG
           {"faces", faces}};
 }
 
