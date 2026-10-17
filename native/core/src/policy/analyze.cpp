@@ -61,7 +61,12 @@ nlohmann::json analyze_image(enh_session& s, const std::string& path,
     nlohmann::json boxes = nlohmann::json::array();
     for (const Face& f : found) {
       largest = std::max(largest, std::max(f.w, f.h));
-      boxes.push_back({std::round(f.x), std::round(f.y), std::round(f.w), std::round(f.h)});
+      // A face at the edge has its box partly outside the photo: the part inside is listed
+      // (the app reads boxes as non-negative pixels of the photo).
+      const float x0 = std::clamp(f.x, 0.f, float(w)), y0 = std::clamp(f.y, 0.f, float(h));
+      const float x1 = std::clamp(f.x + f.w, 0.f, float(w)),
+                  y1 = std::clamp(f.y + f.h, 0.f, float(h));
+      boxes.push_back({std::round(x0), std::round(y0), std::round(x1 - x0), std::round(y1 - y0)});
     }
     faces = {{"count", found.size()},
              {"largest_px", int(largest)},
