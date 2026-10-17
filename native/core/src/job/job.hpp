@@ -37,6 +37,11 @@ struct JobRequest {
   // FR-ENH-015 fragment preview: only this part of the oriented input (x, y, w, h; w = 0: the
   // whole input). Each side 16..2048.
   int crop_x = 0, crop_y = 0, crop_w = 0, crop_h = 0;
+  // S9 JPEG cleanup: a JPEG pack id ("" = off) run 1x before faces and SR, and its quality
+  // factor 0..1 (1 - quality/100); < 0: from the input's quantization table (quality 50 when
+  // the input is not a JPEG).
+  std::string jpeg_model;
+  double jpeg_qf = -1;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)

@@ -56,6 +56,7 @@ ImageInfo probe_image(const std::string& path) {
     i.w = j.w;
     i.h = j.h;
     i.orientation = j.orientation;
+    i.jpeg_quality = j.quality;
   } else if (fmt == "png") {
     i = png_probe(path);
   } else if (fmt == "webp") {
