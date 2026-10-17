@@ -1,6 +1,6 @@
 # Nightly (docs/spec/11-ci-cd-release.md §1). Fuzzing 1 h (30 min per target) on the corpus the
 # PR runs grew; Beta gate (10 §5): 1 h without findings. Faces end to end with the real face
-# pack (177 MB, too large for every PR). Patrol on emulators, NR-IQA/ArcFace and device-farm
+# packs (GFPGAN 177 MB, CodeFormer 190 MB: too large for every PR). Patrol on emulators, NR-IQA/ArcFace and device-farm
 # perf join with their tooling.
 name: nightly
 
@@ -58,6 +58,11 @@ jobs:
         run: |
           DEST=native/build-ci/golden tools/models/fetch.sh
           python3 tools/models/fetch_pack.py face.gfpgan-1.4 native/build-ci/golden
+          python3 tools/models/fetch_pack.py face.codeformer native/build-ci/golden
+          # Golden pair of the CodeFormer split graph (ADR-0024), written by convert_codeformer.py.
+          mkdir -p native/build-ci/golden/face.codeformer-golden
+          gh release download model-face.codeformer-v1 --pattern '*_3x512x512.f32' \
+            --dir native/build-ci/golden/face.codeformer-golden
       - name: Build and run test_faces
         run: |
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -DENH_BUILD_TESTS=ON \

@@ -27,6 +27,7 @@
 | [ADR-0021](ADR-0021-native-crypto.md) | Crypto in native core | Accepted |
 | [ADR-0022](ADR-0022-face-models-licensing-defaults.md) | Face models: licensing and safe defaults | Accepted |
 | [ADR-0023](ADR-0023-gfpgan-mobile-graph-rewrite.md) | Mobile graph rewrite for StyleGAN2-based face models | Accepted |
+| [ADR-0024](ADR-0024-codeformer-split-graph.md) | CodeFormer as a split graph with the fidelity as an input | Accepted |
 
 ## Шаблон
 

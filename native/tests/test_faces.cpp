@@ -7,6 +7,7 @@
 #include <net.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <nlohmann/json.hpp>
@@ -114,7 +115,9 @@ class FakeYunet final : public InferenceBackend {
   const BackendConfig& config() const override { return cfg_; }
   void load(const ModelInfo&) override {}
   void run(const ncnn::Mat&, ncnn::Mat&) override {}
-  std::vector<ncnn::Mat> run_outputs(const ncnn::Mat& in) override {
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>& ins,
+                                    const std::vector<std::string>& = {}) override {
+    const ncnn::Mat& in = ins.at(0);
     seen_w = in.w;
     seen_h = in.h;
     return outs;
@@ -305,6 +308,47 @@ TEST("analyze: size, faces with the detector, noise") {
   }
   CHECK(enh_analyze(s, "/nonexistent.jpg", &out) != ENH_OK);
   enh_session_destroy(s);
+}
+
+TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") {
+  // ADR-0024: encoder -> argmax over the codebook in the core -> generator with w. The golden
+  // pair is written by tools/models/convert_codeformer.py next to the pack.
+  const std::string gold = fs::join(g_models, "face.codeformer-golden");
+  if (g_models.empty() || !fs::exists(fs::join(g_models, "face.codeformer/encoder.ncnn.bin")) ||
+      !fs::exists(fs::join(gold, "in_3x512x512.f32"))) {
+    std::printf("  no CodeFormer pack: skipped\n");
+    return;
+  }
+  const size_t n = size_t(3) * kFaceSide * kFaceSide;
+  std::vector<float> in(n), ref(n);
+  fs::read_exact(fs::join(gold, "in_3x512x512.f32"), in.data(), n * sizeof(float));
+  fs::read_exact(fs::join(gold, "out_w07_3x512x512.f32"), ref.data(), n * sizeof(float));
+  auto to_rgb = [](const std::vector<float>& planes) {
+    Rgb8 im;
+    im.w = im.h = kFaceSide;
+    im.px.resize(size_t(kFaceSide) * kFaceSide * 3);
+    for (int c = 0; c < 3; ++c)
+      for (size_t i = 0; i < size_t(kFaceSide) * kFaceSide; ++i)
+        im.px[i * 3 + c] = uint8_t(
+            std::clamp((planes[c * kFaceSide * kFaceSide + i] + 1.f) * 127.5f + 0.5f, 0.f, 255.f));
+    return im;
+  };
+  const FaceModel fm = resolve_face_model(g_models, "face.codeformer");
+  CHECK(fm.split);
+  BackendConfig cpu;
+  cpu.kind = BackendKind::cpu;
+  cpu.threads = 4;
+  FaceRestorer r(fm, cpu);
+  const Rgb8 out = r.restore(to_rgb(in), kDefaultFidelity);
+  const Rgb8 want = to_rgb(ref);
+  double se = 0;
+  for (size_t i = 0; i < out.px.size(); ++i)
+    se += double(out.px[i] - want.px[i]) * (out.px[i] - want.px[i]);
+  const double psnr = 10 * std::log10(255.0 * 255.0 * out.px.size() / std::max(se, 1e-9));
+  std::printf("  CodeFormer w 0.7 vs PyTorch fp32: %.1f dB\n", psnr);
+  CHECK(psnr >= 35);
+  // Fidelity reaches the graph: w 0 and w 1 give different faces.
+  CHECK(r.restore(to_rgb(in), 0).px != r.restore(to_rgb(in), 1).px);
 }
 
 TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4)") {
