@@ -84,10 +84,21 @@ void main() {
         containsAll(['sr.general-x4v3-dn0', 'sr.general-x4v3-dn100', 'face.gfpgan-1.4']),
       );
       for (final p in m.packs) {
-        // What the core loads (<id>/model.ncnn.*); model.json (scale, pad) is optional.
+        // What the core loads: <id>/model.ncnn.*, or CodeFormer's split graph (ADR-0024);
+        // model.json (scale, pad, split) is optional for one graph.
+        final files = p.filesFor('android', 'ncnn').map((f) => f.path).toList();
         expect(
-          p.filesFor('android', 'ncnn').map((f) => f.path),
-          containsAll(['model.ncnn.param', 'model.ncnn.bin']),
+          files,
+          p.id == 'face.codeformer'
+              ? containsAll([
+                  'encoder.ncnn.param',
+                  'encoder.ncnn.bin',
+                  'generator.ncnn.param',
+                  'generator.ncnn.bin',
+                  'codebook.f32',
+                  'model.json',
+                ])
+              : containsAll(['model.ncnn.param', 'model.ncnn.bin']),
           reason: p.id,
         );
       }
