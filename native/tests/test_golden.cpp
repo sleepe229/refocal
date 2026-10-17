@@ -149,8 +149,10 @@ void lowlight(const std::string& root) {
   ncnn::Mat x(kN, kN, 3);
   for (int c = 0; c < 3; ++c)
     std::copy_n(in.data() + size_t(c) * px, px, static_cast<float*>(x.channel(c)));
-  ncnn::Mat y;
-  be->run(x, y);
+  const auto ys = be->run_inputs({x}, {"out0"});
+  CHECK(ys.size() == 1);
+  if (ys.size() != 1) return;
+  const ncnn::Mat& y = ys[0];
   CHECK(y.w == kN && y.h == kN && y.c == 3);
   if (y.w != kN || y.h != kN || y.c != 3) return;
   // PSNR with H and V (in [-1, 1]) and I (in [0, 1]) taken as they are, over a range of 2.

@@ -235,9 +235,11 @@ class SameNet final : public InferenceBackend {
     h = in.h;
     out = in.clone();
   }
-  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>&,
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>& in,
                                     const std::vector<std::string>& = {}) override {
-    return {};
+    ncnn::Mat out;
+    run(in.at(0), out);
+    return {out};
   }
   void set_threads(int) override {}
   int threads() const override { return 1; }

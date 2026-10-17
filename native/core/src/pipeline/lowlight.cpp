@@ -98,8 +98,10 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
       in.channel(2).row(y)[x] = c.i;
     }
   }
-  ncnn::Mat out;
-  be.run(in, out);
+  // By name: ncnn lists every unconsumed blob as an output, in any order (backend.hpp).
+  const std::vector<ncnn::Mat> res_out = be.run_inputs({in}, {"out0"});
+  if (res_out.empty()) fail(ENH_E_BACKEND, "low light: no output");
+  const ncnn::Mat& out = res_out[0];
   if (out.w != nw || out.h != nh || out.c != 3)
     fail(ENH_E_BACKEND, "low light: unexpected output shape");
   // The correction on the downscale.
