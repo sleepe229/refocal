@@ -73,6 +73,7 @@ kotlin {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0") // Pigeon async API
+    implementation("androidx.heifwriter:heifwriter:1.0.0") // HEIC output (ADR-0003, FR-EXP-002)
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

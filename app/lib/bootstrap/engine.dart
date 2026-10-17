@@ -24,6 +24,16 @@ const _bundled = {
 
 final platformApiProvider = Provider((_) => RefocalPlatformApi());
 
+/// Whether HEIC can be offered on this device (FR-EXP-002, Q-12); asked once.
+final heicSupportedProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await ref.read(platformApiProvider).heicSupported();
+  } on Exception catch (e) {
+    AppLog.warn('heicSupported: $e');
+    return false;
+  }
+});
+
 final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiProvider).getDirs());
 
 class Engine {

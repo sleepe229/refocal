@@ -11,10 +11,15 @@
 //               "metadata":{"exif":true,"gps":false,"ai_marker":true,"creator_tool":"Refocal x"},
 //               "thumbnail":{"path":"/abs/thumb.jpg","max_side":512,"quality":80}}
 // (all optional; the values shown are the defaults, no thumbnail by default). format: jpeg |
-// png | webp; quality: JPEG and lossy WebP; lossless: WebP only. thumbnail: a JPEG of the
+// png | webp | rgba | heic; quality: JPEG and lossy WebP; lossless: WebP only. thumbnail: a JPEG of the
 // exported pixels (strength applied), <= max_side px, without metadata, accumulated while the
 // bands stream (the history preview, FR-HIST-001, PRIV-DATA-002); written before the output is
 // renamed into place and removed if the export fails.
+//
+// HEIC (FR-EXP-002, ADR-0003 amendment) is encoded by the platform, in two calls around it:
+// "rgba" writes the pixels as raw RGBA8 (alpha 255: HeifWriter keeps none), <= kHeicMaxPixels,
+// with the thumbnail; the platform encodes that file; "heic" with "heif_input": <its path> then
+// attaches the metadata to the encoded file (heif_meta: ICC, EXIF, XMP) and writes dst_path.
 // SPDX-License-Identifier: Apache-2.0
 #include <unistd.h>
 
@@ -27,6 +32,7 @@
 #include "enh.h"
 #include "image/decode.hpp"
 #include "image/encode.hpp"
+#include "image/heif_meta.hpp"
 #include "image/jpeg.hpp"
 #include "image/metaio.hpp"
 #include "image/ops.hpp"
@@ -59,8 +65,10 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     const int quality = opt.value("quality", 92);
     const bool lossless = opt.value("lossless", false);
     const double strength = opt.value("strength", 1.0);
-    if (format != "jpeg" && format != "png" && format != "webp")
+    if (format != "jpeg" && format != "png" && format != "webp" && format != "rgba" &&
+        format != "heic") {
       fail(ENH_E_INVALID, "unsupported format");
+    }
     if (quality < 1 || quality > 100) fail(ENH_E_INVALID, "bad quality");
     if (lossless && format != "webp") fail(ENH_E_INVALID, "lossless is for webp");
     if (!(strength >= 0 && strength <= 1)) fail(ENH_E_INVALID, "strength must be 0..1");
@@ -97,6 +105,30 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     nlohmann::json written = {
         {"exif", !meta.exif.empty()}, {"icc", !meta.icc.empty()}, {"ai_marker", !meta.xmp.empty()}};
 
+    if (format == "heic") {
+      const std::string src = opt.value("heif_input", std::string());
+      if (src.empty()) fail(ENH_E_INVALID, "heic needs heif_input");
+      if (thumb_max) fail(ENH_E_INVALID, "the thumbnail comes with the rgba export");
+      if (fs::file_size(src) > int64_t(kHeifMaxBytes)) fail(ENH_E_LIMIT, "heif too large");
+      const auto out = heif_attach_meta(fs::read_all(src), meta);
+      fs::write_atomic(dst_path, out.data(), out.size(), false);
+      if (out_json) {
+        const std::string d = dump_json({{"path", dst_path},
+                                         {"format", format},
+                                         {"width", w},
+                                         {"height", h},
+                                         {"bytes", out.size()},
+                                         {"strength", strength},
+                                         {"metadata", written}});
+        *out_json = static_cast<char*>(std::malloc(d.size() + 1));
+        if (!*out_json) return ENH_E_OOM;
+        std::memcpy(*out_json, d.c_str(), d.size() + 1);
+      }
+      return ENH_OK;
+    }
+    if (format == "rgba" && double(w) * h > kHeicMaxPixels) fail(ENH_E_LIMIT, "too large for HEIC");
+    if (format == "rgba") written = {{"exif", false}, {"icc", false}, {"ai_marker", false}};
+
     // Base of the strength blend: the oriented input, resampled to the result size.
     Rgb8 src;
     std::unique_ptr<LanczosResampler> base;
@@ -112,7 +144,7 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     // (kept as three equal channels for the resampler); JPEG stays on white.
     std::unique_ptr<LanczosResampler> alpha_up;
     Rgb8 alpha3;
-    if (format != "jpeg" && res.contains("alpha")) {
+    if ((format == "png" || format == "webp") && res.contains("alpha")) {
       const auto& a = res["alpha"];
       const int aw = a.at("width").get<int>(), ah = a.at("height").get<int>();
       const auto raw = fs::read_all(fs::join(job_dir, kAlphaFile));
@@ -141,8 +173,9 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
           base->rows(y, rows[b], lo.data());
           blend(lo.data(), buf.data(), n, float(strength), buf.data());
         }
-        if constexpr (std::is_same_v<std::decay_t<decltype(writer)>, JpegWriter>) {
-          writer.write_rows(buf.data(), rows[b]);  // JPEG has no alpha
+        if constexpr (std::is_same_v<std::decay_t<decltype(writer)>, JpegWriter> ||
+                      std::is_same_v<std::decay_t<decltype(writer)>, RgbaWriter>) {
+          writer.write_rows(buf.data(), rows[b]);  // no alpha
         } else {
           if (alpha_up) {
             const size_t px = size_t(rows[b]) * w;
@@ -165,9 +198,12 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     } else if (format == "png") {
       PngWriter pw(tmp, w, h, &meta, alpha_up != nullptr);
       pump(pw);
-    } else {
+    } else if (format == "webp") {
       WebpWriter ww(tmp, w, h, quality, lossless, &meta, alpha_up != nullptr);
       pump(ww);
+    } else {
+      RgbaWriter rw(tmp, w, h);
+      pump(rw);
     }
     Rgb8 tn;
     if (thumb_max) {

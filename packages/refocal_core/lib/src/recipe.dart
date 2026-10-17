@@ -1,9 +1,11 @@
-/// Output formats of the native export (FR-EXP-001). HEIC output is 0.5+ (FR-EXP-002).
+/// Output formats of the native export (FR-EXP-001, FR-EXP-002). HEIC is encoded by the platform
+/// and offered only where it can be (`heicSupported`, Q-12).
 enum ExportFormat {
   jpeg('jpeg', false, 'jpg', 'image/jpeg'),
   png('png', false, 'png', 'image/png'),
   webp('webp', false, 'webp', 'image/webp'),
-  webpLossless('webp', true, 'webp', 'image/webp');
+  webpLossless('webp', true, 'webp', 'image/webp'),
+  heic('heic', false, 'heic', 'image/heic');
 
   const ExportFormat(this.format, this.lossless, this.extension, this.mimeType);
 
@@ -16,11 +18,12 @@ enum ExportFormat {
   static const minQuality = 60, maxQuality = 100;
 
   /// Uses the quality setting (lossy).
-  bool get hasQuality => this == jpeg || this == webp;
+  bool get hasQuality => this == jpeg || this == webp || this == heic;
 
-  /// WebP encodes a whole picture in memory: the core refuses larger results (ENH_E_LIMIT).
+  /// WebP encodes a whole picture in memory, HEIC one bitmap on the platform: the core refuses
+  /// larger results (ENH_E_LIMIT).
   double get maxMegapixels => switch (this) {
-    webp => 50,
+    webp || heic => 50,
     webpLossless => 24,
     _ => double.infinity,
   };

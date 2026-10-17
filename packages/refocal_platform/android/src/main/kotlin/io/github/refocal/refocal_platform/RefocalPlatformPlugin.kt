@@ -15,18 +15,23 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
+import android.media.MediaCodecList
+import android.media.MediaFormat
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.os.ext.SdkExtensions
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import androidx.heifwriter.HeifWriter
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.channels.FileChannel
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.util.UUID
@@ -38,7 +43,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Platform services over Pigeon (ADR-0005). No GMS/androidx dependencies (COMP-FDR-007):
+ * Platform services over Pigeon (ADR-0005). No GMS (COMP-FDR-007); the only androidx library is
+ * heifwriter (HEIC output, ADR-0003):
  * the system photo picker (ACTION_PICK_IMAGES) where available, else the document picker;
  * images shared to the app (ACTION_SEND/SEND_MULTIPLE, FR-SHARE-001); saving to a user-chosen
  * document.
@@ -82,6 +88,54 @@ class RefocalPlatformPlugin :
     val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeUnless { it == Build.UNKNOWN } else null
     return DeviceInfo(totalRamBytes = mem.totalMem, osBuild = Build.FINGERPRINT, soc = soc ?: Build.HARDWARE)
   }
+
+  override fun heicSupported(): Boolean =
+      MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+        info.isEncoder && info.supportedTypes.any {
+          it.equals(MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC, true) || it.equals(MediaFormat.MIMETYPE_VIDEO_HEVC, true)
+        }
+      }
+
+  /**
+   * FR-EXP-002: the core's raw RGBA (alpha 255) is mapped, not read into the Java heap, and copied
+   * into one ARGB_8888 bitmap (<= 50 MP: 200 MB of native memory); HeifWriter tiles it into a grid.
+   */
+  override suspend fun encodeHeic(rgbaPath: String, width: Long, height: Long, quality: Long, dstPath: String) =
+      withContext(Dispatchers.Default) {
+        val w = width.toInt()
+        val h = height.toInt()
+        val bitmap =
+            try {
+              Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            } catch (e: OutOfMemoryError) {
+              throw FlutterError("heic", "Not enough memory for a ${w}x$h bitmap")
+            }
+        try {
+          RandomAccessFile(rgbaPath, "r").use { f ->
+            bitmap.copyPixelsFromBuffer(f.channel.map(FileChannel.MapMode.READ_ONLY, 0, w.toLong() * h * 4))
+          }
+          val writer =
+              HeifWriter.Builder(dstPath, w, h, HeifWriter.INPUT_MODE_BITMAP)
+                  .setQuality(quality.toInt().coerceIn(0, 100))
+                  .setGridEnabled(true)
+                  .setMaxImages(1)
+                  .build()
+          try {
+            writer.start()
+            writer.addBitmap(bitmap)
+            writer.stop(0) // waits until the file is complete
+          } finally {
+            writer.close()
+          }
+        } catch (e: FlutterError) {
+          throw e
+        } catch (e: Exception) {
+          File(dstPath).delete()
+          throw FlutterError("heic", e.message ?: e.javaClass.simpleName)
+        } finally {
+          bitmap.recycle()
+        }
+      }
 
   override fun thermalLevel(): Long =
       levelOf(context.getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE)

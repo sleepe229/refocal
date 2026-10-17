@@ -21,7 +21,9 @@
 #include <vector>
 
 #include "enh.h"
+#include "heif_fixture.hpp"
 #include "image/decode.hpp"
+#include "image/heif_meta.hpp"
 #include "image/jpeg.hpp"
 #include "image/metaio.hpp"
 #include "image/ops.hpp"
@@ -483,6 +485,31 @@ static void test_export(Session& se) {
   const std::string nowhere = fs::join(g_root, "no/such/dir/x.png");
   CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), nowhere.c_str(), nullptr) != ENH_OK);
   CHECK(!fs::exists(thumb) && !fs::exists(thumb + ".part"));
+
+  // HEIC (FR-EXP-002): raw RGBA for the platform encoder, then the metadata into its output.
+  const std::string raw = fs::join(g_root, "e.rgba");
+  CHECK(enh_export(se.s, job.c_str(), R"({"format":"rgba"})", raw.c_str(), nullptr) == ENH_OK);
+  const auto rgba = fs::read_all(raw);
+  bool same = rgba.size() == sr.px.size() / 3 * 4;
+  for (size_t i = 0; same && i < sr.px.size() / 3; ++i) {
+    same = rgba[i * 4] == sr.px[i * 3] && rgba[i * 4 + 1] == sr.px[i * 3 + 1] &&
+           rgba[i * 4 + 2] == sr.px[i * 3 + 2] && rgba[i * 4 + 3] == 255;
+  }
+  CHECK(same);
+  const std::string encoded = fs::join(g_root, "encoded.heic"), heic = fs::join(g_root, "e.heic");
+  const auto container = heif_fixture::make_heif(std::vector<uint8_t>(40, 1), {2, 3});
+  fs::write_atomic(encoded, container.data(), container.size(), false);
+  const json hopt = {{"format", "heic"}, {"heif_input", encoded}};
+  out = nullptr;
+  CHECK(enh_export(se.s, job.c_str(), hopt.dump().c_str(), heic.c_str(), &out) == ENH_OK);
+  CHECK(out && json::parse(out).value("/metadata/ai_marker"_json_pointer, false));
+  enh_free(out);
+  const auto hb = fs::read_all(heic);
+  const HeifMetaInfo hi = heif_read_meta(hb.data(), hb.size());
+  CHECK(hi.xmp.find("compositeWithTrainedAlgorithmicMedia") != std::string::npos);
+  CHECK(heif_item_data(hb.data(), hb.size(), 3) == std::vector<uint8_t>({2, 3}));
+  CHECK(enh_export(se.s, job.c_str(), R"({"format":"heic"})", heic.c_str(), nullptr) ==
+        ENH_E_INVALID);
 
   for (const char* bad :
        {"{\"format\":\"gif\"}", "{\"format\":\"jpeg\",\"lossless\":true}", "{\"strength\":1.5}",
