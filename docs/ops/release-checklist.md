@@ -23,6 +23,7 @@ Copy the list into the release PR and tick it there.
 
 **Release**
 - [ ] `version:` in `app/pubspec.yaml`; CHANGELOG section (it becomes the notes)
+- [ ] `fastlane/metadata/android/{en-US,ru-RU}/changelogs/<versionCode>.txt` (≤ 500 characters, F-Droid shows it); descriptions still true
 - [ ] Tag, approve the `release` environment, then check the draft: APK, symbols, SBOM
       (`*.spdx.json`), SHA256SUMS matches, `libenh` version = tag, attestations
       (`gh attestation verify <apk> --repo sleepe229/refocal`)

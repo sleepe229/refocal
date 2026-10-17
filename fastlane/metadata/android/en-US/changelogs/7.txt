@@ -1,0 +1,8 @@
+First beta (0.3.0-beta.1):
+• Zoom the before/after comparison to real pixels; double-tap for 1:1
+• Preview a part of the photo before enhancing all of it
+• Tap a face frame to leave that face as it is
+• Transparency kept in PNG and WebP
+• Model, processor and time shown under the result
+• Copies kept for unfinished results take at most 1 GB
+Not yet tested on a range of real phones.
