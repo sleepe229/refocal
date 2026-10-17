@@ -16,7 +16,14 @@ namespace enh {
 struct JpegInfo {
   int w = 0, h = 0, components = 0;
   int orientation = 1;  // EXIF 1..8
+  // IJG quality 1..100 closest to the luminance quantization table (S9: the QF of the JPEG
+  // cleanup pass); 0 when the file has no table 0. Approximate for non-IJG (camera) tables.
+  int quality = 0;
 };
+
+// The IJG quality whose scaled standard luminance table is closest to [table] (64 entries,
+// natural order, as libjpeg keeps them).
+int jpeg_quality_of_table(const uint16_t* table);
 
 JpegInfo jpeg_probe(const std::string& path);
 // Decodes to RGB8 (grayscale is expanded). Orientation is reported, not applied.
