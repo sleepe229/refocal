@@ -10,6 +10,7 @@ import '../../bootstrap/engine.dart';
 import '../../l10n/app_localizations.dart';
 
 const sourceUrl = 'https://github.com/sleepe229/refocal';
+const privacyUrl = 'https://sleepe229.github.io/refocal/privacy';
 
 /// Adds the licenses of the native core and the bundled model (assets/licenses/native.json,
 /// tools/licenses/collect.sh) to Flutter's license registry.
@@ -41,6 +42,8 @@ class AboutPage extends ConsumerWidget {
           Text(l10n.aboutAlpha),
           const SizedBox(height: 16),
           Text(l10n.aboutPrivacy),
+          const SizedBox(height: 8),
+          SelectableText(l10n.aboutPrivacyPolicy(privacyUrl)),
           const SizedBox(height: 16),
           Text(l10n.aboutAiWarning),
           const SizedBox(height: 24),
