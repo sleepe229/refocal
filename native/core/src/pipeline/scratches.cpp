@@ -100,7 +100,8 @@ std::vector<uint8_t> blend_weight(const Mask8& hole) {
 // pixels that stand out from the median of their neighbourhood (the scratch itself, bright or
 // dark) stay holes, grown by a pixel or two for the fill's blend.
 void refine_mask(Mask8& m, const Rgb8& img) {
-  const int r = std::max(3, std::min(img.w, img.h) / kScratchShortSide * 3 / 2);
+  // Wider than a scratch the detector finds (up to ~2 cells), so the median is the photo.
+  const int r = std::max(4, std::min(img.w, img.h) * 5 / (2 * kScratchShortSide));
   const int step = std::max(1, r / 3);  // at most 7 x 7 samples
   constexpr int kOutlier = 16;          // grey levels: above film grain
   std::vector<uint8_t> grey(size_t(img.w) * img.h);
