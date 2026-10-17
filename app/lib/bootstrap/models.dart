@@ -486,8 +486,8 @@ final availableModelsProvider = Provider<Set<String>>((ref) {
   return {bundledSrModel, if (detector) bundledDetector, for (final p in installed) p.id};
 });
 
-/// FR-MODEL-008: installed packs the manifest has a newer version of.
-List<PackInfo> packUpdates(Manifest m, List<InstalledPack> installed) {
+/// FR-MODEL-008: installed packs the manifest has a newer version of, that [appVersion] can use.
+List<PackInfo> packUpdates(Manifest m, List<InstalledPack> installed, {String? appVersion}) {
   List<int> v(String s) => s.split('.').map(int.parse).toList();
   bool newer(String a, String b) {
     final (x, y) = (v(a), v(b));
@@ -499,7 +499,9 @@ List<PackInfo> packUpdates(Manifest m, List<InstalledPack> installed) {
 
   return [
     for (final i in installed)
-      if (m.pack(i.id) case final p? when newer(p.version, i.version)) p,
+      if (m.pack(i.id) case final p?
+          when newer(p.version, i.version) && (appVersion == null || p.supportedBy(appVersion)))
+        p,
   ];
 }
 
@@ -524,7 +526,8 @@ final packUpdatesProvider = FutureProvider<List<PackInfo>>((ref) async {
         .read(settingsProvider.notifier)
         .change((s) => s.copyWith(packUpdateCheckedAt: DateTime.now));
   }
-  return m == null ? const [] : packUpdates(m, installed);
+  final appVersion = (await ref.watch(engineProvider.future)).version;
+  return m == null ? const [] : packUpdates(m, installed, appVersion: appVersion);
 });
 
 /// The face pack the app uses (FR-FACE-002: GFPGAN 1.4 by default).

@@ -30,6 +30,8 @@ class ModelsPage extends ConsumerWidget {
         ref.watch(settingsProvider).value?.languageCode ??
         Localizations.localeOf(context).languageCode;
     final s = models.value;
+    // Packs that need a newer app are not offered (min_app_version).
+    final appVersion = ref.watch(engineProvider).value?.version;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.modelsTitle)),
       body: models.isLoading && s == null
@@ -65,12 +67,13 @@ class ModelsPage extends ConsumerWidget {
                   )
                 else
                   for (final p in s!.manifest!.packs)
-                    _PackTile(
-                      pack: p,
-                      lang: lang,
-                      installed: installed[p.id],
-                      progress: s.downloads[p.id],
-                    ),
+                    if (appVersion != null && p.supportedBy(appVersion))
+                      _PackTile(
+                        pack: p,
+                        lang: lang,
+                        installed: installed[p.id],
+                        progress: s.downloads[p.id],
+                      ),
                 // Installed from a file, or no longer in the manifest: still listed, to delete.
                 for (final i in installed.values)
                   if (s?.manifest?.pack(i.id) == null)
