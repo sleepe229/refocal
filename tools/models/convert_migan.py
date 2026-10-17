@@ -10,7 +10,8 @@ the generator is cut out of migan.onnx: input (1, 4, 512, 512) = [mask - 0.5, im
 with mask 1 known / 0 hole and image in [-1, 1]; output (1, 3, 512, 512) in [-1, 1]
 (scripts/create_onnx_pipeline.py: preprocess / postprocess). Writes
 OUT_DIR/old.inpaint-migan/{model.ncnn.param,model.ncnn.bin,model.json}, a golden pair (onnxruntime
-fp32), and hole_report.json: PSNR inside and outside the holes on a seeded synthetic photo.
+fp32), and hole_report.json: PSNR inside the holes on a seeded synthetic photo (against a
+mean fill) and hole_result.png, the photo with the holes filled.
 Needs onnx, onnxruntime, pnnx, numpy and Pillow (spikes/s1-gfpgan/requirements.lock).
 """
 import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
@@ -101,12 +102,13 @@ def main() -> int:
     hole = mask < 0.5
     report = {"hole_fraction": float(hole.mean()),
               "psnr_hole": psnr(res[hole], img[hole]),
-              "psnr_known": psnr(res[~hole], img[~hole]),
+              "psnr_known_raw": psnr(res[~hole], img[~hole]),  # the core keeps these
               "psnr_hole_mean_fill": psnr(np.broadcast_to(img[~hole].mean(0), img[hole].shape),
                                           img[hole])}
     print("holes:", " ".join(f"{k} {v:.3f}" for k, v in report.items()))
     (dst / "hole_report.json").write_text(json.dumps(report, indent=2) + "\n")
-    Image.fromarray((res * 255).astype(np.uint8)).save(dst / "hole_result.png")
+    comp = img * mask[..., None] + res * (1 - mask[..., None])  # as the core blends (without feather)
+    Image.fromarray((comp * 255).astype(np.uint8)).save(dst / "hole_result.png")
     x.tofile(dst / f"golden_in_4x{RES}x{RES}.f32")
     y.astype(np.float32).tofile(dst / f"golden_out_3x{RES}x{RES}.f32")
 
