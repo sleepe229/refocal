@@ -37,9 +37,23 @@ Builds:
       - flutter build apk --release --flavor fdroid --target-platform android-arm64 --split-debug-info=build/symbols
     ndk: 28.2.13676358
 
+  - versionName: 0.5.0-beta.1
+    versionCode: 8
+    commit: v0.5.0-beta.1
+    subdir: app
+    submodules: true
+    output: build/app/outputs/flutter-apk/app-fdroid-release.apk
+    prebuild:
+      - ../tools/models/fetch.sh
+    build:
+      - export PATH="$PWD/../flutter/bin:$PATH"
+      - flutter config --no-analytics
+      - flutter build apk --release --flavor fdroid --target-platform android-arm64 --split-debug-info=build/symbols
+    ndk: 28.2.13676358
+
 AllowedAPKSigningKeys: 6574411b1c52eddc4255da82d4af122840e377207931ddc75d0d4485cca4c7d8
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+(-[a-z]+\.[0-9]+)?$
-CurrentVersion: 0.3.0-beta.1
-CurrentVersionCode: 7
+CurrentVersion: 0.5.0-beta.1
+CurrentVersionCode: 8
