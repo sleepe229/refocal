@@ -25,7 +25,7 @@ jobs:
           python3 -m venv /tmp/venv
           lock=spikes/s1-gfpgan/requirements.lock
           pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
-          /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)"
+          /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)" "$(pin torchvision)"
           /tmp/venv/bin/pip install -q "$(pin pnnx)" "$(pin numpy)" "$(pin pillow)"
       - name: Convert
         run: /tmp/venv/bin/python tools/models/${{ inputs.converter }}.py out --pnnx /tmp/venv/bin/pnnx
