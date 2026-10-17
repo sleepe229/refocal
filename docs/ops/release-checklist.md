@@ -5,6 +5,7 @@ Copy the list into the release PR and tick it there.
 
 **Build and tests**
 - [ ] `main` CI green (dart, native with sanitizers, fuzz, android)
+- [ ] 1.0 and later majors: `fuzz-ga` (Actions → fuzz-ga → Run) finished without findings on the release commit (SEC-INP-001, 24 h per target)
 - [ ] Emulator e2e on an x64 profile APK of the release branch: `SCENARIO=basic` and `pause`
       (`tools/emulator/e2e.sh`); `rfpack` if packs changed
 - [ ] Device check on a real phone: [device-checklist.md](device-checklist.md)
