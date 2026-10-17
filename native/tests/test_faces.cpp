@@ -17,6 +17,7 @@
 #include "backend/backend.hpp"
 #include "enh.h"
 #include "image/decode.hpp"
+#include "image/ops.hpp"
 #include "mini_test.hpp"
 #include "pipeline/faces.hpp"
 #include "policy/analyze.hpp"
@@ -199,6 +200,39 @@ TEST("YuNet decoding: grid cells, strides, NMS, threshold, back to image coordin
   CHECK(std::abs(f[1].x - 2 * (324 - 16)) < 1e-3 && std::abs(f[1].y - 2 * (242 - 24)) < 1e-3);
   CHECK(std::abs(f[1].w - 64) < 1e-3 && std::abs(f[1].h - 96) < 1e-3);
   CHECK(std::abs(f[1].lm[0] - 2 * 324) < 1e-3 && std::abs(f[1].lm[1] - 2 * 244) < 1e-3);
+}
+
+TEST("#44: faces of 13 px in a small group photo are found on the upscale") {
+  if (g_models.empty() || !fs::exists(fs::join(g_models, "det.yunet-2023mar/model.ncnn.bin"))) {
+    std::printf("  no detector weights: skipped\n");
+    return;
+  }
+  auto det = make_ncnn_backend({BackendKind::cpu, 0, false, 0});
+  det->load(resolve_model(g_models, "det.yunet-2023mar"));
+  const Rgb8 full = decode_image(fs::join(g_data, "solvay.jpg"));
+  auto ref = detect_faces(*det, full);
+  keep_restorable(ref);
+  CHECK(ref.size() >= 20);
+  if (ref.empty()) return;
+  // Scaled so that the largest face is 13 px: the plain detector keeps none of them.
+  const double s = 13.0 / std::max(ref[0].w, ref[0].h);
+  const Rgb8 small = resize_area(full, int(std::lround(full.w * s)), int(std::lround(full.h * s)));
+  auto plain = detect_faces(*det, small);
+  keep_restorable(plain);
+  const auto found = find_faces(*det, small);
+  std::printf("  solvay at %dx%d: %zu faces (%zu on the original, %zu without the upscale)\n",
+              small.w, small.h, found.size(), ref.size(), plain.size());
+  CHECK(plain.empty());
+  CHECK(found.size() * 2 >= ref.size());
+  // Each one is a face of the original, in the small photo's coordinates.
+  size_t matched = 0;
+  for (const Face& f : found) {
+    FaceBox b{float(f.x / s), float(f.y / s), float(f.w / s), float(f.h / s)};
+    matched += std::any_of(ref.begin(), ref.end(), [&](const Face& r) { return iou(r, b) > 0.4f; });
+  }
+  CHECK(matched * 10 >= found.size() * 9);
+  // A large photo does not take the small path.
+  CHECK(detect_small_faces(*det, full).empty() == (double(full.w) * full.h > kSmallPhotoPx));
 }
 
 TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {

@@ -537,7 +537,7 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   try {
     auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s->cpu_threads});
     det->load(resolve_model(s->models_dir, req.det_model));
-    found = detect_faces(*det, img);
+    found = find_faces(*det, img);
   } catch (const Error& e) {
     if (!recoverable(e.status())) throw;
     skip(e.status(), -1);
@@ -546,7 +546,6 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     skip(ENH_E_OOM, -1);
     return {};
   }
-  keep_restorable(found);
   // FR-FACE-007: faces turned off stay as the SR model makes them.
   const size_t detected = found.size();
   found.erase(std::remove_if(found.begin(), found.end(),
