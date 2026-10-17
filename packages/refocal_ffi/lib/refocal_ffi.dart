@@ -287,7 +287,9 @@ class RefocalSession {
   /// Encodes the job's result into [dst] on a helper isolate (can take seconds); any number of
   /// times from one result (FR-EXP-007).
   ///
-  /// [format]: jpeg | png | webp; [quality]: JPEG and lossy WebP; [lossless]: WebP only.
+  /// [format]: jpeg | png | webp, or the two HEIC steps (FR-EXP-002): rgba (raw pixels for the
+  /// platform encoder, with the thumbnail) and heic, which adds the metadata to the platform's
+  /// file [heifInput]. [quality]: JPEG and lossy WebP; [lossless]: WebP only.
   /// [strength] 0..1 blends the result with a Lanczos upscale of the input (FR-ENH-005); below 1
   /// the input file must still exist.
   /// Metadata (ADR-0018): the source EXIF is carried without GPS unless [keepGps] and without
@@ -306,6 +308,7 @@ class RefocalSession {
     bool aiMarker = true,
     String? thumbnail,
     int thumbnailMaxSide = 512,
+    String? heifInput,
   }) async {
     final libPath = _native._libPath;
     final sessionAddr = _ptr.address;
@@ -319,6 +322,7 @@ class RefocalSession {
         'strength': strength,
         'metadata': {'exif': exif, 'gps': keepGps, 'ai_marker': aiMarker},
         if (thumbnail != null) 'thumbnail': {'path': thumbnail, 'max_side': thumbnailMaxSide},
+        'heif_input': ?heifInput,
       }).toNativeUtf8();
       final d = dst.toNativeUtf8();
       final out = calloc<Pointer<Char>>();

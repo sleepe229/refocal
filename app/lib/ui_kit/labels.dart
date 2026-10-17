@@ -20,7 +20,16 @@ String formatLabel(AppLocalizations l10n, ExportFormat f) => switch (f) {
   ExportFormat.png => l10n.formatPng,
   ExportFormat.webp => l10n.formatWebp,
   ExportFormat.webpLossless => l10n.formatWebpLossless,
+  ExportFormat.heic => l10n.formatHeic,
 };
+
+/// Why [f] cannot hold a result this large (ExportFormat.maxMegapixels).
+String formatTooLargeLabel(AppLocalizations l10n, ExportFormat f) =>
+    f == ExportFormat.heic ? l10n.formatHeicTooLarge : l10n.formatWebpTooLarge;
+
+/// The formats this device can write: HEIC only with an encoder (FR-EXP-002, Q-12).
+Iterable<ExportFormat> availableFormats({required bool heic}) =>
+    ExportFormat.values.where((f) => f != ExportFormat.heic || heic);
 
 String builtinPresetLabel(AppLocalizations l10n, BuiltinPreset p) => switch (p) {
   BuiltinPreset.fast => l10n.presetFast,

@@ -297,6 +297,12 @@ TEST("tier rules") {
   th.require_soc_for_t2 = false;
   CHECK_EQ(suggest_tier({5.5, "vk0-fp16", true, 10, 1}, th).tier, std::string("T1"));  // RAM < T2
   CHECK_EQ(suggest_tier({16, "vk0-fp16", true, 60, -1}, th).tier, std::string("T1"));
+  // Device calibration (S3b): Adreno 750 at 47 ms is T2 on the GPU thresholds; a CPU at the same
+  // speed stays T1; a GPU at 150 ms is T1, at 200 ms T0.
+  CHECK_EQ(suggest_tier({11.0, "vk0-fp16", true, 47, 1}, th).tier, std::string("T2"));
+  CHECK_EQ(suggest_tier({11.0, "cpu-fp16", false, 47, 1}, th).tier, std::string("T1"));
+  CHECK_EQ(suggest_tier({16, "vk0-fp16", true, 150, -1}, th).tier, std::string("T1"));
+  CHECK_EQ(suggest_tier({16, "vk0-fp16", true, 200, -1}, th).tier, std::string("T0"));
   CHECK_EQ(suggest_tier({16, "cpu-fp16", false, 150, -1}, th).tier, std::string("T0"));
   auto slow = suggest_tier({16, "cpu-fp16", false, 400, -1}, th);
   CHECK(slow.tier == "T0" && slow.below_t0_budget);

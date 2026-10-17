@@ -587,8 +587,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 ),
           ],
           selected: {?_choice},
-          emptySelectionAllowed: true,
-          onSelectionChanged: (s) => setState(() => _choice = s.firstOrNull),
+          // Empty only until a scale is first chosen; tapping the selected one keeps it (a
+          // deselected scale left Enhance disabled without a word, found on a device).
+          emptySelectionAllowed: _choice == null,
+          onSelectionChanged: (s) {
+            if (s.isNotEmpty) setState(() => _choice = s.first);
+          },
         ),
         if (_choice == ScaleChoice.x1) ...[
           const SizedBox(height: 8),
@@ -827,7 +831,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       showError(messenger, l10n, 'record history', e.cause, stack, l10n.historyNotRecorded);
     } on EnhException catch (e, stack) {
       if (e.status == EnhStatus.limit) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.formatWebpTooLarge)));
+        messenger.showSnackBar(SnackBar(content: Text(l10n.formatTooLarge)));
       } else {
         showError(messenger, l10n, 'save', e, stack, l10n.saveFailed);
       }
@@ -838,6 +842,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
 
   Future<void> _saveAs(Finished s, EnhanceController ctl, AppLocalizations l10n) async {
     final mp = s.result.width * s.result.height / 1e6;
+    final heic = await ref.read(heicSupportedProvider.future);
+    if (!mounted) return;
     final format = await showModalBottomSheet<ExportFormat>(
       context: context,
       builder: (context) => SafeArea(
@@ -845,10 +851,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(title: Text(l10n.saveAsTitle)),
-            for (final f in ExportFormat.values)
+            for (final f in availableFormats(heic: heic))
               ListTile(
                 title: Text(formatLabel(l10n, f)),
-                subtitle: mp > f.maxMegapixels ? Text(l10n.formatWebpTooLarge) : null,
+                subtitle: mp > f.maxMegapixels ? Text(formatTooLargeLabel(l10n, f)) : null,
                 enabled: mp <= f.maxMegapixels,
                 onTap: () => Navigator.pop(context, f),
               ),

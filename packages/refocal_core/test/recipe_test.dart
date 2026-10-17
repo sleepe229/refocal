@@ -79,5 +79,7 @@ void main() {
     expect(ExportFormat.webp.maxMegapixels, 50);
     expect(ExportFormat.webpLossless.maxMegapixels, 24);
     expect(ExportFormat.png.maxMegapixels, double.infinity);
+    expect(ExportFormat.heic.maxMegapixels, 50);
+    expect(ExportFormat.heic.hasQuality, isTrue);
   });
 }

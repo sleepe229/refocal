@@ -29,6 +29,7 @@ class ResultSaver {
     required this.platform,
     required this.settings,
     required this.history,
+    this.heicSupported = false,
   });
 
   final Engine engine;
@@ -40,6 +41,10 @@ class ResultSaver {
   /// Null when the history is off (FR-HIST-005).
   final HistoryStore? history;
 
+  /// HEIC asked on a device without an encoder (a setting restored from another phone) is saved
+  /// as JPEG instead (FR-EXP-002, Q-12).
+  final bool heicSupported;
+
   /// Returns the result's URI, or null when the user cancelled the file dialog. A save that
   /// reached its destination but could not be recorded throws [HistoryNotRecorded].
   Future<String?> save(
@@ -49,6 +54,9 @@ class ResultSaver {
     required double strength,
     required Destination to,
   }) async {
+    if (output.format == ExportFormat.heic && !heicSupported) {
+      output = OutputSpec(ExportFormat.jpeg, quality: output.quality ?? settings.quality);
+    }
     final format = output.format;
     final history = this.history;
     final entryId = newId();
@@ -57,19 +65,24 @@ class ResultSaver {
     final name = 'Refocal_${r.jobId}.${format.extension}';
     final tmp = '${engine.exportDir}/$name';
     String? uri;
+    final quality = output.quality ?? settings.quality; // ignored by lossless formats
     try {
-      await engine.session.export(
-        r.jobDir,
-        tmp,
-        format: format.format,
-        quality: output.quality ?? settings.quality, // ignored by lossless formats
-        lossless: format.lossless,
-        strength: strength,
-        keepGps: settings.keepGps,
-        aiMarker: settings.aiMarker,
-        thumbnail: preview,
-        thumbnailMaxSide: HistoryStore.previewMaxSide,
-      );
+      if (format == ExportFormat.heic) {
+        await _exportHeic(r, tmp, quality: quality, strength: strength, thumbnail: preview);
+      } else {
+        await engine.session.export(
+          r.jobDir,
+          tmp,
+          format: format.format,
+          quality: quality,
+          lossless: format.lossless,
+          strength: strength,
+          keepGps: settings.keepGps,
+          aiMarker: settings.aiMarker,
+          thumbnail: preview,
+          thumbnailMaxSide: HistoryStore.previewMaxSide,
+        );
+      }
       uri = switch (to) {
         Destination.gallery => await platform.saveToGallery(tmp, name, format.mimeType),
         Destination.file => await platform.saveToFile(tmp, name, format.mimeType),
@@ -123,6 +136,44 @@ class ResultSaver {
   }
 }
 
+extension on ResultSaver {
+  /// HEIC (FR-EXP-002): the core writes raw pixels (and the thumbnail), the platform encodes
+  /// them, the core adds the metadata to the encoded file (ICC, EXIF, XMP AI marker).
+  Future<void> _exportHeic(
+    JobResult r,
+    String dst, {
+    required int quality,
+    required double strength,
+    String? thumbnail,
+  }) async {
+    final raw = '$dst.rgba', encoded = '$dst.enc';
+    try {
+      await engine.session.export(
+        r.jobDir,
+        raw,
+        format: 'rgba',
+        strength: strength,
+        thumbnail: thumbnail,
+        thumbnailMaxSide: HistoryStore.previewMaxSide,
+      );
+      await platform.encodeHeic(raw, r.width, r.height, quality, encoded);
+      await deleteIfPresent(raw);
+      await engine.session.export(
+        r.jobDir,
+        dst,
+        format: 'heic',
+        heifInput: encoded,
+        strength: strength,
+        keepGps: settings.keepGps,
+        aiMarker: settings.aiMarker,
+      );
+    } finally {
+      await deleteIfPresent(raw);
+      await deleteIfPresent(encoded);
+    }
+  }
+}
+
 /// A saver with the current settings.
 Future<ResultSaver> readResultSaver(Ref ref) async {
   final settings = await ref.read(settingsProvider.future);
@@ -131,5 +182,6 @@ Future<ResultSaver> readResultSaver(Ref ref) async {
     platform: ref.read(platformApiProvider),
     settings: settings,
     history: settings.historyEnabled ? await ref.read(historyStoreProvider.future) : null,
+    heicSupported: await ref.read(heicSupportedProvider.future),
   );
 }

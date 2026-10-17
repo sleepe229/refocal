@@ -553,6 +553,17 @@ interface RefocalPlatformApi {
    */
   suspend fun saveToFile(path: String, displayName: String, mimeType: String): String?
   /**
+   * Whether this device can encode HEIC (FR-EXP-002, Q-12): Android has a HEIC image or HEVC
+   * video encoder. False hides the format.
+   */
+  fun heicSupported(): Boolean
+  /**
+   * Encodes raw RGBA8 pixels ([rgbaPath]: [width] x [height] x 4 bytes, from the core's "rgba"
+   * export) into a HEIC file at [dstPath] with [quality] 0..100 (Android: androidx HeifWriter,
+   * grid tiles). Metadata is added by the core afterwards. Error "heic" when encoding fails.
+   */
+  suspend fun encodeHeic(rgbaPath: String, width: Long, height: Long, quality: Long, dstPath: String)
+  /**
    * Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
    * when nothing can open it; anything but https is refused.
    */
@@ -704,6 +715,45 @@ interface RefocalPlatformApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.saveToFile(pathArg, displayNameArg, mimeTypeArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.heicSupported$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.heicSupported())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.encodeHeic$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val rgbaPathArg = args[0] as String
+            val widthArg = args[1] as Long
+            val heightArg = args[2] as Long
+            val qualityArg = args[3] as Long
+            val dstPathArg = args[4] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                api.encodeHeic(rgbaPathArg, widthArg, heightArg, qualityArg, dstPathArg)
+                listOf(null)
               } catch (exception: Throwable) {
                 MessagesPigeonUtils.wrapError(exception)
               }

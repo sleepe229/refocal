@@ -44,27 +44,29 @@ TierDecision suggest_tier(const TierInput& in, const TierThresholds& th) {
     d.reasons.push_back(buf);
     return d;
   }
-  if (ms > th.t1_tile128_ms) {
+  const double t1_ms = in.selected_is_gpu ? th.t1_tile128_ms_gpu : th.t1_tile128_ms;
+  const double t2_ms = in.selected_is_gpu ? th.t2_tile128_ms_gpu : th.t2_tile128_ms;
+  if (ms > t1_ms) {
     d.tier = "T0";
     std::snprintf(buf, sizeof buf, "best backend %s: tile128 %.1f ms > T1 limit %.0f ms",
-                  in.selected_backend.c_str(), ms, th.t1_tile128_ms);
+                  in.selected_backend.c_str(), ms, t1_ms);
     d.reasons.push_back(buf);
     return d;
   }
-  bool t2_speed = ms <= th.t2_tile128_ms;
+  bool t2_speed = ms <= t2_ms;
   bool t2_ram = in.ram_gb >= th.t2_ram_gb;
   bool soc_ok = !th.require_soc_for_t2 || in.soc_t2 != 0;
   if (t2_speed && t2_ram && soc_ok) {
     d.tier = "T2";
     std::snprintf(buf, sizeof buf, "RAM %.1f GB >= %.1f, %s tile128 %.1f ms <= %.0f ms%s",
-                  in.ram_gb, th.t2_ram_gb, in.selected_backend.c_str(), ms, th.t2_tile128_ms,
+                  in.ram_gb, th.t2_ram_gb, in.selected_backend.c_str(), ms, t2_ms,
                   in.soc_t2 < 0 ? " (SoC not in table: benchmark decides)" : "");
     d.reasons.push_back(buf);
     return d;
   }
   d.tier = "T1";
   std::snprintf(buf, sizeof buf, "%s tile128 %.1f ms <= T1 limit %.0f ms",
-                in.selected_backend.c_str(), ms, th.t1_tile128_ms);
+                in.selected_backend.c_str(), ms, t1_ms);
   d.reasons.push_back(buf);
   if (!t2_ram) d.reasons.push_back("RAM below T2 threshold");
   if (!t2_speed) d.reasons.push_back("slower than T2 limit");
