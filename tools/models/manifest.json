@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "serial": 5,
-  "generated_at": "2026-10-17T04:00:00Z",
+  "serial": 7,
+  "generated_at": "2026-10-18T05:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -641,6 +641,276 @@
         "upstream": "jiaxi-jiang/FBCNN v1.0: fbcnn_color.pth (restore graph, QF from outside)",
         "upstream_sha256": "8b0e4ef23d59cf7ac934a342cb31a17619e4fa4a0b3374a9d78c5174312387e8",
         "conversion_commit": "tools/models/convert_fbcnn.py"
+      }
+    },
+    {
+      "id": "old.scratch",
+      "version": "1.0.0",
+      "category": "old",
+      "title": {
+        "en": "Scratch finder",
+        "ru": "Поиск царапин"
+      },
+      "description": {
+        "en": "Finds scratches, cracks and dust on old prints (from Bringing Old Photos Back to Life). Works with the scratch fill pack; needs Refocal 0.6 or newer.",
+        "ru": "Находит царапины, трещины и пыль на старых снимках (из Bringing Old Photos Back to Life). Работает вместе с паком заполнения царапин; нужен Refocal 0.6 или новее."
+      },
+      "tier_min": "T1",
+      "min_app_version": "0.6.0-beta.1",
+      "license": {
+        "spdx": "MIT",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/LICENSE.txt",
+        "text_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "GRAY"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 1,
+        "pad": 0,
+        "params": {
+          "short_side": 256,
+          "tile_multiple": 16,
+          "threshold": 0.4,
+          "out0": "scratch probability"
+        }
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 8084,
+          "sha256": "0986bf5ef51e162292ff9c68c24c89459d203b92fac71cffa56f032b4716084e",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 75258364,
+          "sha256": "12984526292b04656466a9cb40b53736b10c41f5cd73e1ca05369ed1fb654dcc",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 66,
+          "sha256": "6f23279cc14e74df8adcf66386b8a4a4f629eb2f0813af3faaa10499fec462b3",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.json"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "microsoft/Bringing-Old-Photos-Back-to-Life v1.0: global_checkpoints.zip checkpoints/detection/FT_Epoch_latest.pt",
+        "upstream_sha256": "b2d7ab04e9b3885c6b1991bb7a0b823129dd6e3ac078a9fd059ebd2a7ba59a95",
+        "conversion_commit": "tools/models/convert_scratch.py"
+      }
+    },
+    {
+      "id": "old.inpaint-migan",
+      "version": "1.0.0",
+      "category": "old",
+      "title": {
+        "en": "Scratch fill",
+        "ru": "Заполнение царапин"
+      },
+      "description": {
+        "en": "MI-GAN: fills the scratches the scratch finder marks from the photo around them. Needs Refocal 0.6 or newer.",
+        "ru": "MI-GAN: заполняет найденные царапины по окружающему фото. Нужен Refocal 0.6 или новее."
+      },
+      "tier_min": "T1",
+      "min_app_version": "0.6.0-beta.1",
+      "license": {
+        "spdx": "MIT",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/LICENSE.txt",
+        "text_sha256": "674e33456b8d03693b84ab305aa7372d93c91e68b234651b0adad106d518e6eb",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              -1,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "scale": 1,
+        "pad": 64,
+        "params": {
+          "size": 512,
+          "in0": "[known - 0.5, image * known], 4 channels"
+        }
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 31760,
+          "sha256": "6088ec4a4449ca9a46a4b9945520684db0b9238701ce6ccf52470da0f0933b0a",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 16166264,
+          "sha256": "319e248fb1f833873ab8be0ab66275a3e1161d7961c65f71b504bdbf0373722d",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 26,
+          "sha256": "df2fc58b7bd13dbc2e3e6edd33acdb2087ef4a268f604294192e774ad5a96a9f",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.json"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "Picsart-AI-Research/MI-GAN 512 Places2: Hugging Face andraniksargsyan/migan migan.onnx (generator)",
+        "upstream_sha256": "593eba0b7e04730f1b61c0a3cbca68d97d8d6a7ff5c6a44a7b9d7fcd880fc5ae",
+        "conversion_commit": "tools/models/convert_migan.py"
+      }
+    },
+    {
+      "id": "old.lowlight-cidnet",
+      "version": "1.0.1",
+      "category": "old",
+      "title": {
+        "en": "Low light",
+        "ru": "Слабое освещение"
+      },
+      "description": {
+        "en": "HVI-CIDNet: brightens under-exposed photos and brings back their colour. Needs Refocal 0.6 or newer.",
+        "ru": "HVI-CIDNet: осветляет недоэкспонированные фото и возвращает им цвет. Нужен Refocal 0.6 или новее."
+      },
+      "tier_min": "T1",
+      "min_app_version": "0.6.0-beta.1",
+      "license": {
+        "spdx": "MIT",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/LICENSE.txt",
+        "text_sha256": "e0cf0687956ae87aeca8582874bb9a3539c64401dbcdc50c9c527327ef185be3",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "scale": 1,
+        "pad": 0,
+        "params": {
+          "max_side": 384,
+          "density_k": 0.983547,
+          "in0": "HVI (CIDNet colour space), from RGB in the core",
+          "size": 384
+        }
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 63864,
+          "sha256": "8397e7eb93f7e60c333b3de8b67d6ab26c3a416a7b29fe20c8cad98e38d98f2f",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 3821676,
+          "sha256": "9e714e403ac635e4d9c817d6fd76fc252d96d1ab663ddb58b569c65de21ae1fe",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 75,
+          "sha256": "00dd89eb60a8af2100d440e98dd7440ddc8e80e61d56d1e1271e3114a26c5e3f",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.json"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "Fediory/HVI-CIDNet Generalization: Hugging Face Fediory/HVI-CIDNet-Generalization pytorch_model.bin",
+        "upstream_sha256": "9fba75147e0275fa031bdf9905e2f1f8db49c861fc289d3520a509d5cba316aa",
+        "conversion_commit": "tools/models/convert_cidnet.py"
       }
     }
   ]

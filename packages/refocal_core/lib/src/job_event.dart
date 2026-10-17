@@ -13,6 +13,9 @@ enum JobStage {
 
   /// Scratch detection + inpainting before SR (S9).
   scratches('scratches'),
+
+  /// Low-light enhancement before SR (S9).
+  lowLight('low_light'),
   upscale('upscale'),
   finalize('finalize'),
   unknown('');
@@ -89,7 +92,10 @@ enum FallbackKind {
   jpeg,
 
   /// Scratch removal skipped: the photo goes on with its scratches (S9).
-  scratches;
+  scratches,
+
+  /// Low-light enhancement skipped: the photo goes on as dark as it was (S9).
+  lowlight;
 
   static FallbackKind fromName(String? name) =>
       values.where((k) => k.name == name).firstOrNull ?? backend;

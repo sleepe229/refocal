@@ -19,6 +19,7 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `jpeg.fbcnn` | pack (0.6), T2 | [jiaxi-jiang/FBCNN](https://github.com/jiaxi-jiang/FBCNN) v1.0 release `fbcnn_color.pth` (8b0e4ef2…2387e8), commit 54d18319 | Apache-2.0, © Jiaxi Jiang et al. | `tools/models/convert_fbcnn.py` (restore graph only, QF as the second input; S9) | `model.ncnn.param` f3662e8a…b7b89a5, `model.ncnn.bin` c973ad06…69952c1, `model.json` e6da6680…0894cd9 |
 | `old.scratch` | pack (0.6), T1 | [microsoft/Bringing-Old-Photos-Back-to-Life](https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life) v1.0 release, `checkpoints/detection/FT_Epoch_latest.pt` (b2d7ab04…a59a95), commit 33875ecc | MIT, © Microsoft Corporation | `tools/models/convert_scratch.py` (grey in, scratch probability out; S9) | `model.ncnn.param` 0986bf5e…16084e, `model.ncnn.bin` 12984526…654dcc, `model.json` 6f23279c…c462b3 |
 | `old.inpaint-migan` | pack (0.6), T1 | [Picsart-AI-Research/MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) 512 Places2, from the ONNX pipeline on Hugging Face `andraniksargsyan/migan` (593eba0b…0fc5ae), revision 406830d0 | MIT (code and `LICENSE-WEIGHTS`), © Picsart AI Research | `tools/models/convert_migan.py` (the generator cut out of the pipeline; S9) | `model.ncnn.param` 6088ec4a…933b0a, `model.ncnn.bin` 319e248f…73722d, `model.json` df2fc58b…a96a9f |
+| `old.lowlight-cidnet` | pack (0.6), T1 | [Fediory/HVI-CIDNet](https://github.com/Fediory/HVI-CIDNet) Generalization weights, Hugging Face `Fediory/HVI-CIDNet-Generalization` `pytorch_model.bin` (9fba7514…a316aa), revision 51481ef2 | MIT, © Fediory Feng | `tools/models/convert_cidnet.py` (the network between its HVI transforms, which the core does; S9) | `model.ncnn.param` 8397e7eb…d98f2f, `model.ncnn.bin` 9e714e40…1ae1fe, `model.json` 00dd89eb…6c5e3f |
 
 ## Evaluation
 
@@ -33,12 +34,15 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `jpeg.fbcnn` | "jpeg" golden category: 8 Kodak photos at JPEG quality 10–50, plain pipeline vs cleanup (`tools/ml/jpeg_eval.py`, S9) | MUSIQ 75.4 vs 70.6 at q10, 77.3 vs 76.7 at q50; PSNR and SSIM higher at every quality |
 | `old.scratch` | TEST-ML-001: ncnn CPU vs PyTorch fp32, 256×384 golden input (`golden.lock`); synthetic scratches (S9) | ≥ 40 dB on every PR (CI); precision 0.98, recall 0.64 at threshold 0.4 |
 | `old.inpaint-migan` | TEST-ML-001: ncnn CPU vs onnxruntime fp32, 512×512 golden input (`golden.lock`); synthetic holes (S9) | ≥ 40 dB on every PR (CI); 32.5 dB inside the holes (mean fill 16.4 dB) |
+| `old.lowlight-cidnet` | TEST-ML-001: the C++ HVI transform vs upstream's, the network on ncnn CPU vs PyTorch fp32, 128×128 golden tile (`golden.lock`); one run on a 384 px downscale vs the full image on a synthetic dark photo (S9) | transform within 3e-8; ≥ 40 dB on every PR (CI); 35.4 dB vs the full image |
 
 ## Known limitations
 
 - `old.scratch` misses part of the thinnest scratches (under a pixel at the 256 px it runs at);
   `old.inpaint-migan` fills smoothly and does not recreate film grain, so a filled scratch on
   a grainy scan stays faintly visible.
+- `old.lowlight-cidnet` runs on a 384 px copy of the photo: it brightens and recolours the whole
+  photo but does not denoise at full size, so lifted shadows show their noise.
 - `sr.x4plus-anime6b` is trained on drawings: on photos it flattens texture into flat colour
   areas.
 - SR models invent plausible detail; they cannot recover text, number plates or fine patterns

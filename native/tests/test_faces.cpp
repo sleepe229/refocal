@@ -17,6 +17,7 @@
 #include "backend/backend.hpp"
 #include "enh.h"
 #include "image/decode.hpp"
+#include "image/jpeg.hpp"
 #include "image/ops.hpp"
 #include "mini_test.hpp"
 #include "pipeline/faces.hpp"
@@ -341,6 +342,31 @@ TEST("analyze: size, faces with the detector, noise") {
     CHECK(a["noise_sigma"].get<double>() >= 0);
   }
   CHECK(enh_analyze(s, "/nonexistent.jpg", &out) != ENH_OK);
+  // A face cut by the left edge: its box is listed inside the photo (the app refuses negative
+  // boxes and, before this, failed the whole analysis).
+  {
+    auto det = make_ncnn_backend({BackendKind::cpu, 0, false, 0});
+    det->load(resolve_model(g_models, "det.yunet-2023mar"));
+    const Rgb8 full = decode_image(fs::join(g_data, "einstein.jpg"));
+    const auto f = detect_faces(*det, full);
+    CHECK(!f.empty());
+    if (!f.empty()) {
+      const int x0 = int(f[0].x + 0.35f * f[0].w);
+      const std::string cut = fs::join(g_work, "edge.jpg");
+      jpeg_encode(cut, crop(full, x0, 0, full.w - x0, full.h), 92);
+      CHECK(enh_analyze(s, cut.c_str(), &out) == ENH_OK);
+      if (out) {
+        const auto a = nlohmann::json::parse(out);
+        enh_free(out);
+        std::printf("  edge: %s\n", a["faces"].dump().c_str());
+        for (const auto& b : a["faces"]["boxes"]) {
+          CHECK(b[0].get<double>() >= 0 && b[1].get<double>() >= 0);
+          CHECK(b[0].get<double>() + b[2].get<double>() <= full.w - x0);
+          CHECK(b[1].get<double>() + b[3].get<double>() <= full.h);
+        }
+      }
+    }
+  }
   enh_session_destroy(s);
 }
 

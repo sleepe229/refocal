@@ -178,6 +178,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _facesOnly = r.facesOnly;
     _jpeg = r.jpegModel != null;
     _scratches = r.scratchModel != null;
+    _lowLight = r.lowlightModel != null;
   }
 
   /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
@@ -199,7 +200,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               _faceFidelity == r.faceFidelity &&
               _facesOnly == r.facesOnly)) &&
       _jpeg == (r.jpegModel != null) &&
-      _scratches == (r.scratchModel != null);
+      _scratches == (r.scratchModel != null) &&
+      _lowLight == (r.lowlightModel != null);
 
   /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
   final _facesOff = <FaceBox>{};
@@ -349,6 +351,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// S9: find scratches and fill them in before SR.
   bool _scratches = false;
 
+  /// S9: brighten an under-exposed photo before SR.
+  bool _lowLight = false;
+
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
@@ -368,6 +373,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       jpegModel: _jpeg ? jpegPack : null,
       scratchModel: _scratches ? scratchPack : null,
       inpaintModel: _scratches ? inpaintPack : null,
+      lowlightModel: _lowLight ? lowlightPack : null,
     );
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
   }
@@ -382,6 +388,21 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       subtitle: Text(l10n.jpegCleanHint),
       value: _jpeg,
       onChanged: (v) => setState(() => _jpeg = v),
+    );
+  }
+
+  /// S9: a switch once the low-light pack is installed.
+  Widget _lowLightControl(AppLocalizations l10n) {
+    if (!ref.watch(availableModelsProvider).contains(lowlightPack)) {
+      return const SizedBox.shrink();
+    }
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: const Icon(Icons.wb_sunny_outlined),
+      title: Text(l10n.lowLight),
+      subtitle: Text(l10n.lowLightHint),
+      value: _lowLight,
+      onChanged: (v) => setState(() => _lowLight = v),
     );
   }
 
@@ -669,6 +690,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ?_denoise(l10n),
         _facesControls(l10n),
         _jpegControl(l10n),
+        _lowLightControl(l10n),
         _scratchesControl(l10n),
         const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
@@ -754,6 +776,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       JobStage.faces => l10n.stageFaces(percent),
       JobStage.jpeg => l10n.stageJpeg(percent),
       JobStage.scratches => l10n.stageScratches(percent),
+      JobStage.lowLight => l10n.stageLowLight,
       JobStage.upscale =>
         eta == null
             ? l10n.stageEnhancing(percent)
