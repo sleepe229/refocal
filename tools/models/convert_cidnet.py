@@ -10,7 +10,7 @@ k), the network adds a correction, HVI -> RGB. The transforms index with boolean
 ncnn has no layer for, so the graph is the network alone: HVI in, corrected HVI out (input a
 multiple of 8); the core does both transforms (k is in model.json). Its attention is over
 channels with the whole image as the sequence, so tiles would each see other statistics and
-the seams would show: the core runs it once on the photo scaled to at most 1024 px and adds the
+the seams would show: the core runs it once on the photo scaled to at most 384 px and adds the
 correction, upsampled, to the full-size HVI. low_report.json measures that against the
 network on the full image, on a seeded synthetic dark photo. Writes
 OUT_DIR/old.lowlight-cidnet/{model.ncnn.param,model.ncnn.bin,model.json} and a golden pair.
@@ -33,9 +33,9 @@ SRC_SHA = {
     "LCA.py": "271f487091bd13ed211a8b0c9cb07036957ba535f5dd3aedc131498500979d26",
     "transformer_utils.py": "7bfb2659e97289f0e8005935e15edbe0af3ae5ef05c50863a074fd745617b13f",
 }
-WEIGHTS_SHA = None  # pinned from the first conversion run
+WEIGHTS_SHA = "9fba75147e0275fa031bdf9905e2f1f8db49c861fc289d3520a509d5cba316aa"
 GOLDEN = 128
-MAX_SIDE = 1024
+MAX_SIDE = 384  # run 39065558081: 256 px 32.9 dB, 384 px 31.9, 512 px 25.9 vs the full image
 
 # The two rearrange patterns of LCA.py, as reshapes (einops is not in the lock).
 EINOPS = '''

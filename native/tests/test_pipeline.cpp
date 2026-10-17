@@ -16,6 +16,7 @@
 #include "pipeline/bandstore.hpp"
 #include "pipeline/geometry.hpp"
 #include "pipeline/jpeg_clean.hpp"
+#include "pipeline/lowlight.hpp"
 #include "policy/gpu_gate.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -222,6 +223,66 @@ static void test_jpeg_clean() {
   CHECK(cancelled && net.calls == 1);
 }
 
+// Low light: RGB -> HVI -> RGB is the identity (to a level), and so is the stage with a network
+// that changes nothing.
+class SameNet final : public InferenceBackend {
+ public:
+  std::string name() const override { return "same"; }
+  const BackendConfig& config() const override { return cfg_; }
+  void load(const ModelInfo&) override {}
+  void run(const ncnn::Mat& in, ncnn::Mat& out) override {
+    w = in.w;
+    h = in.h;
+    out = in.clone();
+  }
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>&,
+                                    const std::vector<std::string>& = {}) override {
+    return {};
+  }
+  void set_threads(int) override {}
+  int threads() const override { return 1; }
+  int w = 0, h = 0;
+
+ private:
+  BackendConfig cfg_;
+};
+
+static void test_lowlight() {
+  const float k = 0.98f;
+  int worst = 0;
+  for (int r = 0; r < 256; r += 15)
+    for (int g = 0; g < 256; g += 17)
+      for (int b = 0; b < 256; b += 13) {
+        float rr, gg, bb;
+        rgb_of_hvi(hvi_of_rgb(r / 255.f, g / 255.f, b / 255.f, k), k, rr, gg, bb);
+        worst = std::max({worst, std::abs(int(std::lround(rr * 255)) - r),
+                          std::abs(int(std::lround(gg * 255)) - g),
+                          std::abs(int(std::lround(bb * 255)) - b)});
+      }
+  CHECK(worst <= 1);
+  const Hvi grey = hvi_of_rgb(0.5f, 0.5f, 0.5f, k);
+  CHECK(grey.h == 0 && grey.v == 0 && grey.i == 0.5f);
+  Rgb8 img;
+  img.w = 1001;
+  img.h = 333;
+  img.px.resize(size_t(img.w) * img.h * 3);
+  for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 37 % 251);
+  SameNet net;
+  const Rgb8 out = enhance_low_light(net, img, k);
+  CHECK(net.w % kLowLightMultiple == 0 && net.h % kLowLightMultiple == 0);
+  CHECK(net.w == 384 && net.h == 128);  // 1001 x 333 to 384 x 128 (already a multiple of 8)
+  int diff = 0;
+  for (size_t i = 0; i < img.px.size(); ++i) diff = std::max(diff, std::abs(out.px[i] - img.px[i]));
+  CHECK(out.w == img.w && out.h == img.h && diff <= 1);
+  // Small photos run at their own size.
+  Rgb8 tiny;
+  tiny.w = 13;
+  tiny.h = 5;
+  tiny.px.assign(size_t(13) * 5 * 3, 70);
+  SameNet t;
+  CHECK(enhance_low_light(t, tiny, k).px == tiny.px && t.w == 16 && t.h == 8);
+}
+
 int main(int argc, char** argv) {
   std::string dir = argc > 1 ? argv[1] : "test-work";
   fs::remove_tree(dir);
@@ -234,6 +295,7 @@ int main(int argc, char** argv) {
   test_bandstore(dir);
   test_gpu_gate();
   test_jpeg_clean();
+  test_lowlight();
   std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;
 }

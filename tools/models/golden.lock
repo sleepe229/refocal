@@ -17,3 +17,12 @@ jpeg.fbcnn model.ncnn.bin c973ad06f02cf669d3eb6acee9bd995bf3bd76c2851d9a7b0be059
 jpeg.fbcnn model.json e6da6680e85815ef9d160e6419574558ae9dd1c750a73660bc27e4dae0894cd9 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.json
 jpeg.fbcnn golden_in_3x96x96.f32 1f97d5b33d4c70a2425d02ece2802b5c1cfcb9225a2d185a1f5eec803140843e https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_in_3x96x96.f32
 jpeg.fbcnn golden_restore_out_3x96x96.f32 758863b92756631108e5942b5fcad355b7c4e565e0094ef3974cf1776f696276 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_restore_out_3x96x96.f32
+# The low-light pack (old.lowlight-cidnet, S9, tools/models/convert_cidnet.py): a 128x128 RGB tile,
+# its HVI (upstream's transform) and the network's PyTorch fp32 output for it. Not in the
+# signed manifest yet, so the pack files are pinned here too.
+old.lowlight-cidnet model.ncnn.param c01db59d3c69ecd37aaa170285f6f4471bc3e09ef3b073da4253cdbfae14ebae https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.param
+old.lowlight-cidnet model.ncnn.bin 9e714e403ac635e4d9c817d6fd76fc252d96d1ab663ddb58b569c65de21ae1fe https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.bin
+old.lowlight-cidnet model.json 1a1fd909ed588a8579e1cef07beaa29ce4ec4604a64f4c0099fba3f7e29c6a7e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.json
+old.lowlight-cidnet golden_rgb_3x128x128.f32 bc84e88d2f9c5acaf0f70328618a33992b4b025884bc0a2fd26f0214d1a1646e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_rgb_3x128x128.f32
+old.lowlight-cidnet golden_in_3x128x128.f32 9c10b76e0beba97895303493a62d99339462ada55ac2765636ed464a55cdfe8e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_in_3x128x128.f32
+old.lowlight-cidnet golden_out_3x128x128.f32 c4b24fd089e07b8f033dc9c0f02f1af4891a12d08d18cc0678fa4dd401992049 https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_out_3x128x128.f32

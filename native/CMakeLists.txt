@@ -205,6 +205,7 @@ set(ENH_SOURCES
   core/src/pipeline/faces.cpp
   core/src/pipeline/geometry.cpp
   core/src/pipeline/jpeg_clean.cpp
+  core/src/pipeline/lowlight.cpp
   core/src/backend/ncnn_backend.cpp
   core/src/job/events.cpp
   core/src/job/job.cpp

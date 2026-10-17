@@ -22,6 +22,7 @@
 #include "image/image.hpp"
 #include "image/jpeg.hpp"
 #include "mini_test.hpp"
+#include "pipeline/lowlight.hpp"
 #include "util/fs.hpp"
 
 using namespace enh;
@@ -118,6 +119,52 @@ void fbcnn(const std::string& root) {
   CHECK(db >= 40);
 }
 
+// TEST-ML-001 for the low-light pack (S9): the C++ HVI transform against upstream's on the golden
+// RGB tile, then the network (HVI -> HVI) against its PyTorch fp32 output.
+void lowlight(const std::string& root) {
+  constexpr int kN = 128;
+  const std::string dir = fs::join(root, "old.lowlight-cidnet");
+  const size_t n = size_t(3) * kN * kN;
+  const auto rgb = read_f32(fs::join(dir, "golden_rgb_3x128x128.f32"), n);
+  const auto in = read_f32(fs::join(dir, "golden_in_3x128x128.f32"), n);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x128x128.f32"), n);
+  if (rgb.empty() || in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
+    std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
+    return;
+  }
+  const auto meta = nlohmann::json::parse(fs::read_text(fs::join(dir, "model.json")));
+  const float k = meta["density_k"].get<float>();
+  const size_t px = size_t(kN) * kN;
+  double worst = 0;
+  for (size_t i = 0; i < px; ++i) {
+    const Hvi c = hvi_of_rgb(rgb[i], rgb[px + i], rgb[2 * px + i], k);
+    worst = std::max({worst, std::fabs(double(c.h) - in[i]), std::fabs(double(c.v) - in[px + i]),
+                      std::fabs(double(c.i) - in[2 * px + i])});
+  }
+  std::printf("golden old.lowlight-cidnet HVI transform: max diff %.2e\n", worst);
+  CHECK(worst < 1e-4);
+  const ModelInfo m = resolve_model(root, "old.lowlight-cidnet");
+  auto be = make_ncnn_backend({BackendKind::cpu, 0, true, 0});
+  be->load(m);
+  ncnn::Mat x(kN, kN, 3);
+  for (int c = 0; c < 3; ++c)
+    std::copy_n(in.data() + size_t(c) * px, px, static_cast<float*>(x.channel(c)));
+  ncnn::Mat y;
+  be->run(x, y);
+  CHECK(y.w == kN && y.h == kN && y.c == 3);
+  if (y.w != kN || y.h != kN || y.c != 3) return;
+  // PSNR with H and V (in [-1, 1]) and I (in [0, 1]) taken as they are, over a range of 2.
+  double se = 0;
+  for (int c = 0; c < 3; ++c)
+    for (size_t i = 0; i < px; ++i) {
+      const double d = static_cast<const float*>(y.channel(c))[i] - ref[size_t(c) * px + i];
+      se += d * d;
+    }
+  const double db = se == 0 ? 99 : 10 * std::log10(4.0 * 3 * px / se);
+  std::printf("golden old.lowlight-cidnet %s: %.2f dB\n", be->name().c_str(), db);
+  CHECK(db >= 40);
+}
+
 // Runs a job to its end on [s]; its result's bands, concatenated, and its recipe hash.
 std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::string& jobs_dir,
                                                  const nlohmann::json& req) {
@@ -164,6 +211,7 @@ int main(int argc, char** argv) {
   rrdb(argv[1], "sr.x4plus");
   rrdb(argv[1], "sr.x4plus-anime6b");
   fbcnn(argv[1]);
+  lowlight(argv[1]);
   // ADR-0017 micro-benchmark on the real weights: CPU always runs; a tier comes out.
   enh_session_config cfg{};
   cfg.struct_size = sizeof cfg;
