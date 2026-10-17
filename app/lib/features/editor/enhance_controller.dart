@@ -93,11 +93,15 @@ class EnhanceController extends Notifier<EnhanceState> {
   String? _input;
   bool _timedOut = false;
 
+  /// The state as of the last change: onDispose may not read [state] (Riverpod 3).
+  EnhanceState _last = const Idle();
+
   /// Strength the result starts with (a preset's, FR-PRE-002; else 100%).
   double _strength = 1;
 
   @override
   EnhanceState build() {
+    listenSelf((_, next) => _last = next);
     ref.onDispose(() {
       _sub?.cancel();
       _actions?.cancel();
@@ -111,7 +115,7 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// job refers to it (ADR-0010). Unsaved and paused jobs stay for the home screen list. Runs
   /// after the screen is gone: a failure is logged and the startup sweep catches the rest.
   void _cleanup() {
-    final jobs = _jobs, input = _input, s = state;
+    final jobs = _jobs, input = _input, s = _last;
     if (jobs == null) return;
     unawaited(() async {
       try {
