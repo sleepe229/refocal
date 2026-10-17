@@ -69,5 +69,12 @@ void main() {
       'reason': 'numeric',
     }) as FallbackEvent;
     expect((old.kind, old.to, old.faceIndex), (FallbackKind.backend, 'cpu', null));
+    final jpeg = JobEvent.fromNative(3, 0, 0, {'kind': 'jpeg', 'to': 'skipped'}) as FallbackEvent;
+    expect(jpeg.kind, FallbackKind.jpeg);
+  });
+
+  test('the JPEG cleanup stage (S9)', () {
+    final s = JobEvent.fromNative(1, 0, 0, {'stage': 'jpeg_clean', 'qf': 0.5}) as StageEvent;
+    expect(s.stage, JobStage.jpeg);
   });
 }

@@ -22,6 +22,22 @@ void main() {
     expect((r.id, r.input, r.scale, r.fast2, r.srModel), ('job-1', '/in/a.jpg', 2, false, 'sr.m'));
   });
 
+  test('JPEG cleanup goes to the core and back; the core writes "" and -1 for none (S9)', () {
+    final r = Recipe(scale: 4, srModel: 'sr.m', jpegModel: 'jpeg.fbcnn', jpegQf: 0.5);
+    final q = JobRequest.of(r, '/in/a.jpg', id: 'job-j');
+    expect(q.toJson(), containsPair('jpeg_model', 'jpeg.fbcnn'));
+    expect(q.toJson(), containsPair('jpeg_qf', 0.5));
+    expect(JobRequest.fromJson(q.toJson()).recipe(), r);
+    final fromPhoto = JobRequest.fromJson({...q.toJson(), 'jpeg_qf': -1});
+    expect((fromPhoto.jpegModel, fromPhoto.jpegQf), ('jpeg.fbcnn', null));
+    final none = JobRequest.fromJson({
+      ...JobRequest(id: 'job-n', input: '/a', scale: 4, srModel: 'm').toJson(),
+      'jpeg_model': '',
+      'jpeg_qf': -1,
+    });
+    expect(none.jpegModel, isNull);
+  });
+
   test('faces go to the core and come back; the core writes "" for none', () {
     final r = Recipe(scale: 4, srModel: 'sr.m', faceModel: 'face.g', faceStrength: 0.3);
     final q = JobRequest.of(r, '/in/a.jpg', id: 'job-f');

@@ -7,6 +7,9 @@ enum JobStage {
 
   /// DetectFaces + RestoreFaces (ADR-0012).
   faces('restore_faces'),
+
+  /// JPEG cleanup before SR (S9).
+  jpeg('jpeg_clean'),
   upscale('upscale'),
   finalize('finalize'),
   unknown('');
@@ -77,7 +80,10 @@ enum FallbackKind {
   backend,
 
   /// A face ([FallbackEvent.faceIndex]) or all faces left as the SR model makes them.
-  face;
+  face,
+
+  /// JPEG cleanup skipped: the photo goes to SR as decoded (S9).
+  jpeg;
 
   static FallbackKind fromName(String? name) =>
       values.where((k) => k.name == name).firstOrNull ?? backend;

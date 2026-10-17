@@ -69,8 +69,14 @@ class Recipe {
     this.faceStrength = defaultFaceStrength,
     this.faceFidelity = defaultFaceFidelity,
     this.facesOnly = false,
+    this.jpegModel,
+    this.jpegQf,
     this.output,
   }) {
+    if (jpegModel != null && jpegModel!.isEmpty) throw ArgumentError('empty JPEG model');
+    if (jpegQf case final q? when !(q >= 0 && q <= 1)) {
+      throw ArgumentError('jpegQf must be 0..1, got $q');
+    }
     if (!(faceFidelity >= 0 && faceFidelity <= 1)) {
       throw ArgumentError('faceFidelity must be 0..1, got $faceFidelity');
     }
@@ -100,8 +106,9 @@ class Recipe {
   }
 
   /// 2: face restoration (faceModel, faceStrength). Schema 1 recipes are read as without faces;
-  /// an older app refuses schema 2 rather than dropping the faces.
-  static const schemaVersion = 2;
+  /// an older app refuses schema 2 rather than dropping the faces. 3: JPEG cleanup (jpegModel,
+  /// jpegQf), written only when it is on, so other recipes stay readable by older apps.
+  static const schemaVersion = 3;
 
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
@@ -141,6 +148,13 @@ class Recipe {
   /// SR model does not run). Region "Background" is [faceModel] null; "All" is the default.
   final bool facesOnly;
 
+  /// S9: the JPEG pack cleaning the photo before SR; null: no cleanup.
+  final String? jpegModel;
+
+  /// The cleanup's quality factor 0..1 (1 - JPEG quality/100); null: from the photo's own
+  /// quantization table (quality 50 for other formats).
+  final double? jpegQf;
+
   /// What was saved; null in presets, where the format is chosen when saving (06 §3.4).
   final OutputSpec? output;
 
@@ -150,6 +164,8 @@ class Recipe {
     double? faceStrength,
     double? faceFidelity,
     bool? facesOnly,
+    String? Function()? jpegModel,
+    double? Function()? jpegQf,
     OutputSpec? Function()? output,
   }) => Recipe(
     scale: scale,
@@ -161,11 +177,13 @@ class Recipe {
     faceFidelity: faceFidelity ?? this.faceFidelity,
     facesOnly:
         (faceModel != null ? faceModel() : this.faceModel) != null && (facesOnly ?? this.facesOnly),
+    jpegModel: jpegModel != null ? jpegModel() : this.jpegModel,
+    jpegQf: jpegQf != null ? jpegQf() : this.jpegQf,
     output: output != null ? output() : this.output,
   );
 
   Map<String, Object?> toJson() => {
-    'schema': schemaVersion,
+    'schema': jpegModel == null ? 2 : schemaVersion,
     'scale': scale,
     'fast2': fast2,
     'sr_model': srModel,
@@ -176,6 +194,7 @@ class Recipe {
       if (faceFidelity != defaultFaceFidelity) 'face_fidelity': faceFidelity,
       if (facesOnly) 'faces_only': true,
     },
+    if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
   };
 
@@ -190,7 +209,7 @@ class Recipe {
           'sr_model': final String srModel,
           'strength': final num strength,
         }
-        when schema == 1 || schema == schemaVersion) {
+        when schema >= 1 && schema <= schemaVersion) {
       final faceModel = switch (j['face_model']) {
         null => null,
         final String f when schema >= 2 => f,
@@ -205,6 +224,16 @@ class Recipe {
         null => defaultFaceFidelity,
         final num v when schema >= 2 && v >= 0 && v <= 1 => v.toDouble(),
         final other => throw FormatException('bad face_fidelity', other),
+      };
+      final jpegModel = switch (j['jpeg_model']) {
+        null => null,
+        final String m when schema >= 3 && m.isNotEmpty => m,
+        final other => throw FormatException('bad jpeg_model', other),
+      };
+      final jpegQf = switch (j['jpeg_qf']) {
+        null => null,
+        final num v when jpegModel != null && v >= 0 && v <= 1 => v.toDouble(),
+        final other => throw FormatException('bad jpeg_qf', other),
       };
       if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
           case final why?) {
@@ -223,6 +252,8 @@ class Recipe {
           true when faceModel != null => true,
           final other => throw FormatException('bad faces_only', other),
         },
+        jpegModel: jpegModel,
+        jpegQf: jpegQf,
         output: switch (j['output']) {
           null => null,
           {'format': final String name} && final Map<String, Object?> o => _output(
@@ -255,6 +286,8 @@ class Recipe {
       other.faceStrength == faceStrength &&
       other.faceFidelity == faceFidelity &&
       other.facesOnly == facesOnly &&
+      other.jpegModel == jpegModel &&
+      other.jpegQf == jpegQf &&
       other.output == output;
 
   @override
@@ -267,6 +300,8 @@ class Recipe {
     faceStrength,
     faceFidelity,
     facesOnly,
+    jpegModel,
+    jpegQf,
     output,
   );
 }
