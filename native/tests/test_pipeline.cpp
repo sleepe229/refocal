@@ -284,13 +284,13 @@ static void test_scratches() {
   CHECK(nw == 336 && nh == 256);
   scratch_input_size(300, 200, nw, nh);
   CHECK(nw == 384 && nh == 256);
-  // A bright vertical scratch (x 110..129) on a grey 900 x 600 photo.
+  // A bright vertical scratch (x 118..121) on a grey 900 x 600 photo.
   Rgb8 img;
   img.w = 900;
   img.h = 600;
   img.px.assign(size_t(img.w) * img.h * 3, 90);
   for (int y = 0; y < img.h; ++y)
-    for (int x = 110; x < 130; ++x) std::fill_n(img.row(y) + x * 3, 3, uint8_t(250));
+    for (int x = 118; x < 122; ++x) std::fill_n(img.row(y) + x * 3, 3, uint8_t(250));
   BrightNet det;
   const Mask8 m = detect_scratches(det, img, kScratchThreshold, 1);
   CHECK(det.w % kScratchMultiple == 0 && det.h == kScratchShortSide);
@@ -304,13 +304,16 @@ static void test_scratches() {
         break;
       }
 
+  // Only the scratch itself, not the detector's whole cells around it.
+  for (int x = 0; x < m.w; ++x)
+    if (m.at(x, 300)) CHECK(x >= 116 && x <= 123);
   GreyFill fill;
   int ticks = 0;
   const Rgb8 out = inpaint(fill, img, m, [&](int, int) { return ++ticks > 0; });
   CHECK(fill.bad_shape == 0 && fill.bad_input == 0);
   CHECK(fill.calls == 2 && ticks == 2);  // 900 x 600 in 384 px cores: the column of x 110
   CHECK(out.w == img.w && out.h == img.h);
-  CHECK(out.row(300)[120 * 3] == 128);  // the hole: the fill (0 in [-1, 1])
+  CHECK(out.row(300)[120 * 3] >= 124);  // the hole: mostly the fill (0 in [-1, 1])
   CHECK(out.row(300)[60 * 3] == 90 && out.row(300)[200 * 3] == 90);  // kept exactly
   // No hole: nothing runs, the photo comes back.
   Mask8 none = m;
