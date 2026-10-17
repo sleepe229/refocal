@@ -17,15 +17,15 @@ jpeg.fbcnn model.ncnn.bin c973ad06f02cf669d3eb6acee9bd995bf3bd76c2851d9a7b0be059
 jpeg.fbcnn model.json e6da6680e85815ef9d160e6419574558ae9dd1c750a73660bc27e4dae0894cd9 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.json
 jpeg.fbcnn golden_in_3x96x96.f32 1f97d5b33d4c70a2425d02ece2802b5c1cfcb9225a2d185a1f5eec803140843e https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_in_3x96x96.f32
 jpeg.fbcnn golden_restore_out_3x96x96.f32 758863b92756631108e5942b5fcad355b7c4e565e0094ef3974cf1776f696276 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_restore_out_3x96x96.f32
-# The low-light pack (old.lowlight-cidnet, S9, tools/models/convert_cidnet.py): a 128x128 RGB tile,
+# The low-light pack (old.lowlight-cidnet, S9, tools/models/convert_cidnet.py): a 384x384 RGB tile (the graph's one input size),
 # its HVI (upstream's transform) and the network's PyTorch fp32 output for it. Not in the
 # signed manifest yet, so the pack files are pinned here too.
-old.lowlight-cidnet model.ncnn.param 4ff94961fd558fa7a6e7abcde07711f5700296eac8b4117cbe472907f362507e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.param
+old.lowlight-cidnet model.ncnn.param 8397e7eb93f7e60c333b3de8b67d6ab26c3a416a7b29fe20c8cad98e38d98f2f https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.param
 old.lowlight-cidnet model.ncnn.bin 9e714e403ac635e4d9c817d6fd76fc252d96d1ab663ddb58b569c65de21ae1fe https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.bin
-old.lowlight-cidnet model.json 0a2345dbd1f8559e25dba0df897b846507abb1afe507b6e42596d2b5dc722f65 https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.json
-old.lowlight-cidnet golden_rgb_3x128x128.f32 bc84e88d2f9c5acaf0f70328618a33992b4b025884bc0a2fd26f0214d1a1646e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_rgb_3x128x128.f32
-old.lowlight-cidnet golden_in_3x128x128.f32 9c10b76e0beba97895303493a62d99339462ada55ac2765636ed464a55cdfe8e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_in_3x128x128.f32
-old.lowlight-cidnet golden_out_3x128x128.f32 b6500c8c35a1e7e945d495144efc3750921b97f4d72d232d8662ceea78f96a4b https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_out_3x128x128.f32
+old.lowlight-cidnet model.json 00dd89eb60a8af2100d440e98dd7440ddc8e80e61d56d1e1271e3114a26c5e3f https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.json
+old.lowlight-cidnet golden_rgb_3x384x384.f32 130b5bfc1d4532c88cbcca4c59c3b57be43842034f4e27795caca5f8f3f05e88 https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_rgb_3x384x384.f32
+old.lowlight-cidnet golden_in_3x384x384.f32 5e318fc8fdad3cdb06dadbc884394c58253692264c790d23e9273cd36dbcaf08 https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_in_3x384x384.f32
+old.lowlight-cidnet golden_out_3x384x384.f32 111941b6887976c619fb2fea9b3c236216d27a400a7b8da4d96e4008b44d0468 https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_out_3x384x384.f32
 # The old-photo packs (S9): the scratch detector (old.scratch, tools/models/convert_scratch.py) with
 # a 256x384 grey input and its PyTorch fp32 probability, and the MI-GAN generator
 # (old.inpaint-migan, tools/models/convert_migan.py) with a 4x512x512 input and its onnxruntime

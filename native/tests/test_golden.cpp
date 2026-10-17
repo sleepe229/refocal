@@ -122,12 +122,12 @@ void fbcnn(const std::string& root) {
 // TEST-ML-001 for the low-light pack (S9): the C++ HVI transform against upstream's on the golden
 // RGB tile, then the network (HVI -> HVI) against its PyTorch fp32 output.
 void lowlight(const std::string& root) {
-  constexpr int kN = 128;
+  constexpr int kN = 384;
   const std::string dir = fs::join(root, "old.lowlight-cidnet");
   const size_t n = size_t(3) * kN * kN;
-  const auto rgb = read_f32(fs::join(dir, "golden_rgb_3x128x128.f32"), n);
-  const auto in = read_f32(fs::join(dir, "golden_in_3x128x128.f32"), n);
-  const auto ref = read_f32(fs::join(dir, "golden_out_3x128x128.f32"), n);
+  const auto rgb = read_f32(fs::join(dir, "golden_rgb_3x384x384.f32"), n);
+  const auto in = read_f32(fs::join(dir, "golden_in_3x384x384.f32"), n);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), n);
   if (rgb.empty() || in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
     std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
     return;
