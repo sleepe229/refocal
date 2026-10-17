@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0-beta.2
+
+Security and packaging fixes for the public beta.
+
+Fixed:
+- **Security:** another app could share a link to Refocal's own private files (for example
+  history previews) and have them opened in the editor. Only images other apps share are taken
+  now.
+- Shared or picked files larger than 200 MB are refused while copying, instead of after filling
+  the storage.
+- Model downloads are size-limited, and every redirect must stay on HTTPS.
+- The release APK is built so that F-Droid can reproduce it byte for byte and ship our signed
+  APK.
+
+New:
+- About links to the privacy policy (also at <https://sleepe229.github.io/refocal/privacy>).
+
 ## 0.5.0-beta.1
 
 Public beta. Checked on one phone (Galaxy S24 Ultra), a desktop and an Android 15 emulator.
