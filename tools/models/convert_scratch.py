@@ -30,8 +30,8 @@ SRC_SHA = {
     "networks.py": "5aaa9f8d23620be0d7cf27b9da634134f5fb1bff20d2b7c043232b7f27fa0013",
     "antialiasing.py": "277bcecdf3e81e3238494c42ba12e7b9dfbe509c531b724abaa8c80f7e74cca5",
 }
-ZIP_SHA = None
-WEIGHTS_SHA = None
+ZIP_SHA = "3ff4c52a3a65d71e458ff24b1d7339b326d216ef793c2027761e11efb30f7882"
+WEIGHTS_SHA = "b2d7ab04e9b3885c6b1991bb7a0b823129dd6e3ac078a9fd059ebd2a7ba59a95"
 GOLDEN = (256, 384)  # h, w: the 256 px short side of a 2:3 photo
 THRESHOLD = 0.4  # upstream detection.py
 

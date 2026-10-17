@@ -20,13 +20,13 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Python packages (CPU torch, pnnx; versions of spikes/s1-gfpgan/requirements.lock)
+      - name: Python packages (CPU torch, pnnx, onnx; versions of spikes/s1-gfpgan/requirements.lock)
         run: |
           python3 -m venv /tmp/venv
           lock=spikes/s1-gfpgan/requirements.lock
           pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
           /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)" "$(pin torchvision)"
-          /tmp/venv/bin/pip install -q "$(pin pnnx)" "$(pin numpy)" "$(pin pillow)"
+          /tmp/venv/bin/pip install -q "$(pin pnnx)" "$(pin numpy)" "$(pin pillow)" "$(pin onnx)" "$(pin onnxruntime)"
       - name: Convert
         run: /tmp/venv/bin/python tools/models/${{ inputs.converter }}.py out --pnnx /tmp/venv/bin/pnnx
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
