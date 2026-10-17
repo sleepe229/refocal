@@ -176,6 +176,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _faceStrength = r.faceStrength;
     _faceFidelity = r.faceFidelity;
     _facesOnly = r.facesOnly;
+    _jpeg = r.jpegModel != null;
   }
 
   /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
@@ -195,7 +196,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           (_faceModel == r.faceModel &&
               _faceStrength == r.faceStrength &&
               _faceFidelity == r.faceFidelity &&
-              _facesOnly == r.facesOnly));
+              _facesOnly == r.facesOnly)) &&
+      _jpeg == (r.jpegModel != null);
 
   /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
   final _facesOff = <FaceBox>{};
@@ -339,6 +341,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// FR-FACE-006 region "Faces": the rest of the photo is only upscaled (Lanczos), faster.
   bool _facesOnly = false;
 
+  /// S9: remove JPEG artifacts before SR (the quality factor read from the photo).
+  bool _jpeg = false;
+
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
@@ -355,8 +360,22 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       faceStrength: _faceStrength,
       faceFidelity: _faceFidelity,
       facesOnly: _faces && _facesOnly,
+      jpegModel: _jpeg ? jpegPack : null,
     );
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
+  }
+
+  /// S9: a switch once the JPEG cleanup pack is installed.
+  Widget _jpegControl(AppLocalizations l10n) {
+    if (!ref.watch(availableModelsProvider).contains(jpegPack)) return const SizedBox.shrink();
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: const Icon(Icons.blur_off),
+      title: Text(l10n.jpegClean),
+      subtitle: Text(l10n.jpegCleanHint),
+      value: _jpeg,
+      onChanged: (v) => setState(() => _jpeg = v),
+    );
   }
 
   /// Faces (FR-FACE-002..004): a switch and the strength once the face pack is installed; else
@@ -626,6 +645,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ?_srModel(l10n),
         ?_denoise(l10n),
         _facesControls(l10n),
+        _jpegControl(l10n),
         const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
           segments: [

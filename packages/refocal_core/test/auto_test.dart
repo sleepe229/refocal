@@ -31,6 +31,38 @@ void main() {
     expect(a.reasons, b.reasons);
   });
 
+  test('JPEG cleanup for a low-quality JPEG on T2 with the pack installed (S9)', () {
+    PhotoAnalysis jpeg(int q) => PhotoAnalysis(
+      width: 1000,
+      height: 800,
+      noiseSigma: 4,
+      faces: 0,
+      largestFacePx: 0,
+      detector: true,
+      jpegQuality: q,
+    );
+    const withPack = AutoModels(standard: 'sr.general-x4v3', jpegPack: 'jpeg.fbcnn');
+    final d = _auto.decide(jpeg(35), DeviceTier.t2, withPack);
+    expect(d.recipe.jpegModel, 'jpeg.fbcnn');
+    expect(d.recipe.jpegQf, isNull, reason: 'the core reads it from the photo');
+    expect(d.reasons, contains(AutoReason.jpegArtifacts));
+    expect(_auto.decide(jpeg(85), DeviceTier.t2, withPack).recipe.jpegModel, isNull);
+    expect(_auto.decide(jpeg(0), DeviceTier.t2, withPack).recipe.jpegModel, isNull, reason: 'PNG');
+    expect(_auto.decide(jpeg(35), DeviceTier.t1, withPack).recipe.jpegModel, isNull);
+    expect(_auto.decide(jpeg(35), DeviceTier.t2, _bundled).recipe.jpegModel, isNull);
+    expect(
+      PhotoAnalysis.fromJson({
+        'schema': 1,
+        'width': 10,
+        'height': 10,
+        'noise_sigma': 1,
+        'faces': {'count': 0, 'largest_px': 0, 'detector': false, 'boxes': <Object?>[]},
+      }).jpegQuality,
+      0,
+      reason: 'older cores do not write it',
+    );
+  });
+
   test('scale by size and tier (ADR-0014, 05 §3)', () {
     Recipe r(double mp, DeviceTier t) => _auto.decide(photo(mp: mp), t, _bundled).recipe;
     expect((r(1, DeviceTier.t1).scale, r(1, DeviceTier.t1).fast2), (4, false));

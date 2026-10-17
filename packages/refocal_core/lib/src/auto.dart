@@ -36,6 +36,7 @@ class PhotoAnalysis {
     required this.largestFacePx,
     required this.detector,
     this.boxes = const [],
+    this.jpegQuality = 0,
   });
 
   /// Throws [FormatException] for anything the core did not write.
@@ -60,6 +61,11 @@ class PhotoAnalysis {
         largestFacePx: largest,
         detector: detector,
         boxes: [for (final b in boxes) FaceBox.fromJson(b)],
+        jpegQuality: switch (j['jpeg_quality']) {
+          null => 0,
+          final int q when q >= 0 && q <= 100 => q,
+          final other => throw FormatException('bad jpeg_quality', other),
+        },
       );
     }
     throw FormatException('not an analysis', j);
@@ -77,16 +83,22 @@ class PhotoAnalysis {
   /// The faces a job restores, largest first (FR-FACE-007).
   final List<FaceBox> boxes;
 
+  /// S9: the JPEG quality of the photo's quantization table; 0 when it is not a JPEG.
+  final int jpegQuality;
+
   double get megapixels => width * height / 1e6;
 }
 
 /// The models Auto may use: the denoise levels installed (ADR-0015), and the face pack.
 class AutoModels {
-  const AutoModels({required this.standard, this.none, this.strong, this.facePack});
+  const AutoModels({required this.standard, this.none, this.strong, this.facePack, this.jpegPack});
 
   /// The built-in model (denoise 0.5).
   final String standard;
   final String? none, strong, facePack;
+
+  /// S9: the JPEG cleanup pack, when installed.
+  final String? jpegPack;
 }
 
 /// Why Auto chose what it did, for the explanation (06 §3.2: «4×, лиц: 2, денойз средний»).
@@ -99,6 +111,7 @@ enum AutoReason {
   cleanPhoto,
   noisyPhoto,
   veryNoisyPhoto,
+  jpegArtifacts,
 }
 
 class AutoDecision {
@@ -116,10 +129,13 @@ class AutoDecision {
 ///   (05 §3: "только лица").
 /// - Denoise (ADR-0015): sigma < [cleanSigma] -> the "off" level if installed; sigma >
 ///   [noisySigma] -> the strong level if installed; else the built-in 0.5.
+/// - JPEG artifacts (S9): a JPEG below [jpegCleanBelow] quality gets the cleanup pack on T2
+///   (FBCNN is a T2 pack, 04 §1), its quality factor read from the photo.
 class AutoPolicy {
   const AutoPolicy();
 
   static const cleanSigma = 2.0, noisySigma = 8.0;
+  static const jpegCleanBelow = 60;
 
   AutoDecision decide(PhotoAnalysis a, DeviceTier tier, AutoModels models) {
     final reasons = <AutoReason>[];
@@ -159,6 +175,14 @@ class AutoPolicy {
         reasons.add(AutoReason.faces);
       }
     }
+    String? jpeg;
+    if (a.jpegQuality > 0 &&
+        a.jpegQuality < jpegCleanBelow &&
+        models.jpegPack != null &&
+        tier == DeviceTier.t2) {
+      jpeg = models.jpegPack;
+      reasons.add(AutoReason.jpegArtifacts);
+    }
     return AutoDecision(
       Recipe(
         scale: scale,
@@ -166,6 +190,7 @@ class AutoPolicy {
         srModel: sr,
         faceModel: face,
         facesOnly: facesOnly,
+        jpegModel: jpeg,
       ),
       reasons,
     );

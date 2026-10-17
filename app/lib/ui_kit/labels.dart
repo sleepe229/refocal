@@ -72,6 +72,7 @@ String autoExplanation(AppLocalizations l10n, PhotoAnalysis a, AutoDecision d) {
     else if (a.faces > 0 && r.faceModel == null)
       l10n.autoFacesNeedPack,
     if (r.facesOnly) l10n.autoFacesOnly,
+    if (r.jpegModel != null) l10n.autoJpeg(a.jpegQuality),
     switch (DenoiseLevel.of(r.srModel)) {
       DenoiseLevel.none => l10n.autoDenoiseNone,
       DenoiseLevel.strong => l10n.autoDenoiseStrong,

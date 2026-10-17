@@ -619,6 +619,8 @@
       }
     }
   },
+  "jpegClean": "Remove JPEG artifacts",
+  "jpegCleanHint": "Smooths blocks and halos of strong compression before enhancing. Slower.",
   "faces": "Restore faces",
   "facesHint": "Uses the face model on each face, then blends it with the enhanced photo.",
   "faceModelGfpgan": "GFPGAN",
@@ -694,6 +696,14 @@
   },
   "autoFacesNotRestored": "not restored on this device",
   "autoFacesNeedPack": "face model not installed",
+  "autoJpeg": "JPEG artifacts (quality {quality})",
+  "@autoJpeg": {
+    "placeholders": {
+      "quality": {
+        "type": "int"
+      }
+    }
+  },
   "autoFacesOnly": "only faces",
   "autoDenoiseNone": "no denoise",
   "autoDenoiseStandard": "denoise medium",

@@ -539,6 +539,9 @@ const codeformerPack = 'face.codeformer';
 /// Face packs in the order the editor offers them.
 const facePacks = [defaultFacePack, codeformerPack];
 
+/// S9: the JPEG cleanup pack (FBCNN restore graph, T2).
+const jpegPack = 'jpeg.fbcnn';
+
 /// Whether [r] can run with [available] models (faces need the detector as well).
 bool canRun(Recipe r, Set<String> available) =>
     available.contains(r.srModel) &&
