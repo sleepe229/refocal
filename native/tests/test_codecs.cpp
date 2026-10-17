@@ -490,8 +490,7 @@ static void test_jpeg_quality(const std::string& dir) {
     const std::string p = dir + "/q" + std::to_string(q) + ".jpg";
     jpeg_encode(p, img, q);
     const int got = jpeg_probe(p).quality;
-    if (got != q) std::fprintf(stderr, "quality %d read back as %d
-", q, got);
+    if (got != q) std::fprintf(stderr, "quality %d read back as %d\n", q, got);
     CHECK(got == q);
   }
 }
