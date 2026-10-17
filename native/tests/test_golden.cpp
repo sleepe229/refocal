@@ -91,6 +91,33 @@ void rrdb(const std::string& root, const std::string& id) {
   CHECK(run({BackendKind::cpu, 0, true, 0}, m, kRrdbIn, in, ref) >= 40);
 }
 
+// TEST-ML-001 for the JPEG cleanup pack (S9): the restore graph, two inputs (tile, qf), at the
+// quality factor its golden output was made with (convert_fbcnn.py: 0.7).
+void fbcnn(const std::string& root) {
+  constexpr int kN = 96;
+  const std::string dir = fs::join(root, "jpeg.fbcnn");
+  const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kN * kN);
+  const auto ref = read_f32(fs::join(dir, "golden_restore_out_3x96x96.f32"), size_t(3) * kN * kN);
+  if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
+    std::printf("golden jpeg.fbcnn: not in %s, skipped\n", root.c_str());
+    return;
+  }
+  const ModelInfo m = resolve_model(root, "jpeg.fbcnn");
+  CHECK(m.scale == 1);
+  auto be = make_ncnn_backend({BackendKind::cpu, 0, true, 0});
+  be->load(m);
+  ncnn::Mat x(kN, kN, 3), q(1, 1, 1);
+  for (int c = 0; c < 3; ++c)
+    std::copy_n(in.data() + size_t(c) * kN * kN, kN * kN, static_cast<float*>(x.channel(c)));
+  q[0] = 0.7f;
+  const auto y = be->run_inputs({x, q}, {"out0"});
+  CHECK(y.size() == 1 && y[0].w == kN && y[0].h == kN && y[0].c == 3);
+  if (y.size() != 1 || y[0].w != kN || y[0].h != kN || y[0].c != 3) return;
+  const double db = psnr(y[0], ref);
+  std::printf("golden jpeg.fbcnn %s: %.2f dB\n", be->name().c_str(), db);
+  CHECK(db >= 40);
+}
+
 // Runs a job to its end on [s]; its result's bands, concatenated, and its recipe hash.
 std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::string& jobs_dir,
                                                  const nlohmann::json& req) {
@@ -136,6 +163,7 @@ int main(int argc, char** argv) {
   }
   rrdb(argv[1], "sr.x4plus");
   rrdb(argv[1], "sr.x4plus-anime6b");
+  fbcnn(argv[1]);
   // ADR-0017 micro-benchmark on the real weights: CPU always runs; a tier comes out.
   enh_session_config cfg{};
   cfg.struct_size = sizeof cfg;

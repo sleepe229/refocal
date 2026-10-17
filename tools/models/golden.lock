@@ -9,3 +9,11 @@ sr.x4plus golden_in_3x96x96.f32 25a49c9efdb68076cd6fcf2277e129f86a03415019f34ee8
 sr.x4plus golden_out_3x384x384.f32 14d486d8aadc09d40eb1743b88a9211eb336778b800104ecc6c1950aa237eb95 https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/golden_out_3x384x384.f32
 sr.x4plus-anime6b golden_in_3x96x96.f32 25a49c9efdb68076cd6fcf2277e129f86a03415019f34ee8e05a3f1dd8faae15 https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/golden_in_3x96x96.f32
 sr.x4plus-anime6b golden_out_3x384x384.f32 4c6982aa9fb113f91f48578b7faafab5a5d59bd1b8c9a3887e8c0b8407c0d41f https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/golden_out_3x384x384.f32
+# The JPEG cleanup pack (jpeg.fbcnn, S9): its restore graph and a 96x96 tile with its PyTorch fp32
+# output at qf 0.7, written by tools/models/convert_fbcnn.py. Not in the signed manifest yet, so
+# the pack files are pinned here too.
+jpeg.fbcnn model.ncnn.param f3662e8a9f14715b8eb8d0871ebae13cfd8ca95e821ce5492666b7f2eb7b89a5 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.ncnn.param
+jpeg.fbcnn model.ncnn.bin c973ad06f02cf669d3eb6acee9bd995bf3bd76c2851d9a7b0be059fbc69952c1 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.ncnn.bin
+jpeg.fbcnn model.json e6da6680e85815ef9d160e6419574558ae9dd1c750a73660bc27e4dae0894cd9 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.json
+jpeg.fbcnn golden_in_3x96x96.f32 1f97d5b33d4c70a2425d02ece2802b5c1cfcb9225a2d185a1f5eec803140843e https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_in_3x96x96.f32
+jpeg.fbcnn golden_restore_out_3x96x96.f32 758863b92756631108e5942b5fcad355b7c4e565e0094ef3974cf1776f696276 https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/golden_restore_out_3x96x96.f32
