@@ -7,8 +7,11 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <string>
 #include <vector>
 
+#include "backend/backend.hpp"
 #include "image/image.hpp"
 
 namespace enh {
@@ -68,6 +71,39 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h);
 
 // Runs the face model on an aligned 512x512 face (GFPGAN io: RGB in [-1, 1] both ways).
 Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned);
+
+// A face pack (ADR-0011, ADR-0024): one graph (GFPGAN: model.ncnn.*), or CodeFormer split in
+// two around its codebook lookup (encoder.ncnn.*, codebook.f32, generator.ncnn.*; model.json
+// {"split": "codeformer"}), which takes the fidelity w (FR-FACE-005).
+struct FaceModel {
+  std::string id;
+  bool split = false;
+  ModelInfo main, encoder, generator;  // main: the one graph; encoder/generator: split
+  std::vector<float> codebook;         // split: kCodebookSize x kCodeDim
+};
+inline constexpr int kCodebookSize = 1024, kCodeDim = 256, kCodeGrid = 16;
+inline constexpr double kDefaultFidelity = 0.7;  // FR-FACE-005
+
+// Throws ENH_E_MODEL when files are missing or do not match.
+FaceModel resolve_face_model(const std::string& models_dir, const std::string& id);
+
+// The face model loaded on one backend rung: one or two networks.
+class FaceRestorer {
+ public:
+  FaceRestorer(const FaceModel& model, const BackendConfig& cfg);
+  // [fidelity] 0..1: CodeFormer's w (0 = most detail from the codebook, 1 = closest to the
+  // input); ignored by single-graph models.
+  Rgb8 restore(const Rgb8& aligned, double fidelity);
+
+ private:
+  const FaceModel& model_;
+  std::unique_ptr<InferenceBackend> a_, b_;
+};
+
+// CodeFormer's lookup (ADR-0024): per 16x16 token, the code with the largest logit (what
+// torch.topk(softmax(logits), 1) picks), gathered into a [kCodeDim, 16, 16] feature.
+// [logits]: kCodeGrid^2 rows of kCodebookSize.
+ncnn::Mat codebook_lookup(const ncnn::Mat& logits, const std::vector<float>& codebook);
 
 // FR-FACE-008: shifts the restored face so its mean CIELAB colour under the paste mask equals
 // the original crop's (face models drift in colour, e.g. warm a sepia print). Returns the mean

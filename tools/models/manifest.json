@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "serial": 3,
-  "generated_at": "2026-10-16T14:00:00Z",
+  "serial": 4,
+  "generated_at": "2026-10-17T04:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -415,6 +415,132 @@
         "upstream": "xinntao/Real-ESRGAN v0.2.2.4: RealESRGAN_x4plus_anime_6B.pth (RRDBNet, 6 blocks)",
         "upstream_sha256": "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da",
         "conversion_commit": "tools/models/convert_rrdb.py"
+      }
+    },
+    {
+      "id": "face.codeformer",
+      "version": "1.0.0",
+      "category": "face",
+      "title": {
+        "en": "Faces: CodeFormer",
+        "ru": "Лица: CodeFormer"
+      },
+      "description": {
+        "en": "Restores faces with a likeness/detail control. Non-commercial use only.",
+        "ru": "Восстанавливает лица, с регулировкой «сходство — детализация». Только некоммерческое использование."
+      },
+      "tier_min": "T2",
+      "license": {
+        "spdx": "LicenseRef-S-Lab-1.0",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/LICENSE.txt",
+        "text_sha256": "cfd654022bdc44fdd809670d50239bcb1ebf2f4a661dca7e328f93c269538246",
+        "commercial": false,
+        "requires_acceptance": true
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "shape": [
+              1,
+              3,
+              512,
+              512
+            ],
+            "range": [
+              -1,
+              1
+            ],
+            "color": "RGB"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "scale": 1
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "encoder.ncnn.param",
+          "size": 52909,
+          "sha256": "7275d4c5fb30efd7d8bd15b1234bce15ce6e19eeef76dde646bb8ddfe63c765a",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/encoder.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "encoder.ncnn.bin",
+          "size": 98627076,
+          "sha256": "26f2d32624e55116401464408059b31020678ee3cdae871b8fc30c18ed37383b",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/encoder.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp32",
+          "path": "codebook.f32",
+          "size": 1048576,
+          "sha256": "c006bc4830fd81f468c123c12dcacc3cad11f039e13a0914b16a464224d5dcac",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/codebook.f32"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "generator.ncnn.param",
+          "size": 22762,
+          "sha256": "15fdd72f10495a201deeedb178a059087952c9f3f1b2996298560a7f4268f74d",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/generator.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "generator.ncnn.bin",
+          "size": 89532868,
+          "sha256": "a0e3a099ddb58346d238b7cd504a98ff5340261ce53e51b6d8d2142f0a9d6d4c",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/generator.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 74,
+          "sha256": "3c8d9f145f2c7be48dd56b05ec54557283fb5aa1b81f043bd02441f128d08ec0",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/model.json"
+          ]
+        }
+      ],
+      "eval": {
+        "psnr_vs_fp32_cpu_fp16_w07": 43.9,
+        "psnr_vs_fp32_cpu_fp16_w10": 48.5
+      },
+      "provenance": {
+        "upstream": "sczhou/CodeFormer v0.1.0 release: codeformer.pth (params_ema)",
+        "upstream_sha256": "1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7",
+        "conversion_commit": "tools/models/convert_codeformer.py (ADR-0024)"
       }
     }
   ]

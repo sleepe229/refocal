@@ -5,6 +5,20 @@ import 'package:test/test.dart';
 
 // TEST-UNIT-007: serialization and validation of recipes.
 void main() {
+  test('CodeFormer fidelity survives JSON and reaches the job request (FR-FACE-005)', () {
+    final r = Recipe(scale: 2, srModel: 'm', faceModel: 'face.codeformer', faceFidelity: 0.3);
+    final back = Recipe.fromJson(r.toJson());
+    expect(back, r);
+    expect(back.faceFidelity, 0.3);
+    expect(JobRequest.of(r, '/in.jpg').toJson()['face_fidelity'], 0.3);
+    // The default is not written, and old recipes read with it.
+    final d = Recipe(scale: 2, srModel: 'm', faceModel: 'face.gfpgan-1.4');
+    expect(d.toJson().containsKey('face_fidelity'), isFalse);
+    expect(Recipe.fromJson(d.toJson()).faceFidelity, Recipe.defaultFaceFidelity);
+    expect(() => Recipe(scale: 2, srModel: 'm', faceFidelity: 1.5), throwsArgumentError);
+    expect(() => Recipe.fromJson({...r.toJson(), 'face_fidelity': 2}), throwsFormatException);
+  });
+
   Map<String, Object?> roundTrip(Recipe r) =>
       (jsonDecode(jsonEncode(r.toJson())) as Map).cast<String, Object?>();
 

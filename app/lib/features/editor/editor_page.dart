@@ -172,7 +172,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _strength = r.strength;
     _model = r.srModel;
     _faces = r.faceModel != null;
+    _faceModel = r.faceModel ?? _faceModel;
     _faceStrength = r.faceStrength;
+    _faceFidelity = r.faceFidelity;
     _facesOnly = r.facesOnly;
   }
 
@@ -189,7 +191,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       _strength == r.strength &&
       _model == r.srModel &&
       _faces == (r.faceModel != null) &&
-      (!_faces || (_faceStrength == r.faceStrength && _facesOnly == r.facesOnly));
+      (!_faces ||
+          (_faceModel == r.faceModel &&
+              _faceStrength == r.faceStrength &&
+              _faceFidelity == r.faceFidelity &&
+              _facesOnly == r.facesOnly));
 
   /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
   final _facesOff = <FaceBox>{};
@@ -326,6 +332,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   bool _faces = false;
   double _faceStrength = Recipe.defaultFaceStrength;
 
+  /// The face pack: GFPGAN by default, CodeFormer when installed and chosen (FR-FACE-005).
+  String _faceModel = defaultFacePack;
+  double _faceFidelity = Recipe.defaultFaceFidelity;
+
   /// FR-FACE-006 region "Faces": the rest of the photo is only upscaled (Lanczos), faster.
   bool _facesOnly = false;
 
@@ -341,8 +351,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       fast2: c.fastPath,
       srModel: _model,
       strength: _strength,
-      faceModel: _faces ? defaultFacePack : null,
+      faceModel: _faces ? _faceModel : null,
       faceStrength: _faceStrength,
+      faceFidelity: _faceFidelity,
       facesOnly: _faces && _facesOnly,
     );
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
@@ -353,7 +364,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   Widget _facesControls(AppLocalizations l10n) {
     final available = ref.watch(availableModelsProvider);
     if (!available.contains(bundledDetector)) return const SizedBox.shrink();
-    if (!available.contains(defaultFacePack)) {
+    final packs = [
+      for (final p in facePacks)
+        if (available.contains(p)) p,
+    ];
+    if (packs.isEmpty) {
       return ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.face_retouching_natural),
@@ -374,8 +389,25 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           title: Text(l10n.faces),
           subtitle: Text(l10n.facesHint),
           value: _faces,
-          onChanged: (v) => setState(() => _faces = v),
+          onChanged: (v) => setState(() {
+            _faces = v;
+            if (!packs.contains(_faceModel)) _faceModel = packs.first;
+          }),
         ),
+        if (_faces && packs.length > 1)
+          SegmentedButton<String>(
+            segments: [
+              for (final p in packs)
+                ButtonSegment(
+                  value: p,
+                  label: Text(
+                    p == codeformerPack ? l10n.faceModelCodeFormer : l10n.faceModelGfpgan,
+                  ),
+                ),
+            ],
+            selected: {_faceModel},
+            onSelectionChanged: (s) => setState(() => _faceModel = s.first),
+          ),
         if (_faces)
           SegmentedButton<bool>(
             segments: [
@@ -398,6 +430,24 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                   onChanged: (v) => setState(() => _faceStrength = v),
                 ),
               ),
+            ],
+          ),
+        // FR-FACE-005: CodeFormer's w — towards the photo (likeness) or the model (detail).
+        if (_faces && _faceModel == codeformerPack)
+          Row(
+            children: [
+              Text(l10n.faceFidelityDetail),
+              Expanded(
+                child: Slider(
+                  value: _faceFidelity,
+                  divisions: 10,
+                  label: l10n.faceFidelityValue(_faceFidelity.toStringAsFixed(1)),
+                  semanticFormatterCallback: (v) =>
+                      l10n.faceFidelitySemantics(l10n.faceFidelityValue(v.toStringAsFixed(1))),
+                  onChanged: (v) => setState(() => _faceFidelity = v),
+                ),
+              ),
+              Text(l10n.faceFidelityLikeness),
             ],
           ),
       ],
