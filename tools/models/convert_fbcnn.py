@@ -22,9 +22,9 @@ from PIL import Image
 COMMIT = "54d1831927506b3247e2d4d245abb4f4dab1a1cd"
 NET_URL = f"https://raw.githubusercontent.com/jiaxi-jiang/FBCNN/{COMMIT}/models/network_fbcnn.py"
 WEIGHTS = "https://github.com/jiaxi-jiang/FBCNN/releases/download/v1.0/fbcnn_color.pth"
-# Pinned on the first run (sha256 of the files above); --print-sha prints them.
-NET_SHA = None
-WEIGHTS_SHA = None
+# sha256 of the files above (pinned from the first conversion run).
+NET_SHA = "e1afc1f6483d57b774365467393216508f29a708b576dc973bad41bae67e8d03"
+WEIGHTS_SHA = "8b0e4ef23d59cf7ac934a342cb31a17619e4fa4a0b3374a9d78c5174312387e8"
 GOLDEN = 96  # multiple of 8: three stride-2 levels
 
 
