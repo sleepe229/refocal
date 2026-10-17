@@ -32,5 +32,7 @@ ENV PATH=${ANDROID_HOME}/build-tools/36.0.0:${PATH}
 ARG UID=1000
 ARG GID=1000
 RUN groupadd -g ${GID} builder && useradd -m -u ${UID} -g ${GID} builder
+# The F-Droid build server's source path: release and S8 builds use it (paths leak into libenh.so).
+RUN mkdir -p /home/vagrant/build && chmod 1777 /home/vagrant/build
 USER builder
 WORKDIR /home/builder

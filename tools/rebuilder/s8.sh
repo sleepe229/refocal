@@ -39,14 +39,14 @@ run_once() {
     > "$OUT/build-$name.log" 2>&1
 }
 
-# A: "developer" build. B: "F-Droid server" build — different path, user, TZ, locale, umask,
+# A: "developer" build. B: "F-Droid server" build — different user, TZ, locale, umask,
 # hostname, CPU count, and later wall-clock time.
 [[ -f "$OUT/A.apk" && -z "${REBUILD:-}" ]] || \
-run A --hostname dev-box --cpus "$(nproc)" -e SRC=/home/builder/refocal -e TZ=UTC \
+run A --hostname dev-box --cpus "$(nproc)" -e SRC=/home/vagrant/build/io.github.refocal.app -e TZ=UTC \
       -e LANG=C.UTF-8 -e UMASK=022
 [[ -f "$OUT/B.apk" && -z "${REBUILD:-}" ]] || \
 run B --hostname fdroid-bs --cpus 4 --user 4242:4242 -w /tmp -e HOME=/tmp/fdroid-home \
-      -e SRC=/tmp/fdroid-home/build/io.github.refocal.app -e TZ=Asia/Tokyo \
+      -e SRC=/home/vagrant/build/io.github.refocal.app -e TZ=Asia/Tokyo \
       -e LANG=ru_RU.UTF-8 -e UMASK=077
 
 cd "$OUT"
@@ -74,7 +74,7 @@ $DOCKER run --rm -v "$OUT:/w" -w /w "$IMG" bash -euo pipefail -c '
   done'
 cp "$OUT/test.jks" "$OUT/in/release.jks"
 [[ -f "$OUT/C.apk" && -z "${REBUILD:-}" ]] || \
-run C --hostname dev-box --cpus "$(nproc)" -e SRC=/home/builder/refocal -e TZ=UTC \
+run C --hostname dev-box --cpus "$(nproc)" -e SRC=/home/vagrant/build/io.github.refocal.app -e TZ=UTC \
       -e LANG=C.UTF-8 -e UMASK=022 -e KS_PASS=s8test -e KS_ALIAS=s8
 rm -f "$OUT/in/release.jks"
 $DOCKER run --rm -v "$OUT:/w" -w /w "$IMG" bash -uo pipefail -c '
