@@ -1,0 +1,38 @@
+# Model conversion spikes (04 §5): runs a converter from tools/models on a clean runner and
+# keeps its output (ncnn graphs, golden pairs, reports) as an artifact. Manual dispatch only;
+# a pack is published by models.yml once the spike's result is accepted.
+name: convert
+
+on:
+  workflow_dispatch:
+    inputs:
+      converter:
+        description: "tools/models/<converter>.py"
+        required: true
+        default: convert_fbcnn
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Python packages (CPU torch, pnnx; versions of spikes/s1-gfpgan/requirements.lock)
+        run: |
+          python3 -m venv /tmp/venv
+          lock=spikes/s1-gfpgan/requirements.lock
+          pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
+          /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)"
+          /tmp/venv/bin/pip install -q "$(pin pnnx)" "$(pin numpy)" "$(pin pillow)"
+      - name: Convert
+        run: /tmp/venv/bin/python tools/models/${{ inputs.converter }}.py out --pnnx /tmp/venv/bin/pnnx
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.converter }}
+          path: |
+            out
+            !out/work
+          retention-days: 30
