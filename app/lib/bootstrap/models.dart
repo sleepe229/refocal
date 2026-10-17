@@ -542,11 +542,17 @@ const facePacks = [defaultFacePack, codeformerPack];
 /// S9: the JPEG cleanup pack (FBCNN restore graph, T2).
 const jpegPack = 'jpeg.fbcnn';
 
+/// S9: scratch removal, the detector (BOPBTL U-Net) and the inpainting pack (MI-GAN 512).
+const scratchPack = 'old.scratch';
+const inpaintPack = 'old.inpaint-migan';
+
 /// Whether [r] can run with [available] models (faces need the detector as well).
 bool canRun(Recipe r, Set<String> available) =>
     available.contains(r.srModel) &&
     (r.faceModel == null ||
-        (available.contains(r.faceModel) && available.contains(bundledDetector)));
+        (available.contains(r.faceModel) && available.contains(bundledDetector))) &&
+    (r.scratchModel == null ||
+        (available.contains(r.scratchModel) && available.contains(r.inpaintModel)));
 
 /// The Models screen's state: the manifest shown (the last verified one until the user asks
 /// for a newer), and downloads in progress (they go on while the app runs).

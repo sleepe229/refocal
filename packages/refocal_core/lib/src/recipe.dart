@@ -71,8 +71,15 @@ class Recipe {
     this.facesOnly = false,
     this.jpegModel,
     this.jpegQf,
+    this.scratchModel,
+    this.inpaintModel,
     this.output,
   }) {
+    if ((scratchModel == null) != (inpaintModel == null) ||
+        scratchModel?.isEmpty == true ||
+        inpaintModel?.isEmpty == true) {
+      throw ArgumentError('scratch removal needs a detector and an inpainting model');
+    }
     if (jpegModel != null && jpegModel!.isEmpty) throw ArgumentError('empty JPEG model');
     if (jpegQf case final q? when !(q >= 0 && q <= 1)) {
       throw ArgumentError('jpegQf must be 0..1, got $q');
@@ -107,8 +114,9 @@ class Recipe {
 
   /// 2: face restoration (faceModel, faceStrength). Schema 1 recipes are read as without faces;
   /// an older app refuses schema 2 rather than dropping the faces. 3: JPEG cleanup (jpegModel,
-  /// jpegQf), written only when it is on, so other recipes stay readable by older apps.
-  static const schemaVersion = 3;
+  /// jpegQf), written only when it is on, so other recipes stay readable by older apps. 4:
+  /// scratch removal (scratchModel, inpaintModel), likewise only when it is on.
+  static const schemaVersion = 4;
 
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
@@ -155,6 +163,11 @@ class Recipe {
   /// quantization table (quality 50 for other formats).
   final double? jpegQf;
 
+  /// S9: the scratch detector and the inpainting pack filling what it finds (both or neither);
+  /// null: no scratch removal.
+  final String? scratchModel;
+  final String? inpaintModel;
+
   /// What was saved; null in presets, where the format is chosen when saving (06 §3.4).
   final OutputSpec? output;
 
@@ -166,6 +179,7 @@ class Recipe {
     bool? facesOnly,
     String? Function()? jpegModel,
     double? Function()? jpegQf,
+    (String, String)? Function()? scratches,
     OutputSpec? Function()? output,
   }) => Recipe(
     scale: scale,
@@ -179,11 +193,13 @@ class Recipe {
         (faceModel != null ? faceModel() : this.faceModel) != null && (facesOnly ?? this.facesOnly),
     jpegModel: jpegModel != null ? jpegModel() : this.jpegModel,
     jpegQf: jpegQf != null ? jpegQf() : this.jpegQf,
+    scratchModel: scratches != null ? scratches()?.$1 : scratchModel,
+    inpaintModel: scratches != null ? scratches()?.$2 : inpaintModel,
     output: output != null ? output() : this.output,
   );
 
   Map<String, Object?> toJson() => {
-    'schema': jpegModel == null ? 2 : schemaVersion,
+    'schema': scratchModel != null ? 4 : (jpegModel != null ? 3 : 2),
     'scale': scale,
     'fast2': fast2,
     'sr_model': srModel,
@@ -195,6 +211,7 @@ class Recipe {
       if (facesOnly) 'faces_only': true,
     },
     if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
+    if (scratchModel case final m?) ...{'scratch_model': m, 'inpaint_model': inpaintModel},
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
   };
 
@@ -235,6 +252,14 @@ class Recipe {
         final num v when jpegModel != null && v >= 0 && v <= 1 => v.toDouble(),
         final other => throw FormatException('bad jpeg_qf', other),
       };
+      final (scratchModel, inpaintModel) = switch ((j['scratch_model'], j['inpaint_model'])) {
+        (null, null) => (null, null),
+        (final String d, final String f) when schema >= 4 && d.isNotEmpty && f.isNotEmpty => (
+          d,
+          f,
+        ),
+        final other => throw FormatException('bad scratch_model / inpaint_model', other),
+      };
       if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
           case final why?) {
         throw FormatException(why, j);
@@ -254,6 +279,8 @@ class Recipe {
         },
         jpegModel: jpegModel,
         jpegQf: jpegQf,
+        scratchModel: scratchModel,
+        inpaintModel: inpaintModel,
         output: switch (j['output']) {
           null => null,
           {'format': final String name} && final Map<String, Object?> o => _output(
@@ -288,6 +315,8 @@ class Recipe {
       other.facesOnly == facesOnly &&
       other.jpegModel == jpegModel &&
       other.jpegQf == jpegQf &&
+      other.scratchModel == scratchModel &&
+      other.inpaintModel == inpaintModel &&
       other.output == output;
 
   @override
@@ -302,6 +331,8 @@ class Recipe {
     facesOnly,
     jpegModel,
     jpegQf,
+    scratchModel,
+    inpaintModel,
     output,
   );
 }
