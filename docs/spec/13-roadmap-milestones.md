@@ -181,6 +181,22 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 - license check зелёный, MODELS.md полный, bias-отчёт опубликован;
 - (если Q-06) Data Safety / Privacy Label поданы.
 
+**Статус (2026-10-17):**
+
+| Пункт | Состояние |
+|---|---|
+| «Сообщить о плохом результате» (FR-REP-001..003), «Изменить в Refocal» (FR-SHARE-002), пресеты в JSON (FR-PRE-003), проверка обновлений паков (FR-SET-005, FR-MODEL-008), side-by-side, лупа, синхронный зум (FR-CMP-004..006), 8× (FR-ENH-003), RTL (NFR-L10N-003), паки x4plus и anime_6B (FR-ENH-008/016) | ✅ #25–#34 |
+| SBOM и аттестации в релизах, GOVERNANCE/CONTRIBUTING/SECURITY/CoC, шаблоны issue, чек-лист релиза (OPS-REL-002/005, OPS-GOV-002/004, SEC-CI-004) | ✅ #34 |
+| Зависимости: Dependabot, ночная проверка OSV (SEC-INP-006); ncnn CVE-2026-50144 закрыт; DCO-проверка (OPS-GOV-001) | ✅ #36 |
+| F-Droid: метаданные fastlane (COMP-FDR-005), проверка «нет GMS» в fdroid-APK (COMP-FDR-001/007), черновик рецепта fdroiddata; своя иконка вместо логотипа Flutter | ✅ #37; ⏳ MR в fdroiddata и `fdroid build` (S8b) |
+| Weblate (NFR-L10N-005): репозиторий готов, `docs/ops/weblate.md` | ✅ #38; ⏳ проект на Hosted Weblate (мейнтейнер) |
+| HEIC на Android (FR-EXP-002): HeifWriter + ICC/EXIF/XMP в контейнер (`heif_meta`), фаззинг | ✅ #42, проверено на Galaxy S24 Ultra |
+| CodeFormer и «Сходство ↔ Детализация» (FR-FACE-005, ML-CNV-003): разделённый граф (ADR-0024), пак `face.codeformer` | ✅ #43 |
+| Замеры на устройстве (S3b): NFR-PERF-001 3.8 с, PERF-002 38 с, PERF-008 40 мс, MEM-001 < 1 ГБ на T2; калибровка тиров для GPU | ✅ [S3b](../spikes/S3b.md), одно устройство |
+| Bias-отчёт (ML-BIAS-001, TEST-ML-008) | ✅ [отчёт](../ml/bias-2026-10.md) |
+
+Критерии выхода: «все NFR на эталонной матрице» — ⏳ измерено одно устройство (T2), нужны T0/T1 и батарея/тепло; воспроизводимая F-Droid-сборка — ⏳ S8b (локально побайтово, S8); license check ✅, MODELS.md полный ✅, bias-отчёт ✅.
+
 ## 1.0 — GA
 
 **Объём:** стабильный релиз в GitHub и F-Droid (+ App Store и Play production, если Q-06); сайт `refocal.github.io` и документация; юридическая проверка текстов лицензий паков; security review; фаззинг 24 ч; политика приватности опубликована.
