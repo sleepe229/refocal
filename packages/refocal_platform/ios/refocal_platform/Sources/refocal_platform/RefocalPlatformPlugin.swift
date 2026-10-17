@@ -42,6 +42,16 @@ public class RefocalPlatformPlugin: NSObject, FlutterPlugin, RefocalPlatformApi 
     throw PigeonError(code: "unimplemented", message: "saveToFile is not implemented on iOS yet", details: nil)
   }
 
+  func heicSupported() throws -> Bool {
+    return false  // CGImageDestination comes with the iOS build (FR-EXP-002)
+  }
+
+  func encodeHeic(
+    rgbaPath: String, width: Int64, height: Int64, quality: Int64, dstPath: String
+  ) async throws {
+    throw PigeonError(code: "unimplemented", message: "encodeHeic is not implemented on iOS yet", details: nil)
+  }
+
   func openUrl(url: String) throws {
     throw PigeonError(code: "unimplemented", message: "openUrl is not implemented on iOS yet", details: nil)
   }

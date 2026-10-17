@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 
+import '../../bootstrap/engine.dart';
 import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
 import '../../bootstrap/tier.dart';
@@ -32,6 +33,7 @@ class SettingsPage extends ConsumerWidget {
     }
 
     final header = Theme.of(context).textTheme.titleSmall;
+    final heic = ref.watch(heicSupportedProvider).value ?? false;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
       body: settings.when(
@@ -46,10 +48,11 @@ class SettingsPage extends ConsumerWidget {
               // the title (A11Y-GEN-004).
               subtitle: DropdownButton<ExportFormat>(
                 isExpanded: true,
-                value: s.format,
+                // A HEIC setting restored on a phone without an encoder is saved as JPEG.
+                value: s.format == ExportFormat.heic && !heic ? ExportFormat.jpeg : s.format,
                 onChanged: (f) => f == null ? null : change((c) => c.copyWith(format: f)),
                 items: [
-                  for (final f in ExportFormat.values)
+                  for (final f in availableFormats(heic: heic))
                     DropdownMenuItem(value: f, child: Text(formatLabel(l10n, f))),
                 ],
               ),

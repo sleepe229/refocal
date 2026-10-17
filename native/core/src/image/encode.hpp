@@ -19,6 +19,25 @@ inline constexpr int kWebpMaxSide = 16383;
 inline constexpr double kWebpMaxPixels = 50e6;
 inline constexpr double kWebpLosslessMaxPixels = 24e6;
 
+// HEIC is encoded by the platform from raw pixels (FR-EXP-002): <= 50 MP, as the tier limit
+// of the requirement (the platform holds them as one 4 B/px bitmap).
+inline constexpr double kHeicMaxPixels = 50e6;
+
+// Raw RGBA8 rows (alpha 255), w * h * 4 bytes, for the platform HEIC encoder.
+class RgbaWriter {
+ public:
+  RgbaWriter(const std::string& path, int w, int h);
+  ~RgbaWriter();
+  RgbaWriter(const RgbaWriter&) = delete;
+  RgbaWriter& operator=(const RgbaWriter&) = delete;
+  void write_rows(const uint8_t* rgb, int rows);
+  void finish();
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 class PngWriter {
  public:
   // [alpha]: RGBA output; write_rows then takes the alpha rows (1 B/px) too (FR-IMP-007).

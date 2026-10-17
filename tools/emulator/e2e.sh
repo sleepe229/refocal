@@ -7,6 +7,7 @@
 # pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
 # Every scenario ends with the log check, share intake, "edit with" and a queue of two photos;
 # queue: only share intake and the queue (no 4x run).
+# HEIC=1: also "Save as file" in HEIC, checked by check_heic.py (HEIC_CHECK="--icc --exif").
 # rfpack: RFPACK=<file.rfpack> PACK=<pack id>: import it on the Models screen through the system
 # file picker (FR-MODEL-006, no network), check it is installed; nothing else.
 # Without SCALE_LABEL the editor's Auto must show its explanation (FR-ENH-007) before Enhance,
@@ -21,13 +22,14 @@ EXT=${PHOTO##*.}
 OUT=${OUT:-$(mktemp -d)}
 mkdir -p "$OUT"
 DOCKER=${DOCKER:-docker --context default}
-KVM_GID=$(stat -c %g /dev/kvm)
+# Where /dev/kvm is not local (Docker Desktop): KVM_GID=0 EMU_USER=root (the device is 0600 there).
+KVM_GID=${KVM_GID:-$(stat -c %g /dev/kvm)}
 NAME=refocal-e2e-$$
 
 cleanup() { $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-$DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" \
+$DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" ${EMU_USER:+--user "$EMU_USER"} \
   -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.$EXT:ro" \
   ${RFPACK:+-v "$(realpath "$RFPACK"):/in/pack.rfpack:ro"} refocal-emulator:35 bash -c '
     emulator -avd refocal35 -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
@@ -205,6 +207,25 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+if [[ ${HEIC:-0} = 1 ]]; then
+  # FR-EXP-002: HeifWriter on the device, metadata from the core; the file is checked on the
+  # host (tools/emulator/check_heic.py, HEIC_CHECK: --icc for a photo with a profile, --exif).
+  echo "== HEIC (FR-EXP-002): Save as file -> HEIC"
+  tap_text "Save as file" 30
+  tap_text "HEIC" 30
+  sleep 4
+  # DocumentsUI: save in Downloads (open it from the roots drawer if it starts elsewhere).
+  if ! tap_text "SAVE" 5 2>/dev/null; then
+    tap_text "Show roots" 10 && tap_text "Downloads" 10 && sleep 2
+    tap_text "SAVE" 15 || { echo "FAIL: no save button"; exit 1; }
+  fi
+  sleep 8
+  heic=$(adb_ shell find /sdcard -name 'Refocal_*.heic' 2>/dev/null | head -1 | tr -d '\r')
+  [[ -n "$heic" ]] || { echo "FAIL: no HEIC saved"; debug_dump heic; exit 1; }
+  adb_ pull "$heic" /tmp/result.heic >/dev/null
+  $DOCKER cp "$NAME:/tmp/result.heic" "$OUT/result.heic"
+  python3 "$(dirname "$0")/check_heic.py" "$OUT/result.heic" ${HEIC_CHECK:-} || { echo "FAIL: HEIC check"; exit 1; }
+fi
 echo "== bug-report log (FR-SET-007, PRIV-LOG-001)"
 adb_ shell input keyevent KEYCODE_BACK
 tap_text "About" 30
