@@ -48,6 +48,21 @@ inline constexpr float kSameFaceIou = 0.5f;
 std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float min_score = 0.7f,
                                float nms_iou = 0.3f);
 
+// #44: group photos where every face is under kMinFacePx. In a photo of at most kSmallPhotoPx,
+// YuNet also looks at a kSmallFaceUpscale x bilinear upscale, in 640 px tiles (YuNet finds
+// faces from about 10 px; 10 px becomes 30 px), with a stricter score. The faces, at least
+// kMinSmallFacePx, come back in the photo's coordinates and are restored from its crops like
+// the others.
+inline constexpr double kSmallPhotoPx = 1.5e6;
+inline constexpr int kSmallFaceUpscale = 3;
+inline constexpr float kMinSmallFacePx = 8;
+std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img,
+                                     float min_score = 0.8f);
+
+// The faces a job restores and enh_analyze lists: detect_faces + keep_restorable, and
+// detect_small_faces when that finds none in a small photo. Largest first.
+std::vector<Face> find_faces(InferenceBackend& yunet, const Rgb8& img);
+
 // dst = A * src: x' = a*x + b*y + tx, y' = c*x + d*y + ty.
 struct Affine {
   double a = 1, b = 0, tx = 0, c = 0, d = 1, ty = 0;

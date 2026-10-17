@@ -127,6 +127,76 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
   return kept;
 }
 
+std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, float min_score) {
+  if (img.w <= 0 || img.h <= 0 || double(img.w) * img.h > kSmallPhotoPx) return {};
+  constexpr int f = kSmallFaceUpscale, T = kYunetSide, kOverlap = 96;  // > a 30 px face
+  const int uw = img.w * f, uh = img.h * f;
+  auto origins = [&](int n) {
+    std::vector<int> o;
+    for (int v = 0;; v += T - kOverlap) {
+      if (v + T >= n) {
+        o.push_back(std::max(0, n - T));
+        break;
+      }
+      o.push_back(v);
+    }
+    return o;
+  };
+  std::vector<Face> all;
+  Rgb8 tile;
+  for (int ty : origins(uh))
+    for (int tx : origins(uw)) {
+      // The tile of the upscale, sampled bilinearly from the photo (pixel centres aligned).
+      tile.w = std::min(T, uw - tx);
+      tile.h = std::min(T, uh - ty);
+      tile.px.resize(size_t(tile.w) * tile.h * 3);
+      for (int y = 0; y < tile.h; ++y) {
+        const float fy = std::clamp((ty + y + 0.5f) / f - 0.5f, 0.f, float(img.h - 1));
+        const int y0 = int(fy), y1 = std::min(y0 + 1, img.h - 1);
+        const float ay = fy - y0;
+        uint8_t* d = tile.row(y);
+        for (int x = 0; x < tile.w; ++x) {
+          const float fx = std::clamp((tx + x + 0.5f) / f - 0.5f, 0.f, float(img.w - 1));
+          const int x0 = int(fx), x1 = std::min(x0 + 1, img.w - 1);
+          const float ax = fx - x0;
+          for (int c = 0; c < 3; ++c) {
+            const float top = img.row(y0)[x0 * 3 + c] * (1 - ax) + img.row(y0)[x1 * 3 + c] * ax;
+            const float bot = img.row(y1)[x0 * 3 + c] * (1 - ax) + img.row(y1)[x1 * 3 + c] * ax;
+            d[x * 3 + c] = uint8_t(std::lround(top * (1 - ay) + bot * ay));
+          }
+        }
+      }
+      for (Face fc : detect_faces(yunet, tile, min_score)) {
+        fc.x = (fc.x + tx) / f;
+        fc.y = (fc.y + ty) / f;
+        fc.w /= f;
+        fc.h /= f;
+        for (int j = 0; j < 5; ++j) {
+          fc.lm[2 * j] = (fc.lm[2 * j] + tx) / f;
+          fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + ty) / f;
+        }
+        if (std::min(fc.w, fc.h) >= kMinSmallFacePx) all.push_back(fc);
+      }
+    }
+  // The same face from two overlapping tiles: the better scored one.
+  std::sort(all.begin(), all.end(), [](const Face& a, const Face& b) { return a.score > b.score; });
+  std::vector<Face> kept;
+  for (const Face& fc : all)
+    if (std::none_of(kept.begin(), kept.end(), [&](const Face& k) { return iou(fc, k) > 0.3f; }))
+      kept.push_back(fc);
+  std::sort(kept.begin(), kept.end(),
+            [](const Face& a, const Face& b) { return a.w * a.h > b.w * b.h; });
+  if (kept.size() > kMaxFaces) kept.resize(kMaxFaces);
+  return kept;
+}
+
+std::vector<Face> find_faces(InferenceBackend& yunet, const Rgb8& img) {
+  std::vector<Face> found = detect_faces(yunet, img);
+  keep_restorable(found);
+  if (found.empty()) found = detect_small_faces(yunet, img);
+  return found;
+}
+
 Affine Affine::inverse() const {
   const double det = a * d - b * c;
   if (std::abs(det) < 1e-12) fail(ENH_E_INTERNAL, "singular face transform");
