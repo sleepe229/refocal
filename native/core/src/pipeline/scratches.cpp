@@ -154,9 +154,12 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
   std::vector<Tile> tiles;
   for (int b = 0; b < g.bands(); ++b)
     for (int j = 0; j < g.tiles_per_band(); ++j) {
-      Tile t{g.xs[size_t(j)], g.ys[size_t(b)], owned_start(g.xs, j, g.tw),
+      Tile t{g.xs[size_t(j)],
+             g.ys[size_t(b)],
+             owned_start(g.xs, j, g.tw),
              j + 1 < g.tiles_per_band() ? owned_start(g.xs, j + 1, g.tw) : g.in_w,
-             g.band_in_y0(b), g.band_in_y1(b)};
+             g.band_in_y0(b),
+             g.band_in_y1(b)};
       bool need = false;
       for (int y = t.oy0; y < t.oy1 && !need; ++y)
         for (int x = t.ox0; x < t.ox1 && !need; ++x) need = keep[size_t(y) * img.w + x] < 255;

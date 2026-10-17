@@ -118,6 +118,52 @@ void fbcnn(const std::string& root) {
   CHECK(db >= 40);
 }
 
+// PSNR of the [c]-channel [out] against [ref], both mapped by v * [a] + [b] into [0, 1] first.
+double psnr_c(const ncnn::Mat& out, const std::vector<float>& ref, int c, float a, float b) {
+  const int n = out.w * out.h;
+  double se = 0;
+  for (int k = 0; k < c; ++k) {
+    const float* o = out.channel(k);
+    const float* r = ref.data() + size_t(k) * n;
+    for (int i = 0; i < n; ++i) {
+      const double d = std::fmin(std::fmax(o[i] * a + b, 0.f), 1.f) - (r[i] * a + b);
+      se += d * d;
+    }
+  }
+  const double mse = se / (double(c) * n);
+  return mse == 0 ? 99 : 10 * std::log10(1 / mse);
+}
+
+// TEST-ML-001 for a one-input pack of S9 (old photos): [cin] x [h] x [w] in, [cout] x h x w out,
+// the output mapped into [0, 1] by v * [a] + [b].
+void old_pack(const std::string& root, const std::string& id, int cin, int cout, int h, int w,
+              float a, float b) {
+  const std::string dir = fs::join(root, id);
+  const std::string shape = "x" + std::to_string(h) + "x" + std::to_string(w) + ".f32";
+  const auto in =
+      read_f32(fs::join(dir, "golden_in_" + std::to_string(cin) + shape), size_t(cin) * h * w);
+  const auto ref =
+      read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape), size_t(cout) * h * w);
+  if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
+    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    return;
+  }
+  const ModelInfo m = resolve_model(root, id);
+  CHECK(m.scale == 1);
+  auto be = make_ncnn_backend({BackendKind::cpu, 0, true, 0});
+  be->load(m);
+  ncnn::Mat x(w, h, cin);
+  for (int c = 0; c < cin; ++c)
+    std::copy_n(in.data() + size_t(c) * h * w, size_t(h) * w, static_cast<float*>(x.channel(c)));
+  ncnn::Mat y;
+  be->run(x, y);
+  CHECK(y.w == w && y.h == h && y.c == cout);
+  if (y.w != w || y.h != h || y.c != cout) return;
+  const double db = psnr_c(y, ref, cout, a, b);
+  std::printf("golden %s %s: %.2f dB\n", id.c_str(), be->name().c_str(), db);
+  CHECK(db >= 40);
+}
+
 // Runs a job to its end on [s]; its result's bands, concatenated, and its recipe hash.
 std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::string& jobs_dir,
                                                  const nlohmann::json& req) {
@@ -164,6 +210,8 @@ int main(int argc, char** argv) {
   rrdb(argv[1], "sr.x4plus");
   rrdb(argv[1], "sr.x4plus-anime6b");
   fbcnn(argv[1]);
+  old_pack(argv[1], "old.scratch", 1, 1, 256, 384, 1.f, 0.f);          // probability
+  old_pack(argv[1], "old.inpaint-migan", 4, 3, 512, 512, 0.5f, 0.5f);  // [-1, 1]
   // ADR-0017 micro-benchmark on the real weights: CPU always runs; a tier comes out.
   enh_session_config cfg{};
   cfg.struct_size = sizeof cfg;

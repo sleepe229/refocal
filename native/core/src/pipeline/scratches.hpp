@@ -16,7 +16,7 @@
 namespace enh {
 
 inline constexpr int kScratchShortSide = 256;
-inline constexpr int kScratchMultiple = 16;  // four stride-2 levels
+inline constexpr int kScratchMultiple = 16;       // four stride-2 levels
 inline constexpr float kScratchThreshold = 0.4f;  // upstream detection.py
 inline constexpr int kInpaintSize = 512;
 inline constexpr int kInpaintPad = 64;
