@@ -68,6 +68,7 @@ void main() {
   late RefocalDatabase db;
   final files = <String, List<int>>{};
   final ranges = <String>[];
+  final redirects = <String, String>{};
   var signature = 'good';
   late String base;
 
@@ -140,9 +141,18 @@ void main() {
       ..['/bin'] = weights
       ..['/license.txt'] = license;
     ranges.clear();
+    redirects.clear();
     signature = 'good';
     server.listen((req) async {
       final path = req.uri.path;
+      final to = redirects[path];
+      if (to != null) {
+        req.response
+          ..statusCode = HttpStatus.found
+          ..headers.set(HttpHeaders.locationHeader, to);
+        await req.response.close();
+        return;
+      }
       final body = path == '/manifest.json.minisig' ? utf8.encode(signature) : files[path];
       if (body == null) {
         req.response.statusCode = 404;
@@ -220,6 +230,43 @@ void main() {
       expect(await manager.repo.installed(), isEmpty);
     },
   );
+
+  test('redirects are followed over https only (PRIV-NET-004)', () async {
+    files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
+    redirects['/m/manifest.json'] = '$base/manifest.json';
+    redirects['/m/manifest.json.minisig'] = '$base/manifest.json.minisig';
+    final m = ModelManager(
+      repo: manager.repo,
+      verifier: _Verifier(),
+      unpacker: _Unpacker(),
+      supportDir: '${root.path}/support',
+      tmpDir: '${root.path}/tmp',
+      http: HttpClient()..badCertificateCallback = (_, host, _) => host == 'localhost',
+      platform: const ModelPlatform('android', 'ncnn'),
+      manifestBase: ['$base/m'],
+    );
+    expect((await m.refresh()).serial, 1);
+    redirects['/m/manifest.json'] = 'http://localhost:${server.port}/manifest.json';
+    await expectLater(
+      m.refresh(),
+      throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.network)),
+    );
+  });
+
+  test('a response longer than expected is cut off, not written to the end', () async {
+    files['/manifest.json'] = List<int>.filled((1 << 20) + 1, 0x20);
+    await expectLater(
+      manager.refresh(),
+      throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.network)),
+    );
+    files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
+    final m = await manager.refresh();
+    files['/bin'] = [...weights, 1, 2, 3];
+    await expectLater(
+      manager.install(m.pack('sr.a')!),
+      throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.network)),
+    );
+  });
 
   test('a file that does not match its hash is not installed', () async {
     files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a', binSha: 'a' * 64)]));
