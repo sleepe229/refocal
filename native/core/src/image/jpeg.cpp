@@ -59,7 +59,34 @@ int orientation_of(jpeg_decompress_struct& cinfo) {
   return 1;
 }
 
+// libjpeg's jcparam.c std_luminance_quant_tbl (ITU-T T.81 Annex K), natural order.
+constexpr uint16_t kStdLuminance[64] = {
+    16, 11, 10, 16, 24,  40,  51,  61,  12, 12, 14, 19, 26,  58,  60,  55,
+    14, 13, 16, 24, 40,  57,  69,  56,  14, 17, 22, 29, 51,  87,  80,  62,
+    18, 22, 37, 56, 68,  109, 103, 77,  24, 35, 55, 64, 81,  104, 113, 92,
+    49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99};
+
 }  // namespace
+
+int jpeg_quality_of_table(const uint16_t* table) {
+  int best = 0;
+  long best_err = -1;
+  for (int q = 1; q <= 100; ++q) {
+    // jpeg_quality_scaling + jpeg_add_quant_table with force_baseline.
+    const long scale = q < 50 ? 5000 / q : 200 - 2 * q;
+    long err = 0;
+    for (int i = 0; i < 64; ++i) {
+      long t = (kStdLuminance[i] * scale + 50) / 100;
+      t = t < 1 ? 1 : (t > 255 ? 255 : t);
+      err += std::labs(t - long(table[i]));
+    }
+    if (best_err < 0 || err < best_err) {
+      best_err = err;
+      best = q;
+    }
+  }
+  return best;
+}
 
 static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_only,
                         SourceMeta* meta = nullptr) {
@@ -87,6 +114,11 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   ji->h = int(d->cinfo.image_height);
   ji->components = d->cinfo.num_components;
   ji->orientation = orientation_of(d->cinfo);
+  if (const JQUANT_TBL* t = d->cinfo.quant_tbl_ptrs[0]) {
+    uint16_t q[64];
+    for (int i = 0; i < 64; ++i) q[i] = uint16_t(t->quantval[i]);
+    ji->quality = jpeg_quality_of_table(q);
+  }
   if (info) *info = *ji;
   if (header_only) return {};
   if (meta) {

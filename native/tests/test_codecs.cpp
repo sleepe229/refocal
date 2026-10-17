@@ -479,6 +479,22 @@ static void test_jpeg_meta(const std::string& dir) {
 // EXIF written with the "Exif\0\0" prefix (some apps do). WebP: orientation and the carried
 // metadata both come from the same TIFF block. PNG: libpng drops such an eXIf chunk (PNGv3
 // requires a bare TIFF header), so neither is taken from it.
+// S9: the QF of the JPEG cleanup pass is read back from the file's quantization table.
+static void test_jpeg_quality(const std::string& dir) {
+  Rgb8 img;
+  img.w = 64;
+  img.h = 48;
+  img.px.resize(size_t(img.w) * img.h * 3);
+  for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 37 % 251);
+  for (int q : {10, 30, 50, 75, 92, 100}) {
+    const std::string p = dir + "/q" + std::to_string(q) + ".jpg";
+    jpeg_encode(p, img, q);
+    const int got = jpeg_probe(p).quality;
+    if (got != q) std::fprintf(stderr, "quality %d read back as %d\n", q, got);
+    CHECK(got == q);
+  }
+}
+
 static void test_prefixed_exif(const std::string& dir) {
   Bytes prefixed = {'E', 'x', 'i', 'f', 0, 0};
   const Bytes cam = camera_exif(true);
@@ -518,6 +534,7 @@ int main(int argc, char** argv) {
   test_sniff(dir);
   test_jpeg_meta(dir);
   test_prefixed_exif(dir);
+  test_jpeg_quality(dir);
   std::printf("test_codecs: %d failures\n", fails);
   return fails ? 1 : 0;
 }
