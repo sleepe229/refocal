@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.5.0-beta.1
+
+Public beta. Checked on one phone (Galaxy S24 Ultra), a desktop and an Android 15 emulator.
+Please report problems with the device model and Android version (About → Report a problem).
+
+New:
+- **Compare:** side by side as well as the slider, zoom and pan both sides together, and a
+  loupe (long press) for a close look at the real pixels.
+- **8×** for small photos (up to 1.5 MP) on fast phones.
+- **More models** (Settings → Models): "High quality" (Real-ESRGAN x4plus, sharper, slower, fast
+  phones), "Anime and drawings", and **CodeFormer** for faces with a "Detail ↔ Likeness" slider
+  (non-commercial license, shown before download).
+- **HEIC** in "Save as file" on phones that can encode it, with the colour profile, date and
+  camera, and the AI marker.
+- **Report a bad result** under a result: opens a pre-filled GitHub issue you can read and edit;
+  the photo is attached only if you choose to.
+- **Edit with Refocal** from the gallery's "Edit with", next to "Share".
+- **Presets** can be exported to a file and imported.
+- **Model updates:** an optional check for newer model versions (off by default).
+- Right-to-left languages are laid out right to left.
+- A Refocal icon instead of the placeholder.
+
+Fixed:
+- Fast phones were classed too low, which hid 8× and "High quality".
+- Tapping the selected scale unselected it and left "Enhance" greyed out.
+- Security: a crafted model file could write out of bounds in the inference library (ncnn
+  CVE-2026-50144). Models are signed, so this needed a signed malicious model; fixed anyway.
+
+Known limitations:
+- Android only; iOS is not available yet.
+- Face models redraw faces: the result may look like another person, more so for darker skin
+  ([bias report](docs/ml/bias-2026-10.md)). By default half the original face is kept.
+- Very small faces in low-resolution group photos are not detected and can look waxy
+  ([#44](https://github.com/sleepe229/refocal/issues/44)).
+- Speed, battery and TalkBack have been checked on one phone only. WebP and HEIC are limited to
+  50 MP (lossless WebP: 24 MP).
+
+Models: Real-ESRGAN realesr-general-x4v3 (BSD-3-Clause), bundled, and its denoise variants,
+x4plus and anime_6B (BSD-3-Clause, download); YuNet face detector (MIT), bundled; GFPGAN 1.4 and
+CodeFormer (non-commercial, download).
+
 ## 0.3.0-beta.1
 
 First beta. Still **not tested on a phone**: only on a desktop and a headless Android 15

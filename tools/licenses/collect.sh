@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds app/assets/licenses/native.json: licenses of everything in libenh.so, of SQLite
 # (libsqlite3.so, built by package:sqlite3's hook) and of the bundled model, shown on the in-app
-# Licenses screen next to Flutter's own package licenses.
+# Licenses screen next to Flutter's own package licenses, and of Android libraries the
+# registry does not see (androidx.heifwriter).
 # Rerun after updating a native submodule or a bundled model.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -20,6 +21,8 @@ entries = [
     ("Monocypher", "native/third_party/monocypher/LICENCE.md"),
     ("Dart API DL", "native/third_party/dart_api_dl/LICENSE"),
     ("SQLite", "tools/licenses/upstream/SQLite.LICENSE"),
+    # Android libraries outside Flutter's license registry (HEIC output, FR-EXP-002).
+    ("AndroidX HeifWriter (Apache-2.0)", "LICENSE"),
     ("Real-ESRGAN (model weights: sr.general-x4v3)", "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
     ("YuNet (model weights: det.yunet-2023mar)", "tools/licenses/upstream/YuNet.LICENSE"),
 ]
