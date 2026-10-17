@@ -375,7 +375,7 @@ class ModelManager {
   Future<HttpClientResponse> _get(Uri start, int from) async {
     var uri = start;
     for (var hop = 0; ; ++hop) {
-      if (uri.scheme != 'https') throw ArgumentError.value('$uri', 'url', 'https only');
+      if (uri.scheme != 'https') throw HttpException('https only', uri: uri);
       final req = await _http.getUrl(uri);
       req.followRedirects = false;
       if (from > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$from-');
