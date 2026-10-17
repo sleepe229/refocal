@@ -31,6 +31,7 @@
 #include "pipeline/faces.hpp"
 #include "pipeline/geometry.hpp"
 #include "pipeline/jpeg_clean.hpp"
+#include "pipeline/scratches.hpp"
 #include "policy/gpu_gate.hpp"
 #include "policy/gpu_identity.hpp"
 #include "util/error.hpp"
@@ -67,6 +68,8 @@ JobRequest parse_job_request(const std::string& text) {
     r.background = j.value("background", r.background);
     r.jpeg_model = j.value("jpeg_model", r.jpeg_model);
     r.jpeg_qf = j.value("jpeg_qf", r.jpeg_qf);
+    r.scratch_model = j.value("scratch_model", r.scratch_model);
+    r.inpaint_model = j.value("inpaint_model", r.inpaint_model);
     for (const auto& b : j.value("faces_off", nlohmann::json::array())) {
       const auto v = b.get<std::vector<float>>();
       if (v.size() != 4 ||
@@ -103,6 +106,8 @@ JobRequest parse_job_request(const std::string& text) {
   if (!r.face_model.empty() && r.det_model.empty()) fail(ENH_E_INVALID, "faces need det_model");
   if (r.background != "sr" && r.background != "lanczos") fail(ENH_E_INVALID, "bad background");
   if (!std::isfinite(r.jpeg_qf) || r.jpeg_qf > 1) fail(ENH_E_INVALID, "bad jpeg_qf");
+  if (r.scratch_model.empty() != r.inpaint_model.empty())
+    fail(ENH_E_INVALID, "scratch_model and inpaint_model go together");
   if (r.background == "lanczos" && r.face_model.empty()) {
     fail(ENH_E_INVALID, "a Lanczos background is the Faces region: it needs face_model");
   }
@@ -128,6 +133,8 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
                       {"background", r.background},
                       {"jpeg_model", r.jpeg_model},
                       {"jpeg_qf", r.jpeg_qf},
+                      {"scratch_model", r.scratch_model},
+                      {"inpaint_model", r.inpaint_model},
                       {"faces_off", [&] {
                          nlohmann::json a = nlohmann::json::array();
                          for (const FaceBox& b : r.faces_off) a.push_back({b.x, b.y, b.w, b.h});
@@ -394,6 +401,12 @@ struct enh_job {
   // (FR-FACE-009).
   std::vector<RestoredFace> restore_faces(const JobRequest& req, const Rgb8& img);
   Rgb8 clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality);
+  Rgb8 remove_scratches(const JobRequest& req, Rgb8 img);
+  // Runs [f](backend) with [id] loaded on each rung of its backend ladder (and CPU fp32 last)
+  // until one succeeds; each failed rung is a FALLBACK event of [stage], the last one of kind
+  // [kind] ("skipped"). False when every rung failed.
+  template <class F>
+  bool on_ladder(const JobRequest& req, const std::string& id, int stage, const char* kind, F&& f);
 
   void run();
   void run_impl(nlohmann::json& result);
@@ -480,6 +493,7 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
          std::to_string(r.crop_w) + "," + std::to_string(r.crop_h);
   }
   if (!r.jpeg_model.empty()) s += ";jpeg=" + r.jpeg_model + "," + std::to_string(r.jpeg_qf);
+  if (!r.scratch_model.empty()) s += ";scratches=" + r.scratch_model + "," + r.inpaint_model;
   if (!stage.empty()) s += ";stage=" + stage;
   return Sha256::of_string(s);
 }
@@ -521,6 +535,65 @@ Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
     sink.emit(ENH_EV_FALLBACK, kStageJpeg, 0, 0, p);
   }
   return img;
+}
+
+template <class F>
+bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage, const char* kind,
+                        F&& f) {
+  const ModelInfo m = resolve_model(s->models_dir, id);
+  Ladder lad = backend_ladder(*s, req, id);
+  if (lad.rungs.back().kind == BackendKind::cpu)
+    lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
+  for (size_t rung = 0; rung < lad.rungs.size(); ++rung) {
+    enh_status st = ENH_OK;
+    try {
+      auto be = make_ncnn_backend(lad.rungs[rung]);
+      be->load(m);
+      f(*be);
+      return true;
+    } catch (const Error& e) {
+      if (e.status() == ENH_E_CANCELLED && stop()) throw Stopped{};
+      if (e.status() == ENH_E_MODEL || !recoverable(e.status())) throw;
+      st = e.status();
+    } catch (const std::bad_alloc&) {
+      st = ENH_E_OOM;
+    }
+    const bool last = rung + 1 >= lad.rungs.size();
+    nlohmann::json p = {{"kind", last ? kind : "backend"},
+                        {"from", backend_kind_name(lad.rungs[rung])},
+                        {"reason", fallback_reason(st)}};
+    p["to"] = last ? "skipped" : backend_kind_name(lad.rungs[rung + 1]);
+    sink.emit(ENH_EV_FALLBACK, stage, 0, 0, p);
+  }
+  return false;
+}
+
+// S9: the BOPBTL detector, then MI-GAN on the holes it found. Either failing on every backend
+// leaves the image as it is, with a FALLBACK event of kind "scratches" (ADR-0016).
+Rgb8 enh_job::remove_scratches(const JobRequest& req, Rgb8 img) {
+  sink.emit(ENH_EV_STAGE, kStageScratches, 0, 0, {{"stage", "scratches"}});
+  Mask8 mask;
+  // The detector's mask is nearest-upsampled from 256 px: grow it by about half a cell.
+  const int grow = std::max(1, std::min(img.w, img.h) / kScratchShortSide / 2 + 1);
+  if (!on_ladder(req, req.scratch_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
+        mask = detect_scratches(be, img, kScratchThreshold, grow);
+      }))
+    return img;
+  const size_t holes = mask.count();
+  ENH_LOGI("scratches: %.2f%% of the photo", 100.0 * double(holes) / double(mask.px.size()));
+  if (!holes) {
+    sink.progress(kStageScratches, 1, 1, -1, true);
+    return img;
+  }
+  Rgb8 out;
+  if (!on_ladder(req, req.inpaint_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
+        out = inpaint(be, img, mask, [&](int done, int total) {
+          sink.progress(kStageScratches, done, total, -1, done == total);
+          return !stop();
+        });
+      }))
+    return img;
+  return out;
 }
 
 std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rgb8& img) {
@@ -835,6 +908,11 @@ void enh_job::run_impl(nlohmann::json& result) {
   // ---- JPEG cleanup (S9): the whole (cropped) photo, before faces see it ----
   if (!req.jpeg_model.empty()) {
     img = clean_jpeg(req, std::move(img), info.jpeg_quality);
+    if (stop()) throw Stopped{};
+  }
+  // ---- scratch removal (S9): after the cleanup, so the detector sees no blocking ----
+  if (!req.scratch_model.empty()) {
+    img = remove_scratches(req, std::move(img));
     if (stop()) throw Stopped{};
   }
 

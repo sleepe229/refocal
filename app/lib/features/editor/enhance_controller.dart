@@ -206,6 +206,7 @@ class EnhanceController extends Notifier<EnhanceState> {
               ),
               FallbackEvent(kind: FallbackKind.face) => l10n.noteFacesSkipped,
               FallbackEvent(kind: FallbackKind.jpeg) => l10n.noteJpegSkipped,
+              FallbackEvent(kind: FallbackKind.scratches) => l10n.noteScratchesSkipped,
               FallbackEvent(kind: FallbackKind.backend) => l10n.noteSwitchedTo(e.to),
             };
             state = Running(stage, progress, null, note: note);
