@@ -94,6 +94,39 @@ std::vector<uint8_t> blend_weight(const Mask8& hole) {
   return out;
 }
 
+// The detector's mask is a 256 px grid, upsampled and grown: around a thin scratch it covers
+// whole cells of good photo, which the fill would replace with a smooth guess (S9 "old"
+// category: 3x the damage was filled, and every no-reference metric fell). Inside it, only
+// pixels that stand out from the median of their neighbourhood (the scratch itself, bright or
+// dark) stay holes, grown by a pixel or two for the fill's blend.
+void refine_mask(Mask8& m, const Rgb8& img) {
+  const int r = std::max(3, std::min(img.w, img.h) / kScratchShortSide * 3 / 2);
+  const int step = std::max(1, r / 3);  // at most 7 x 7 samples
+  constexpr int kOutlier = 16;          // grey levels: above film grain
+  std::vector<uint8_t> grey(size_t(img.w) * img.h);
+  for (int y = 0; y < img.h; ++y)
+    for (int x = 0; x < img.w; ++x) {
+      const uint8_t* p = img.row(y) + x * 3;
+      grey[size_t(y) * img.w + x] =
+          uint8_t((p[0] * 19595 + p[1] * 38470 + p[2] * 7471 + 0x8000) >> 16);
+    }
+  std::vector<uint8_t> keep(m.px.size(), 0), s;
+  s.reserve(64);
+  for (int y = 0; y < m.h; ++y)
+    for (int x = 0; x < m.w; ++x) {
+      if (!m.at(x, y)) continue;
+      s.clear();
+      for (int dy = -r; dy <= r; dy += step)
+        for (int dx = -r; dx <= r; dx += step)
+          s.push_back(grey[size_t(reflect101(y + dy, m.h)) * m.w + reflect101(x + dx, m.w)]);
+      std::nth_element(s.begin(), s.begin() + s.size() / 2, s.end());
+      const int v = grey[size_t(y) * m.w + x];
+      if (std::abs(v - s[s.size() / 2]) > kOutlier) keep[size_t(y) * m.w + x] = 255;
+    }
+  m.px.swap(keep);
+  dilate(m, 1 + std::min(m.w, m.h) / 1500);
+}
+
 }  // namespace
 
 size_t Mask8::count() const { return size_t(std::count(px.begin(), px.end(), uint8_t(255))); }
@@ -134,6 +167,7 @@ Mask8 detect_scratches(InferenceBackend& be, const Rgb8& img, float threshold, i
       m.px[size_t(y) * img.w + x] = r[int64_t(x) * nw / img.w] >= threshold ? 255 : 0;
   }
   dilate(m, grow);
+  refine_mask(m, img);
   return m;
 }
 
