@@ -1,0 +1,76 @@
+# The GA fuzzing gate (SEC-INP-001, 10 §5: 24 h without findings before 1.0). A job runs at
+# most 6 h, so each target is fuzzed by 5 shards of 5 h 30 min with different seeds: 27.5 h of
+# fuzzing per target, about 6 h of wall time (20 jobs at once). The shards start from the nightly corpus; the
+# merge job folds what they found back into it (libFuzzer -merge=1) for the nightly runs.
+# Run by hand before a 1.0 release; the result goes into the release checklist.
+name: fuzz-ga
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [metaio, decode, zip, heif]
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/build-fuzz/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Fuzz ${{ matrix.target }}, shard ${{ matrix.shard }}
+        env:
+          TARGETS: ${{ matrix.target }}
+          SEED: ${{ matrix.shard }}
+        run: tools/fuzz/run.sh 19800
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: corpus-${{ matrix.target }}-${{ matrix.shard }}
+          path: native/build-fuzz/corpus/${{ matrix.target }}
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: findings-${{ matrix.target }}-${{ matrix.shard }}
+          path: native/build-fuzz/findings
+
+  merge:
+    needs: fuzz
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/build-fuzz/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: corpus-*
+          path: shards
+      - name: Merge the shards' corpora
+        run: |
+          tools/fuzz/run.sh 1 >/dev/null # builds every target
+          for t in metaio decode zip heif; do
+            mkdir -p native/build-fuzz/corpus/$t
+            native/build-fuzz/fuzz_$t -merge=1 -timeout=10 -max_len=65536 -rss_limit_mb=2560 \
+              native/build-fuzz/corpus/$t shards/corpus-$t-*
+          done
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/build-fuzz/corpus
+          key: fuzz-corpus-${{ github.run_id }}
