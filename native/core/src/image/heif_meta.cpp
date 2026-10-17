@@ -488,8 +488,16 @@ std::vector<uint8_t> heif_attach_meta(const std::vector<uint8_t>& in, const Outp
 
   std::vector<uint8_t> idat = m.idat;
   std::vector<Loc> locs;
-  for (const auto& l : m.locs)
-    if (!dropped.count(l.id)) locs.push_back(l);
+  for (const auto& l : m.locs) {
+    if (dropped.count(l.id)) continue;
+    // File offsets are moved when the meta box grows: each must lie within this file, so the
+    // shift below cannot overflow (fuzz-ga: an offset near INT64_MAX was signed overflow).
+    if (l.method == 0)
+      for (const auto& e : l.extents)
+        if (e.offset > in.size() || e.length > in.size() - e.offset)
+          bad("item data outside the file");
+    locs.push_back(l);
+  }
   auto add_item = [&](uint32_t id, const std::vector<uint8_t>& head, const uint8_t* p, size_t n) {
     Loc l;
     l.id = id;
