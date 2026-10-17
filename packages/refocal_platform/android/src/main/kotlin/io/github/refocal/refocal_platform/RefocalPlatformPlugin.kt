@@ -7,6 +7,7 @@ import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.ActivityNotFoundException
 import android.content.ComponentCallbacks2
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -473,6 +474,7 @@ class RefocalPlatformPlugin :
   }
 
   private fun copyToInbox(uri: Uri, inbox: File): PickedImage {
+    checkForeignContent(uri)
     val cr = context.contentResolver
     var name: String? = null
     cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
@@ -496,7 +498,20 @@ class RefocalPlatformPlugin :
     try {
       val digest = MessageDigest.getInstance("SHA-256")
       (cr.openInputStream(uri) ?: throw IOException("cannot open selection")).use { input ->
-        DigestInputStream(input, digest).use { hashed -> tmp.outputStream().use { hashed.copyTo(it, 1 shl 16) } }
+        DigestInputStream(input, digest).use { hashed ->
+          tmp.outputStream().use { out ->
+            val buf = ByteArray(1 shl 16)
+            var total = 0L
+            while (true) {
+              val n = hashed.read(buf)
+              if (n < 0) break
+              total += n
+              // SEC-INP-002: the core refuses larger files anyway; don't fill the disk first.
+              if (total > MAX_INPUT_BYTES) throw FlutterError("limit", "File is larger than 200 MB")
+              out.write(buf, 0, n)
+            }
+          }
+        }
       }
       val hex = digest.digest().joinToString("") { "%02x".format(it) }
       dst = File(inbox, "in-$hex.$ext")
@@ -508,6 +523,19 @@ class RefocalPlatformPlugin :
     }
     if (Build.VERSION.SDK_INT < 30 && ext == "heic") return heicToPng(dst, name)
     return PickedImage(path = dst.absolutePath, sizeBytes = dst.length(), displayName = name, mimeType = mime)
+  }
+
+  /**
+   * A shared or "edit with" URI comes from another app, which chooses it. Only content that app
+   * can grant is taken: no file:// URIs and no URIs of Refocal's own providers, which this app
+   * could read with its own rights (private files, other images in cache/share).
+   */
+  private fun checkForeignContent(uri: Uri) {
+    if (uri.scheme != ContentResolver.SCHEME_CONTENT) throw FlutterError("denied", "Not a content URI")
+    val authority = uri.authority ?: throw FlutterError("denied", "No authority")
+    // Package visibility may hide another app's provider (null); Refocal's own always resolve.
+    val owner = context.packageManager.resolveContentProvider(authority, 0)?.packageName
+    if (owner == context.packageName) throw FlutterError("denied", "Refocal's own content")
   }
 
   /**
@@ -583,6 +611,7 @@ class RefocalPlatformPlugin :
     // SEC-INP-002, as in the core (native/core/src/image/decode.hpp: kMaxSide, kMaxPixels).
     private const val MAX_SIDE = 30000L
     private const val MAX_PIXELS = 200_000_000L
+    private const val MAX_INPUT_BYTES = 200L shl 20 // kMaxFileBytes
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     @Volatile private var instance: RefocalPlatformPlugin? = null
 
