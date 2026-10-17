@@ -4,7 +4,8 @@
 //   refocal-cli probe
 //   refocal-cli run --models DIR --work DIR --input IN --out OUT [--model ID] [--scale 4|2|1]
 //                   [--fast2] [--tile N] [--backend auto|cpu|vulkan] [--threads N] [--quality Q]
-//                   [--lossless] [--strength 0..1] [--job-id ID] [--resume] [--json]
+//                   [--lossless] [--strength 0..1] [--jpeg-model ID [--jpeg-qf 0..1]]
+//                   [--job-id ID] [--resume] [--json]
 //                   [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]
 // OUT: .jpg, .png or .webp (the format follows the extension).
 //   refocal-cli compare A B [--min-psnr DB]   (exit 1 if below)
@@ -53,7 +54,7 @@ int usage() {
       "              [--model ID] [--scale 4|2|1] [--fast2] [--tile N] [--backend "
       "auto|cpu|vulkan]\n"
       "              [--threads N] [--quality Q] [--lossless] [--strength 0..1]\n"
-      "              [--job-id ID] [--resume] [--json]\n"
+      "              [--jpeg-model ID [--jpeg-qf 0..1]] [--job-id ID] [--resume] [--json]\n"
       "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
       "  refocal-cli compare A B [--min-psnr DB]\n");
   return 2;
@@ -160,6 +161,10 @@ int cmd_run(const Args& a) {
                 {"fast2", a.has("--fast2")},
                 {"tile", std::atoi(a.get("--tile", "0").c_str())},
                 {"backend", backend}};
+    if (a.has("--jpeg-model")) {
+      req["jpeg_model"] = a.get("--jpeg-model");
+      if (a.has("--jpeg-qf")) req["jpeg_qf"] = std::atof(a.get("--jpeg-qf").c_str());
+    }
     st = enh_job_create(s, req.dump().c_str(), &j);
   }
   if (st != ENH_OK) {
