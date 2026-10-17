@@ -4,6 +4,12 @@
 // T1 12 s, T2 4 s): 1 MP at tile 128 / pad 16 is ~108 tiles; +30% pre/post overhead
 // -> ~140 "tile128 units". T2 <= 4000/140 ~ 28 ms, T1 <= 12000/140 ~ 85 ms,
 // T0 <= 40000/140 ~ 285 ms. Rounded down for margin (see docs/spikes/S3.md).
+//
+// GPU (device calibration, 2026-10-17, docs/spikes/S3b.md): jobs on Vulkan run 256 px tiles,
+// which use the GPU far better than the 128 px benchmark tile. Galaxy S24 Ultra (Adreno 750):
+// tile128 47 ms, 1 MP -> 4x SR 3.1 s = ~66 tile128 units, not 140. So for a GPU backend
+// T2 <= 4000/66 ~ 60 ms and T1 <= 12000/66 ~ 180 ms; rounded down. CPU keeps the S3 values; the
+// T0 floor (280 ms) stays for both until more devices are measured.
 #pragma once
 
 #include <string>
@@ -18,6 +24,8 @@ struct TierThresholds {
   double t2_ram_gb = 7.0;  // ">= 8 GB" class
   double t2_tile128_ms = 25;
   double t1_tile128_ms = 80;
+  double t2_tile128_ms_gpu = 55;
+  double t1_tile128_ms_gpu = 170;
   double t0_tile128_ms = 280;  // slower than this: T0 with "NFR-PERF-001 not met" warning
   // 05 §6.3 requires "soc in T2_SOCS" for T2. S3 proposes: SoC table is only a hint before the
   // first benchmark; with a benchmark, speed + RAM decide (catches Tensor G3, Xclipse, new SoCs).
