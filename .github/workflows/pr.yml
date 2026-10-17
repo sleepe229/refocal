@@ -299,6 +299,8 @@ jobs:
             if grep -lE "Lcom/google/android/gms/|Lcom/google/firebase/" /tmp/classes*.dex; then
               echo "::error::GMS/Firebase classes in dex"; exit 1; fi
             echo "clean"'
+      - name: Native libraries hardened (SEC-INP-003)
+        run: python3 tools/security/check_elf.py app/build/app/outputs/flutter-apk/app-fdroid-release.apk
       - name: Preview APK (throwaway CI key, for device checks only)
         run: |
           # Not a release: signed with a key generated per run, so it installs on a phone but
