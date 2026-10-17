@@ -181,6 +181,13 @@ def main() -> int:
     sys.path.insert(0, str(work))
     from net.CIDNet import CIDNet  # noqa: E402  (upstream code, pinned above)
 
+    # LCA.py's F.normalize over the last axis becomes an ncnn Normalize layer without its scale
+    # data, which ncnn refuses to load: the same maths, x / max(|x|, eps), as plain layers.
+    def normalize(x, p=2.0, dim=1, eps=1e-12):
+        return x / torch.sqrt((x * x).sum(dim=dim, keepdim=True)).clamp(min=eps)
+
+    torch.nn.functional.normalize = normalize
+
     net = CIDNet(channels=[36, 36, 72, 144], heads=[1, 2, 4, 8], norm=False)
     net.load_state_dict(torch.load(pth, map_location="cpu", weights_only=True), strict=True)
     net.eval()
