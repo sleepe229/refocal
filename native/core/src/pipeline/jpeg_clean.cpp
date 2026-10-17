@@ -57,7 +57,8 @@ Rgb8 jpeg_clean(InferenceBackend& be, const Rgb8& img, float qf, int tile, int p
           bl[xx] = p[2] * (1.f / 255.f);
         }
       }
-      const std::vector<ncnn::Mat> res = be.run_inputs({in, q});
+      // By name: ncnn lists every unconsumed blob as an output, in any order (backend.hpp).
+      const std::vector<ncnn::Mat> res = be.run_inputs({in, q}, {"out0"});
       if (res.empty() || res[0].w != nw || res[0].h != nh || res[0].c != 3)
         fail(ENH_E_BACKEND, "jpeg cleanup: unexpected output shape");
       const ncnn::Mat& o = res[0];
