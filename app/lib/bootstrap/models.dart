@@ -127,8 +127,12 @@ class ModelManager {
     await Directory(tmpDir).create(recursive: true);
     final json = File('$tmpDir/manifest.json'), sig = File('$tmpDir/manifest.json.minisig');
     try {
-      await _fetchAny([for (final u in manifestBase) '$u/manifest.json'], json);
-      await _fetchAny([for (final u in manifestBase) '$u/manifest.json.minisig'], sig);
+      await _fetchAny([for (final u in manifestBase) '$u/manifest.json'], json, _maxManifestBytes);
+      await _fetchAny(
+        [for (final u in manifestBase) '$u/manifest.json.minisig'],
+        sig,
+        _maxSignatureBytes,
+      );
       try {
         verifier.signature(json.path, sig.path, manifestKeys);
       } on EnhException catch (e) {
@@ -306,7 +310,7 @@ class ModelManager {
     await Directory(tmpDir).create(recursive: true);
     final f = File('$tmpDir/license-${pack.id}.txt');
     try {
-      await _fetchAny([pack.license.url], f);
+      await _fetchAny([pack.license.url], f, _maxLicenseBytes);
       try {
         await verifier.file(f.path, pack.license.textSha256);
       } on EnhException {
@@ -352,18 +356,36 @@ class ModelManager {
     throw ModelError(ModelErrorKind.network, last);
   }
 
-  Future<void> _fetchAny(List<String> urls, File dst) async {
+  Future<void> _fetchAny(List<String> urls, File dst, int maxBytes) async {
     Object? last;
     for (final url in urls) {
       try {
         if (await dst.exists()) await dst.delete();
-        await _fetch(url, dst, resume: false);
+        await _fetch(url, dst, resume: false, expected: maxBytes);
         return;
       } on Exception catch (e) {
         last = e;
       }
     }
     throw ModelError(ModelErrorKind.network, last);
+  }
+
+  /// GET [uri] (from [from] bytes on, if > 0), following at most 5 redirects itself: every hop
+  /// must be HTTPS too (PRIV-NET-004); dart:io would follow one to http://.
+  Future<HttpClientResponse> _get(Uri start, int from) async {
+    var uri = start;
+    for (var hop = 0; ; ++hop) {
+      if (uri.scheme != 'https') throw ArgumentError.value('$uri', 'url', 'https only');
+      final req = await _http.getUrl(uri);
+      req.followRedirects = false;
+      if (from > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$from-');
+      final res = await req.close();
+      if (!res.isRedirect) return res;
+      final location = res.headers.value(HttpHeaders.locationHeader);
+      await res.drain<void>();
+      if (location == null || hop >= 5) throw HttpException('bad redirect', uri: uri);
+      uri = uri.resolve(location);
+    }
   }
 
   Future<void> _fetch(
@@ -374,16 +396,13 @@ class ModelManager {
     void Function(int)? onBytes,
     bool Function()? cancel,
   }) async {
-    final uri = Uri.parse(url);
-    if (uri.scheme != 'https') throw ArgumentError.value(url, 'url', 'https only');
     var have = resume && await dst.exists() ? await dst.length() : 0;
     if (expected != null && have > expected) {
       await dst.delete();
       have = 0;
     }
-    final req = await _http.getUrl(uri);
-    if (have > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$have-');
-    final res = await req.close();
+    final res = await _get(Uri.parse(url), have);
+    final uri = Uri.parse(url);
     if (res.statusCode == HttpStatus.requestedRangeNotSatisfiable) {
       await res.drain<void>();
       return; // already complete; the hash decides
@@ -398,8 +417,12 @@ class ModelManager {
     try {
       await for (final chunk in res) {
         if (cancel?.call() ?? false) throw const DownloadCancelled();
-        sink.add(chunk);
         have += chunk.length;
+        // The hash decides in the end; this only keeps a bad mirror from filling the disk.
+        if (expected != null && have > expected) {
+          throw HttpException('more than $expected bytes', uri: uri);
+        }
+        sink.add(chunk);
         onBytes?.call(have);
       }
     } on FileSystemException catch (e) {
