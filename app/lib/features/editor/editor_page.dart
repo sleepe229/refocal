@@ -633,7 +633,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
                 ButtonSegment(
                   value: c,
-                  label: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
+                  // A fifth of the width: "Быстрый 2×" broke inside the word on a 1080 px
+                  // phone. Scaled down instead, on one line.
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath), maxLines: 1),
+                  ),
                 ),
           ],
           selected: {?_choice},
