@@ -46,6 +46,9 @@ struct JobRequest {
   // run 1x after the JPEG cleanup, before faces and SR.
   std::string scratch_model;
   std::string inpaint_model;
+  // S9 low light: the HVI-CIDNet pack id ("" = off), run 1x after the JPEG cleanup, before the
+  // scratch removal.
+  std::string lowlight_model;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)

@@ -99,6 +99,18 @@ void main() {
     expect(none.scratchModel, isNull, reason: 'the core writes "" for off');
   });
 
+  test('low light round-trips as schema 5 (S9)', () {
+    final r = Recipe(scale: 2, srModel: 'm', lowlightModel: 'old.lowlight-cidnet');
+    expect(r.toJson()['schema'], 5);
+    expect(Recipe.fromJson(roundTrip(r)), r);
+    expect(r.copyWith(lowlightModel: () => null).toJson()['schema'], 2);
+    expect(() => Recipe(scale: 2, srModel: 'm', lowlightModel: ''), throwsArgumentError);
+    expect(() => Recipe.fromJson({...r.toJson(), 'schema': 4}), throwsFormatException);
+    final q = JobRequest.of(r, '/in.jpg', id: 'j3');
+    expect(q.toJson()['lowlight_model'], 'old.lowlight-cidnet');
+    expect(JobRequest.fromJson({...q.toJson(), 'lowlight_model': ''}).lowlightModel, isNull);
+  });
+
   test('anything else is a FormatException', () {
     final good = Recipe(scale: 4, srModel: 'm').toJson();
     for (final bad in <Map<String, Object?>>[

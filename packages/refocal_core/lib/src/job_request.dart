@@ -21,6 +21,7 @@ class JobRequest {
     this.jpegQf,
     this.scratchModel,
     this.inpaintModel,
+    this.lowlightModel,
     this.crop,
   }) : id = id ?? 'job-${newId()}' {
     if (crop case (final x, final y, final w, final h)
@@ -54,6 +55,7 @@ class JobRequest {
     jpegQf: recipe.jpegQf,
     scratchModel: recipe.scratchModel,
     inpaintModel: recipe.inpaintModel,
+    lowlightModel: recipe.lowlightModel,
     crop: crop == null ? null : (crop.x, crop.y, crop.w, crop.h),
   );
 
@@ -88,6 +90,9 @@ class JobRequest {
   final String? scratchModel;
   final String? inpaintModel;
 
+  /// S9 low light (`lowlight_model` in the core); null: off.
+  final String? lowlightModel;
+
   /// FR-ENH-015 fragment preview: only this part (x, y, w, h) of the oriented input.
   final (int, int, int, int)? crop;
 
@@ -113,6 +118,7 @@ class JobRequest {
     jpegQf: jpegQf,
     scratchModel: scratchModel,
     inpaintModel: inpaintModel,
+    lowlightModel: lowlightModel,
   );
 
   static const schemaVersion = 1;
@@ -133,6 +139,7 @@ class JobRequest {
     },
     if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
     if (scratchModel case final m?) ...{'scratch_model': m, 'inpaint_model': inpaintModel},
+    'lowlight_model': ?lowlightModel,
     if (crop case (final x, final y, final w, final h)) 'crop': [x, y, w, h],
   };
 
@@ -185,6 +192,7 @@ class JobRequest {
           // "" for no scratch removal, as for the JPEG pack.
           scratchModel: _pack(j['scratch_model'], 'scratch_model'),
           inpaintModel: _pack(j['inpaint_model'], 'inpaint_model'),
+          lowlightModel: _pack(j['lowlight_model'], 'lowlight_model'),
           crop: switch (j['crop']) {
             null => null,
             [final int x, final int y, final int w, final int h] => (x, y, w, h),

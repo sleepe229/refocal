@@ -621,6 +621,8 @@
   },
   "jpegClean": "Remove JPEG artifacts",
   "jpegCleanHint": "Smooths blocks and halos of strong compression before enhancing. Slower.",
+  "lowLight": "Brighten a dark photo",
+  "lowLightHint": "Lifts shadows and colour of under-exposed photos. Can add noise.",
   "scratches": "Remove scratches",
   "scratchesHint": "Finds and fills scratches and cracks of old prints. Slower.",
   "faces": "Restore faces",
@@ -655,6 +657,7 @@
       }
     }
   },
+  "stageLowLight": "Brightening…",
   "stageScratches": "Removing scratches… {percent}%",
   "@stageScratches": {
     "placeholders": {
@@ -730,6 +733,7 @@
   "noteFacesSkipped": "Reduced quality: faces could not be restored",
   "noteJpegSkipped": "Reduced quality: JPEG artifacts could not be removed",
   "noteScratchesSkipped": "Reduced quality: scratches could not be removed",
+  "noteLowLightSkipped": "Reduced quality: the photo could not be brightened",
   "oomTitle": "Not enough memory",
   "oomBody": "Not enough memory for {scale}. Process at a smaller size?",
   "@oomBody": {
