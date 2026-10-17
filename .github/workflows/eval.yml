@@ -21,9 +21,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git submodule update --init --recursive --depth 1 native/third_party
       - run: sudo apt-get install -y --no-install-recommends libomp-18-dev python3-jsonschema >/dev/null
-      - name: Bundled models and the JPEG pack, verified against the manifest
+      # The packs not yet in the manifest are pinned in golden.lock (with their golden pairs).
+      - name: Bundled models and the packs, verified against the manifest and golden.lock
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           DEST=models tools/models/fetch.sh
+          LOCK=tools/models/golden.lock DEST=models tools/models/fetch.sh
           python3 tools/models/fetch_pack.py jpeg.fbcnn models
       - name: Build refocal-cli
         run: |
@@ -39,6 +43,7 @@ jobs:
           /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" pyiqa==0.1.16
       - name: Evaluate
         run: |
+          set -o pipefail
           mkdir -p out
           /tmp/venv/bin/python tools/ml/${{ inputs.category }}_eval.py out \
             --cli native/build/refocal-cli --models models | tee out/report.md

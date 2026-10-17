@@ -34,6 +34,8 @@ const char* stage_name(int32_t s) {
       return "finalize";
     case kStageJpeg:
       return "jpeg_clean";
+    case kStageScratches:
+      return "scratches";
     default:
       return "unknown";
   }

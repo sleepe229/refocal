@@ -177,6 +177,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _faceFidelity = r.faceFidelity;
     _facesOnly = r.facesOnly;
     _jpeg = r.jpegModel != null;
+    _scratches = r.scratchModel != null;
   }
 
   /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
@@ -197,7 +198,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               _faceStrength == r.faceStrength &&
               _faceFidelity == r.faceFidelity &&
               _facesOnly == r.facesOnly)) &&
-      _jpeg == (r.jpegModel != null);
+      _jpeg == (r.jpegModel != null) &&
+      _scratches == (r.scratchModel != null);
 
   /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
   final _facesOff = <FaceBox>{};
@@ -344,6 +346,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// S9: remove JPEG artifacts before SR (the quality factor read from the photo).
   bool _jpeg = false;
 
+  /// S9: find scratches and fill them in before SR.
+  bool _scratches = false;
+
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
@@ -361,6 +366,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       faceFidelity: _faceFidelity,
       facesOnly: _faces && _facesOnly,
       jpegModel: _jpeg ? jpegPack : null,
+      scratchModel: _scratches ? scratchPack : null,
+      inpaintModel: _scratches ? inpaintPack : null,
     );
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
   }
@@ -375,6 +382,22 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       subtitle: Text(l10n.jpegCleanHint),
       value: _jpeg,
       onChanged: (v) => setState(() => _jpeg = v),
+    );
+  }
+
+  /// S9: a switch once both scratch packs are installed.
+  Widget _scratchesControl(AppLocalizations l10n) {
+    final available = ref.watch(availableModelsProvider);
+    if (!available.contains(scratchPack) || !available.contains(inpaintPack)) {
+      return const SizedBox.shrink();
+    }
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: const Icon(Icons.auto_fix_high),
+      title: Text(l10n.scratches),
+      subtitle: Text(l10n.scratchesHint),
+      value: _scratches,
+      onChanged: (v) => setState(() => _scratches = v),
     );
   }
 
@@ -646,6 +669,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ?_denoise(l10n),
         _facesControls(l10n),
         _jpegControl(l10n),
+        _scratchesControl(l10n),
         const SizedBox(height: 8),
         SegmentedButton<ScaleChoice>(
           segments: [
@@ -718,6 +742,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     await ctl.start(widget.input, r, facesOff: r.faceModel == null ? const [] : _facesOff.toList());
   }
 
+  // Stages whose progress is a fraction (the others show an indeterminate bar).
+  static const _determinate = {JobStage.upscale, JobStage.faces, JobStage.jpeg, JobStage.scratches};
+
   Widget _progress(Running s, EnhanceController ctl, AppLocalizations l10n) {
     final eta = s.eta;
     final percent = (s.progress * 100).round();
@@ -726,6 +753,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       JobStage.decode => l10n.stageReading,
       JobStage.faces => l10n.stageFaces(percent),
       JobStage.jpeg => l10n.stageJpeg(percent),
+      JobStage.scratches => l10n.stageScratches(percent),
       JobStage.upscale =>
         eta == null
             ? l10n.stageEnhancing(percent)
@@ -748,11 +776,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LinearProgressIndicator(
-                  value: const {JobStage.upscale, JobStage.faces, JobStage.jpeg}.contains(s.stage)
-                      ? s.progress
-                      : null,
-                ),
+                LinearProgressIndicator(value: _determinate.contains(s.stage) ? s.progress : null),
                 const SizedBox(height: 8),
                 Text(label, textAlign: TextAlign.center),
               ],

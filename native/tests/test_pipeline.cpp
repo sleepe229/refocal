@@ -17,6 +17,7 @@
 #include "pipeline/geometry.hpp"
 #include "pipeline/jpeg_clean.hpp"
 #include "pipeline/lowlight.hpp"
+#include "pipeline/scratches.hpp"
 #include "policy/gpu_gate.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -223,6 +224,115 @@ static void test_jpeg_clean() {
   CHECK(cancelled && net.calls == 1);
 }
 
+// Scratch "detector": probability 1 where the grey input is bright.
+class BrightNet final : public InferenceBackend {
+ public:
+  std::string name() const override { return "bright"; }
+  const BackendConfig& config() const override { return cfg_; }
+  void load(const ModelInfo&) override {}
+  void run(const ncnn::Mat& in, ncnn::Mat& out) override {
+    w = in.w;
+    h = in.h;
+    out.create(in.w, in.h, 1);
+    for (int y = 0; y < in.h; ++y)
+      for (int x = 0; x < in.w; ++x) out.channel(0).row(y)[x] = in.channel(0).row(y)[x] > 0.6f;
+  }
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>&,
+                                    const std::vector<std::string>& = {}) override {
+    return {};
+  }
+  void set_threads(int) override {}
+  int threads() const override { return 1; }
+  int w = 0, h = 0;
+
+ private:
+  BackendConfig cfg_;
+};
+
+// Inpainting "model": mid grey everywhere; checks the hole is blanked in its input.
+class GreyFill final : public InferenceBackend {
+ public:
+  std::string name() const override { return "grey"; }
+  const BackendConfig& config() const override { return cfg_; }
+  void load(const ModelInfo&) override {}
+  void run(const ncnn::Mat& in, ncnn::Mat& out) override {
+    if (in.w != kInpaintSize || in.h != kInpaintSize || in.c != 4) ++bad_shape;
+    for (int y = 0; y < in.h; ++y)
+      for (int x = 0; x < in.w; ++x) {
+        const float k = in.channel(0).row(y)[x];
+        if (k != 0.5f && (k != -0.5f || in.channel(1).row(y)[x] != 0.f)) ++bad_input;
+      }
+    ++calls;
+    out.create(kInpaintSize, kInpaintSize, 3);
+    out.fill(0.f);
+  }
+  std::vector<ncnn::Mat> run_inputs(const std::vector<ncnn::Mat>&,
+                                    const std::vector<std::string>& = {}) override {
+    return {};
+  }
+  void set_threads(int) override {}
+  int threads() const override { return 1; }
+  int calls = 0, bad_shape = 0, bad_input = 0;
+
+ private:
+  BackendConfig cfg_;
+};
+
+static void test_scratches() {
+  int nw = 0, nh = 0;
+  scratch_input_size(4000, 3000, nw, nh);
+  CHECK(nw == 336 && nh == 256);
+  scratch_input_size(300, 200, nw, nh);
+  CHECK(nw == 384 && nh == 256);
+  // A bright vertical scratch (x 110..129) on a grey 900 x 600 photo.
+  Rgb8 img;
+  img.w = 900;
+  img.h = 600;
+  img.px.assign(size_t(img.w) * img.h * 3, 90);
+  for (int y = 0; y < img.h; ++y)
+    for (int x = 110; x < 130; ++x) std::fill_n(img.row(y) + x * 3, 3, uint8_t(250));
+  BrightNet det;
+  const Mask8 m = detect_scratches(det, img, kScratchThreshold, 1);
+  CHECK(det.w % kScratchMultiple == 0 && det.h == kScratchShortSide);
+  CHECK(m.w == img.w && m.h == img.h && m.count() > 0);
+  CHECK(m.at(120, 300) == 255 && m.at(60, 300) == 0 && m.at(400, 10) == 0);
+  for (int y = 0; y < m.h; ++y)
+    for (int x = 0; x < m.w; ++x)
+      if (m.at(x, y) && (x < 100 || x > 140)) {
+        CHECK(false);
+        y = m.h;
+        break;
+      }
+
+  GreyFill fill;
+  int ticks = 0;
+  const Rgb8 out = inpaint(fill, img, m, [&](int, int) { return ++ticks > 0; });
+  CHECK(fill.bad_shape == 0 && fill.bad_input == 0);
+  CHECK(fill.calls == 2 && ticks == 2);  // 900 x 600 in 384 px cores: the column of x 110
+  CHECK(out.w == img.w && out.h == img.h);
+  CHECK(out.row(300)[120 * 3] == 128);  // the hole: the fill (0 in [-1, 1])
+  CHECK(out.row(300)[60 * 3] == 90 && out.row(300)[200 * 3] == 90);  // kept exactly
+  // No hole: nothing runs, the photo comes back.
+  Mask8 none = m;
+  std::fill(none.px.begin(), none.px.end(), uint8_t(0));
+  GreyFill idle;
+  CHECK(inpaint(idle, img, none).px == img.px && idle.calls == 0);
+  // A tiny image still makes 512 px inputs.
+  Rgb8 tiny;
+  tiny.w = 7;
+  tiny.h = 5;
+  tiny.px.assign(size_t(7) * 5 * 3, 40);
+  Mask8 dot;
+  dot.w = 7;
+  dot.h = 5;
+  dot.px.assign(35, 0);
+  for (int y = 1; y < 4; ++y)
+    for (int x = 2; x < 5; ++x) dot.px[size_t(y) * 7 + x] = 255;
+  GreyFill small;
+  const Rgb8 t = inpaint(small, tiny, dot);
+  CHECK(small.calls == 1 && small.bad_shape == 0 && t.row(2)[3 * 3] < 128 && t.row(2)[3 * 3] > 40);
+}
+
 // Low light: RGB -> HVI -> RGB is the identity (to a level), and so is the stage with a network
 // that changes nothing.
 class SameNet final : public InferenceBackend {
@@ -297,6 +407,7 @@ int main(int argc, char** argv) {
   test_bandstore(dir);
   test_gpu_gate();
   test_jpeg_clean();
+  test_scratches();
   test_lowlight();
   std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;

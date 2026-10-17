@@ -26,3 +26,17 @@ old.lowlight-cidnet model.json 0a2345dbd1f8559e25dba0df897b846507abb1afe507b6e42
 old.lowlight-cidnet golden_rgb_3x128x128.f32 bc84e88d2f9c5acaf0f70328618a33992b4b025884bc0a2fd26f0214d1a1646e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_rgb_3x128x128.f32
 old.lowlight-cidnet golden_in_3x128x128.f32 9c10b76e0beba97895303493a62d99339462ada55ac2765636ed464a55cdfe8e https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_in_3x128x128.f32
 old.lowlight-cidnet golden_out_3x128x128.f32 b6500c8c35a1e7e945d495144efc3750921b97f4d72d232d8662ceea78f96a4b https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/golden_out_3x128x128.f32
+# The old-photo packs (S9): the scratch detector (old.scratch, tools/models/convert_scratch.py) with
+# a 256x384 grey input and its PyTorch fp32 probability, and the MI-GAN generator
+# (old.inpaint-migan, tools/models/convert_migan.py) with a 4x512x512 input and its onnxruntime
+# fp32 output in [-1, 1]. Not in the signed manifest yet, so the pack files are pinned here too.
+old.scratch model.ncnn.param 0986bf5ef51e162292ff9c68c24c89459d203b92fac71cffa56f032b4716084e https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.ncnn.param
+old.scratch model.ncnn.bin 12984526292b04656466a9cb40b53736b10c41f5cd73e1ca05369ed1fb654dcc https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.ncnn.bin
+old.scratch model.json 6f23279cc14e74df8adcf66386b8a4a4f629eb2f0813af3faaa10499fec462b3 https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/model.json
+old.scratch golden_in_1x256x384.f32 6fa82ac824e64d1d3726c0d7f4ec0d5d02bc5212e6deb01f8ea8d3568be77ecc https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/golden_in_1x256x384.f32
+old.scratch golden_out_1x256x384.f32 5b09185195e677bff46ba561a2dc225a8e8ed5d7d718217b9061d9de5d749b1a https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/golden_out_1x256x384.f32
+old.inpaint-migan model.ncnn.param 6088ec4a4449ca9a46a4b9945520684db0b9238701ce6ccf52470da0f0933b0a https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.ncnn.param
+old.inpaint-migan model.ncnn.bin 319e248fb1f833873ab8be0ab66275a3e1161d7961c65f71b504bdbf0373722d https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.ncnn.bin
+old.inpaint-migan model.json df2fc58b7bd13dbc2e3e6edd33acdb2087ef4a268f604294192e774ad5a96a9f https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/model.json
+old.inpaint-migan golden_in_4x512x512.f32 f74c620e1b678d152d394b07b1d2fd7551e0b8f3cef8fff15373d8e98a54a033 https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/golden_in_4x512x512.f32
+old.inpaint-migan golden_out_3x512x512.f32 4a0129ffdb8575eb66129ea8166c67c482d8f70287f8fa1ae27026942e8e55bf https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/golden_out_3x512x512.f32
