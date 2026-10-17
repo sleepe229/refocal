@@ -705,6 +705,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       JobStage.queued => l10n.stageWaiting,
       JobStage.decode => l10n.stageReading,
       JobStage.faces => l10n.stageFaces(percent),
+      JobStage.jpeg => l10n.stageJpeg(percent),
       JobStage.upscale =>
         eta == null
             ? l10n.stageEnhancing(percent)
@@ -728,7 +729,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 LinearProgressIndicator(
-                  value: s.stage == JobStage.upscale || s.stage == JobStage.faces
+                  value: const {JobStage.upscale, JobStage.faces, JobStage.jpeg}.contains(s.stage)
                       ? s.progress
                       : null,
                 ),

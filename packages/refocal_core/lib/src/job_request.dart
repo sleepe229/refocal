@@ -17,6 +17,8 @@ class JobRequest {
     this.faceFidelity = Recipe.defaultFaceFidelity,
     this.facesOnly = false,
     this.facesOff = const [],
+    this.jpegModel,
+    this.jpegQf,
     this.crop,
   }) : id = id ?? 'job-${newId()}' {
     if (crop case (final x, final y, final w, final h)
@@ -46,6 +48,8 @@ class JobRequest {
     faceFidelity: recipe.faceFidelity,
     facesOnly: recipe.facesOnly,
     facesOff: facesOff,
+    jpegModel: recipe.jpegModel,
+    jpegQf: recipe.jpegQf,
     crop: crop == null ? null : (crop.x, crop.y, crop.w, crop.h),
   );
 
@@ -72,6 +76,10 @@ class JobRequest {
   /// FR-FACE-007: faces left as the SR model makes them (boxes from enh_analyze).
   final List<FaceBox> facesOff;
 
+  /// S9 JPEG cleanup (`jpeg_model`, `jpeg_qf` in the core); null: off / from the photo.
+  final String? jpegModel;
+  final double? jpegQf;
+
   /// FR-ENH-015 fragment preview: only this part (x, y, w, h) of the oriented input.
   final (int, int, int, int)? crop;
 
@@ -87,6 +95,8 @@ class JobRequest {
     faceStrength: faceStrength,
     faceFidelity: faceFidelity,
     facesOnly: facesOnly,
+    jpegModel: jpegModel,
+    jpegQf: jpegQf,
   );
 
   static const schemaVersion = 1;
@@ -105,6 +115,7 @@ class JobRequest {
       if (facesOnly) 'background': 'lanczos',
       if (facesOff.isNotEmpty) 'faces_off': [for (final b in facesOff) b.toJson()],
     },
+    if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
     if (crop case (final x, final y, final w, final h)) 'crop': [x, y, w, h],
   };
 
@@ -141,6 +152,18 @@ class JobRequest {
             null => const [],
             final List<Object?> l => [for (final b in l) FaceBox.fromJson(b)],
             final other => throw FormatException('bad faces_off', other),
+          },
+          // The core writes "" and -1 for no cleanup / qf from the photo.
+          jpegModel: switch (j['jpeg_model']) {
+            null || '' => null,
+            final String m => m,
+            final other => throw FormatException('bad jpeg_model', other),
+          },
+          jpegQf: switch (j['jpeg_qf']) {
+            null => null,
+            final num v when v < 0 => null,
+            final num v => v.toDouble(),
+            final other => throw FormatException('bad jpeg_qf', other),
           },
           crop: switch (j['crop']) {
             null => null,

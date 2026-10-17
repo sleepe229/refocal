@@ -58,6 +58,21 @@ void main() {
     expect(() => Recipe(scale: 4, srModel: 'm', faceStrength: 2), throwsArgumentError);
   });
 
+  test('JPEG cleanup round-trips as schema 3; without it the recipe stays schema 2 (S9)', () {
+    final r = Recipe(scale: 2, srModel: 'm', jpegModel: 'jpeg.fbcnn', jpegQf: 0.7);
+    expect(r.toJson()['schema'], 3);
+    expect(Recipe.fromJson(roundTrip(r)), r);
+    final auto = Recipe(scale: 2, srModel: 'm', jpegModel: 'jpeg.fbcnn');
+    expect(auto.toJson().containsKey('jpeg_qf'), isFalse, reason: 'qf from the photo');
+    expect(Recipe.fromJson(roundTrip(auto)), auto);
+    expect(Recipe(scale: 2, srModel: 'm').toJson()['schema'], 2, reason: 'older apps read it');
+    expect(r.copyWith(jpegModel: () => null).jpegModel, isNull);
+    expect(() => Recipe(scale: 2, srModel: 'm', jpegModel: ''), throwsArgumentError);
+    expect(() => Recipe(scale: 2, srModel: 'm', jpegModel: 'j', jpegQf: 1.2), throwsArgumentError);
+    expect(() => Recipe.fromJson({...r.toJson(), 'schema': 2}), throwsFormatException);
+    expect(() => Recipe.fromJson({...r.toJson(), 'jpeg_qf': -1}), throwsFormatException);
+  });
+
   test('anything else is a FormatException', () {
     final good = Recipe(scale: 4, srModel: 'm').toJson();
     for (final bad in <Map<String, Object?>>[
