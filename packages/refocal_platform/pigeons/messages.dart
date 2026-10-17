@@ -108,6 +108,16 @@ abstract class RefocalPlatformApi {
   @async
   String? saveToFile(String path, String displayName, String mimeType);
 
+  /// Whether this device can encode HEIC (FR-EXP-002, Q-12): Android has a HEIC image or HEVC
+  /// video encoder. False hides the format.
+  bool heicSupported();
+
+  /// Encodes raw RGBA8 pixels ([rgbaPath]: [width] x [height] x 4 bytes, from the core's "rgba"
+  /// export) into a HEIC file at [dstPath] with [quality] 0..100 (Android: androidx HeifWriter,
+  /// grid tiles). Metadata is added by the core afterwards. Error "heic" when encoding fails.
+  @async
+  void encodeHeic(String rgbaPath, int width, int height, int quality, String dstPath);
+
   /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
   /// when nothing can open it; anything but https is refused.
   void openUrl(String url);

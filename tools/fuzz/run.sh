@@ -11,10 +11,10 @@ ART=${3:-$ROOT/native/build-fuzz/findings}
 CC=${CC:-clang-18} CXX=${CXX:-clang++-18} cmake -S "$ROOT/native" -B "$ROOT/native/build-fuzz" \
   -DENH_SANITIZE=address -DENH_BUILD_FUZZ=ON -DENH_NCNN_RUNTIME_CPU=OFF \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo ${CMAKE_EXTRA:-} >/dev/null
-cmake --build "$ROOT/native/build-fuzz" -j"$(nproc)" --target fuzz_metaio fuzz_decode fuzz_zip
+cmake --build "$ROOT/native/build-fuzz" -j"$(nproc)" --target fuzz_metaio fuzz_decode fuzz_zip fuzz_heif
 mkdir -p "$ART"
 status=0
-for t in metaio decode zip; do
+for t in metaio decode zip heif; do
   mkdir -p "$CORPUS/$t"
   cp -n "$ROOT/native/tests/fuzz/corpus/$t/"* "$CORPUS/$t/" 2>/dev/null || true
   echo "== fuzz_$t for ${SECS}s"

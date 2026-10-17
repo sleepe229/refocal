@@ -526,6 +526,13 @@ protocol RefocalPlatformApi {
   /// Asks where to save (Android: ACTION_CREATE_DOCUMENT, FR-EXP-006) and copies [path]
   /// there. Returns the document URI, or null when cancelled.
   func saveToFile(path: String, displayName: String, mimeType: String) async throws -> String?
+  /// Whether this device can encode HEIC (FR-EXP-002, Q-12): Android has a HEIC image or HEVC
+  /// video encoder. False hides the format.
+  func heicSupported() throws -> Bool
+  /// Encodes raw RGBA8 pixels ([rgbaPath]: [width] x [height] x 4 bytes, from the core's "rgba"
+  /// export) into a HEIC file at [dstPath] with [quality] 0..100 (Android: androidx HeifWriter,
+  /// grid tiles). Metadata is added by the core afterwards. Error "heic" when encoding fails.
+  func encodeHeic(rgbaPath: String, width: Int64, height: Int64, quality: Int64, dstPath: String) async throws
   /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
   /// when nothing can open it; anything but https is refused.
   func openUrl(url: String) throws
@@ -669,6 +676,45 @@ class RefocalPlatformApiSetup {
       }
     } else {
       saveToFileChannel.setMessageHandler(nil)
+    }
+    /// Whether this device can encode HEIC (FR-EXP-002, Q-12): Android has a HEIC image or HEVC
+    /// video encoder. False hides the format.
+    let heicSupportedChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.heicSupported\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      heicSupportedChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.heicSupported()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      heicSupportedChannel.setMessageHandler(nil)
+    }
+    /// Encodes raw RGBA8 pixels ([rgbaPath]: [width] x [height] x 4 bytes, from the core's "rgba"
+    /// export) into a HEIC file at [dstPath] with [quality] 0..100 (Android: androidx HeifWriter,
+    /// grid tiles). Metadata is added by the core afterwards. Error "heic" when encoding fails.
+    let encodeHeicChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.encodeHeic\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      encodeHeicChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let rgbaPathArg = args[0] as! String
+        let widthArg = args[1] as! Int64
+        let heightArg = args[2] as! Int64
+        let qualityArg = args[3] as! Int64
+        let dstPathArg = args[4] as! String
+        Task { @MainActor in
+          do {
+            try await api.encodeHeic(rgbaPath: rgbaPathArg, width: widthArg, height: heightArg, quality: qualityArg, dstPath: dstPathArg)
+            reply(wrapResult(nil))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      encodeHeicChannel.setMessageHandler(nil)
     }
     /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
     /// when nothing can open it; anything but https is refused.

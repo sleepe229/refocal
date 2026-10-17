@@ -592,6 +592,56 @@ class RefocalPlatformApi {
     return pigeonVar_replyValue as String?;
   }
 
+  /// Whether this device can encode HEIC (FR-EXP-002, Q-12): Android has a HEIC image or HEVC
+  /// video encoder. False hides the format.
+  Future<bool> heicSupported() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.heicSupported$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  /// Encodes raw RGBA8 pixels ([rgbaPath]: [width] x [height] x 4 bytes, from the core's "rgba"
+  /// export) into a HEIC file at [dstPath] with [quality] 0..100 (Android: androidx HeifWriter,
+  /// grid tiles). Metadata is added by the core afterwards. Error "heic" when encoding fails.
+  Future<void> encodeHeic(
+    String rgbaPath,
+    int width,
+    int height,
+    int quality,
+    String dstPath,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.refocal_platform.RefocalPlatformApi.encodeHeic$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      rgbaPath,
+      width,
+      height,
+      quality,
+      dstPath,
+    ]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
   /// Opens an https [url] in the browser (FR-REP-002: a pre-filled issue). Error "no_browser"
   /// when nothing can open it; anything but https is refused.
   Future<void> openUrl(String url) async {

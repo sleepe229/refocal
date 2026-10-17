@@ -198,6 +198,8 @@ set(ENH_SOURCES
   core/src/image/platform_decode.cpp
   core/src/image/webp.cpp
   core/src/image/metaio.cpp
+  core/src/image/heif_meta.cpp
+  core/src/image/raw.cpp
   core/src/image/ops.cpp
   core/src/pipeline/bandstore.cpp
   core/src/pipeline/faces.cpp
@@ -295,7 +297,7 @@ if(ENH_BUILD_TESTS)
   add_executable(test_rfpack tests/test_rfpack.cpp)
   target_link_libraries(test_rfpack PRIVATE enh_core)
   add_test(NAME rfpack COMMAND test_rfpack ${CMAKE_CURRENT_BINARY_DIR}/test-work-rfpack)
-  foreach(t blocklist sentinel log)
+  foreach(t blocklist sentinel log heif)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE enh_core)
     add_test(NAME ${t} COMMAND test_${t})
@@ -303,7 +305,7 @@ if(ENH_BUILD_TESTS)
 endif()
 
 if(ENH_BUILD_FUZZ)
-  foreach(t metaio decode zip)
+  foreach(t metaio decode zip heif)
     add_executable(fuzz_${t} tests/fuzz/fuzz_${t}.cpp)
     target_link_libraries(fuzz_${t} PRIVATE enh_core)
     target_link_options(fuzz_${t} PRIVATE -fsanitize=fuzzer)
