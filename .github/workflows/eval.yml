@@ -1,0 +1,53 @@
+# Golden-category evaluations (04 §7.2, S9): refocal-cli with the shipped packs on a pinned
+# image set, metrics with and without a reference. Manual dispatch; results go to MODELS.md.
+name: eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: "tools/ml/<category>_eval.py"
+        required: true
+        default: jpeg
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git submodule update --init --recursive --depth 1 native/third_party
+      - run: sudo apt-get install -y --no-install-recommends libomp-18-dev python3-jsonschema >/dev/null
+      - name: Bundled models and the JPEG pack, verified against the manifest
+        run: |
+          DEST=models tools/models/fetch.sh
+          python3 tools/models/fetch_pack.py jpeg.fbcnn models
+      - name: Build refocal-cli
+        run: |
+          CC=clang-18 CXX=clang++-18 cmake -S native -B native/build -DENH_BUILD_CLI=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/build -j"$(nproc)" --target refocal-cli
+      - name: Python packages (CPU torch of spikes/s1-gfpgan/requirements.lock, pyiqa)
+        run: |
+          python3 -m venv /tmp/venv
+          lock=spikes/s1-gfpgan/requirements.lock
+          pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
+          /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)" "$(pin torchvision)"
+          /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" pyiqa==0.1.16
+      - name: Evaluate
+        run: |
+          mkdir -p out
+          /tmp/venv/bin/python tools/ml/${{ inputs.category }}_eval.py out \
+            --cli native/build/refocal-cli --models models | tee out/report.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: eval-${{ inputs.category }}
+          path: |
+            out/*.json
+            out/report.md
+            out/out
+          retention-days: 30
