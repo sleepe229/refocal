@@ -26,9 +26,9 @@ Binaries:
   https://github.com/sleepe229/refocal/releases/download/v%v/refocal-v%v-arm64-v8a.apk
 
 Builds:
-  - versionName: 0.5.0-beta.1
-    versionCode: 8
-    commit: 7a0c91e0b46d2accf62098c9824fc6ab728e7191
+  - versionName: 0.5.0-beta.2
+    versionCode: 9
+    commit: 9493f162c5f39ee8ea05d06ec99a99fe18689720
     subdir: app
     submodules: true
     output: build/app/outputs/flutter-apk/app-fdroid-release.apk
@@ -55,5 +55,5 @@ AllowedAPKSigningKeys: 6574411b1c52eddc4255da82d4af122840e377207931ddc75d0d4485c
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+(-[a-z]+\.[0-9]+)?$
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
-CurrentVersion: 0.5.0-beta.1
-CurrentVersionCode: 8
+CurrentVersion: 0.5.0-beta.2
+CurrentVersionCode: 9
