@@ -62,6 +62,11 @@ tools/rebuilder/s8.sh            # two independent builds + diffoscope + signatu
 Alpha builds are published as GitHub pre-releases by `.github/workflows/release.yml`; see
 [docs/ops/release.md](docs/ops/release.md) and [CHANGELOG.md](CHANGELOG.md).
 
+## Privacy
+
+Refocal collects no data: [PRIVACY.md](PRIVACY.md), also at
+<https://sleepe229.github.io/refocal/privacy>.
+
 ## License
 
 Code: [Apache-2.0](LICENSE). Some optional face-restoration models are distributed
