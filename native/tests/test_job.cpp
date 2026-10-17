@@ -408,13 +408,8 @@ static void test_jpeg_clean(Session& se) {
   const std::string dir = fs::join(g_models, "jpeg.identity");
   fs::mkdirs(dir);
   fs::write_atomic(fs::join(dir, "model.ncnn.param"),
-                   std::string("7767517
-3 3
-Input in0 0 1 in0
-Input in1 0 1 in1
-"
-                               "Noop id 1 1 in0 out0
-"));
+                   std::string("7767517\n3 3\nInput in0 0 1 in0\nInput in1 0 1 in1\n"
+                               "Noop id 1 1 in0 out0\n"));
   fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
   fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":1,\"pad\":8}"));
   const std::string in = make_jpeg("jc.jpg", 301, 157);
