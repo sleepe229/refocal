@@ -67,11 +67,10 @@ def ssim(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def run(cli: str, models: str, work: pathlib.Path, src: pathlib.Path, out: pathlib.Path,
-        jpeg: bool) -> float:
+        extra: list[str]) -> float:
     cmd = [cli, "run", "--models", models, "--work", str(work / "jobs"), "--input", str(src),
            "--out", str(out), "--scale", "1", "--backend", "cpu", "--job-id", out.stem]
-    if jpeg:
-        cmd += ["--jpeg-model", "jpeg.fbcnn"]
+    cmd += extra
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"{' '.join(cmd)}\n{r.stderr}")
@@ -106,7 +105,8 @@ def main() -> None:
                                ("plain", work / "out" / f"kodim{name}_q{q}_plain.png"),
                                ("jpeg", work / "out" / f"kodim{name}_q{q}_jpeg.png")]:
                 if kind != "input":
-                    row[f"{kind}_s"] = run(a.cli, a.models, work, jpg, path, kind == "jpeg")
+                    row[f"{kind}_s"] = run(a.cli, a.models, work, jpg, path,
+                                         ["--jpeg-model", "jpeg.fbcnn"] if kind == "jpeg" else [])
                 y = luma(path)
                 row[f"{kind}_psnr"], row[f"{kind}_ssim"] = psnr(ref, y), ssim(ref, y)
                 if iqa is not None:
