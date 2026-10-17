@@ -34,13 +34,17 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 - SR models invent plausible detail; they cannot recover text, number plates or fine patterns
   that the input does not show, and may render them wrong.
 - `face.gfpgan-1.4` reconstructs a face from a prior learned on FFHQ: small or heavily degraded
-  faces may come out looking like someone else, and quality differs across skin tones, ages,
-  glasses and profile views. The per-subgroup report (ML-BIAS-001, TEST-ML-008) goes here
-  before 0.5 leaves beta (roadmap 13). The editor's strength slider and per-face toggle
+  faces may come out looking like someone else, and quality differs across skin tones. Per
+  subgroup (ML-BIAS-001, [docs/ml/bias-2026-10.md](docs/ml/bias-2026-10.md), 700 FairFace faces,
+  ArcFace identity similarity): 0.567 overall (0.653 at the default 50% blend), 0.628 for the
+  lightest skin (Monk 1) and 0.457 for the darkest (Monk 10); 0.530 for faces labelled Black
+  against 0.597 for Middle Eastern. Age, gender and pose differ by ≤ 0.05. The editor's strength slider and per-face toggle
   (FR-FACE-007) keep the original available.
 - `face.codeformer` replaces each face with codebook entries chosen by a transformer: at low
   fidelity (w near 0) faces are sharper but drift further from the person; fp16 changes a few
-  near-tie code picks (252/256 equal), visible mostly at w 0. Same FFHQ biases as GFPGAN.
+  near-tie code picks (252/256 equal), visible mostly at w 0. Same FFHQ biases as GFPGAN,
+  smaller: at w 0.7, 0.603 overall, 0.645 at Monk 1 against 0.522 at Monk 10
+  ([bias report](docs/ml/bias-2026-10.md)).
 - `det.yunet-2023mar` runs on a 640 px copy of the photo: it can miss very small faces and
   strong profiles, which then get no face restoration.
 
