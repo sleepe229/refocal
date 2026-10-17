@@ -653,6 +653,14 @@
       }
     }
   },
+  "stageScratches": "Removing scratches… {percent}%",
+  "@stageScratches": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "noteFacesFound": "Faces found: {count}",
   "@noteFacesFound": {
     "placeholders": {
@@ -719,6 +727,7 @@
   },
   "noteFacesSkipped": "Reduced quality: faces could not be restored",
   "noteJpegSkipped": "Reduced quality: JPEG artifacts could not be removed",
+  "noteScratchesSkipped": "Reduced quality: scratches could not be removed",
   "oomTitle": "Not enough memory",
   "oomBody": "Not enough memory for {scale}. Process at a smaller size?",
   "@oomBody": {
