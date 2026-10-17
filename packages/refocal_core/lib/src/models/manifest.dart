@@ -82,6 +82,12 @@ class PackInfo {
   final int scale;
   final List<PackFile> files;
 
+  /// Whether an app of [appVersion] can use this pack ([minAppVersion]; none: every app).
+  bool supportedBy(String appVersion) {
+    final min = minAppVersion;
+    return min == null || compareAppVersions(appVersion, min) >= 0;
+  }
+
   String titleFor(String languageCode) => title[languageCode] ?? title['en']!;
   String? descriptionFor(String languageCode) => description[languageCode] ?? description['en'];
 
@@ -278,4 +284,26 @@ class Manifest {
     }
     return {for (final MapEntry(:key, :value) in j.entries) key: _str(value, what)};
   }
+}
+
+/// Semantic-version order of two app versions (`1.2.3` or `1.2.3-beta.4`): negative when [a]
+/// is older. A pre-release comes before its release (0.6.0-beta.1 < 0.6.0); pre-release parts
+/// compare numerically when both are numbers. A version that does not parse is the oldest.
+int compareAppVersions(String a, String b) {
+  final re = RegExp(r'^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?');
+  final (x, y) = (re.firstMatch(a), re.firstMatch(b));
+  if (x == null || y == null) return x == null ? (y == null ? 0 : -1) : 1;
+  for (var i = 1; i <= 3; i++) {
+    final d = int.parse(x[i]!).compareTo(int.parse(y[i]!));
+    if (d != 0) return d;
+  }
+  final (p, q) = (x[4], y[4]);
+  if (p == null || q == null) return p == q ? 0 : (p == null ? 1 : -1);
+  final (ps, qs) = (p.split('.'), q.split('.'));
+  for (var i = 0; i < ps.length && i < qs.length; i++) {
+    final (m, n) = (int.tryParse(ps[i]), int.tryParse(qs[i]));
+    final d = m != null && n != null ? m.compareTo(n) : ps[i].compareTo(qs[i]);
+    if (d != 0) return d;
+  }
+  return ps.length.compareTo(qs.length);
 }
