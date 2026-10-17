@@ -1,4 +1,4 @@
 Beta 0.6.0-beta.1:
-• Remove JPEG artifacts: new model for heavily compressed photos (fast phones), turned on by Auto when needed
-• Models that need a newer app are no longer offered
-• Fixes: editor cleanup, "Fast 2×" label in Russian, HEIC metadata hardening
+• Old photos: remove JPEG artifacts, scratches and dust; brighten dark photos (optional models)
+• Small faces in group photos are found and can be restored
+• Fixes: Auto with a face at the photo's edge, editor cleanup, "Fast 2×" label, HEIC metadata

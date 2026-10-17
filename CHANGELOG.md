@@ -2,15 +2,23 @@
 
 ## 0.6.0-beta.1
 
-First step of "old photos" (1.1): JPEG cleanup.
+First steps of "old photos" (1.1).
 
 New:
 - **Remove JPEG artifacts** (Settings → Models: "JPEG cleanup", fast phones): smooths the
   blocks and halos of strong JPEG compression before enhancing. Auto turns it on for heavily
   compressed JPEGs once the model is installed; the strength comes from the photo itself.
+- **Remove scratches** (models "Scratch finder" and "Scratch fill"): finds scratches, cracks
+  and dust on old prints and fills them from the photo around them. A switch in the editor;
+  dark scratches are not always found yet.
+- **Brighten a dark photo** (model "Low light"): lifts shadows and colour of under-exposed
+  photos. A switch in the editor; it can make noise in the shadows visible.
+- Small faces in group photos (10–15 px) are now found, so Auto offers face restoration for
+  them too.
 - Models that need a newer version of Refocal are no longer offered.
 
 Fixed:
+- Auto failed ("could not analyse the photo") when a face touched the edge of the photo.
 - Leaving the editor did not clean up: saved results and copies of the input stayed on the
   phone until the weekly cleanup.
 - "Fast 2×" broke in the middle of the word in Russian.
