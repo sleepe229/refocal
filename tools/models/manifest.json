@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "serial": 4,
+  "serial": 5,
   "generated_at": "2026-10-17T04:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
@@ -541,6 +541,106 @@
         "upstream": "sczhou/CodeFormer v0.1.0 release: codeformer.pth (params_ema)",
         "upstream_sha256": "1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7",
         "conversion_commit": "tools/models/convert_codeformer.py (ADR-0024)"
+      }
+    },
+    {
+      "id": "jpeg.fbcnn",
+      "version": "1.0.0",
+      "category": "jpeg",
+      "title": {
+        "en": "JPEG cleanup",
+        "ru": "Очистка JPEG"
+      },
+      "description": {
+        "en": "FBCNN: removes blocks and halos of strong JPEG compression before enhancing. For fast phones; needs Refocal 0.6 or newer.",
+        "ru": "FBCNN: убирает квадраты и ореолы сильного сжатия JPEG перед улучшением. Для быстрых телефонов; нужен Refocal 0.6 или новее."
+      },
+      "tier_min": "T2",
+      "min_app_version": "0.6.0-beta.1",
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/LICENSE.txt",
+        "text_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "commercial": true,
+        "requires_acceptance": false
+      },
+      "io": {
+        "inputs": [
+          {
+            "name": "in0",
+            "range": [
+              0,
+              1
+            ],
+            "color": "RGB"
+          },
+          {
+            "name": "in1",
+            "shape": [
+              1,
+              1
+            ],
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "out0",
+            "range": [
+              0,
+              1
+            ]
+          }
+        ],
+        "scale": 1,
+        "pad": 16,
+        "params": {
+          "tile_multiple": 8,
+          "in1": "quality factor, 1 - JPEG quality/100"
+        }
+      },
+      "files": [
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.param",
+          "size": 16876,
+          "sha256": "f3662e8a9f14715b8eb8d0871ebae13cfd8ca95e821ce5492666b7f2eb7b89a5",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.ncnn.param"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.ncnn.bin",
+          "size": 105073744,
+          "sha256": "c973ad06f02cf669d3eb6acee9bd995bf3bd76c2851d9a7b0be059fbc69952c1",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.ncnn.bin"
+          ]
+        },
+        {
+          "platform": "any",
+          "backend": "ncnn",
+          "precision": "fp16",
+          "path": "model.json",
+          "size": 24,
+          "sha256": "e6da6680e85815ef9d160e6419574558ae9dd1c750a73660bc27e4dae0894cd9",
+          "urls": [
+            "https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/model.json"
+          ]
+        }
+      ],
+      "provenance": {
+        "upstream": "jiaxi-jiang/FBCNN v1.0: fbcnn_color.pth (restore graph, QF from outside)",
+        "upstream_sha256": "8b0e4ef23d59cf7ac934a342cb31a17619e4fa4a0b3374a9d78c5174312387e8",
+        "conversion_commit": "tools/models/convert_fbcnn.py"
       }
     }
   ]

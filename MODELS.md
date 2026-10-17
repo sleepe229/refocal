@@ -16,6 +16,7 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `face.codeformer` | pack (0.5), T2, license acceptance | [sczhou/CodeFormer](https://github.com/sczhou/CodeFormer) v0.1.0 release `codeformer.pth` (1009e537…5684b7), `params_ema` | S-Lab License 1.0, non-commercial (`LicenseRef-S-Lab-1.0`) | `tools/models/convert_codeformer.py` (split graph, ADR-0024) | `encoder.ncnn.param` 7275d4c5…3c765a, `encoder.ncnn.bin` 26f2d326…37383b, `codebook.f32` c006bc48…d5dcac, `generator.ncnn.param` 15fdd72f…68f74d, `generator.ncnn.bin` a0e3a099…9d6d4c, `model.json` 3c8d9f14…d08ec0 |
 | `sr.x4plus` | pack (0.5), T2 | [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) v0.1.0 `RealESRGAN_x4plus.pth` (4fa0d389…d682f1), RRDBNet 23 blocks | BSD-3-Clause, © 2021 Xintao Wang | `tools/models/convert_rrdb.py` (TorchScript → pnnx → ncnn) | `model.ncnn.param` 86de8b20…04538f, `model.ncnn.bin` cae0a543…9a2159, `model.json` a034657c…b9a2ca |
 | `sr.x4plus-anime6b` | pack (0.5), T1 | as above, v0.2.2.4 `RealESRGAN_x4plus_anime_6B.pth` (f872d837…5e99da), RRDBNet 6 blocks | BSD-3-Clause, © 2021 Xintao Wang | `tools/models/convert_rrdb.py` | `model.ncnn.param` 8fb8b2a1…c5f6ed, `model.ncnn.bin` e8b012c2…c62d2c, `model.json` 1d308df1…f62dfb |
+| `jpeg.fbcnn` | pack (0.6), T2 | [jiaxi-jiang/FBCNN](https://github.com/jiaxi-jiang/FBCNN) v1.0 release `fbcnn_color.pth` (8b0e4ef2…2387e8), commit 54d18319 | Apache-2.0, © Jiaxi Jiang et al. | `tools/models/convert_fbcnn.py` (restore graph only, QF as the second input; S9) | `model.ncnn.param` f3662e8a…b7b89a5, `model.ncnn.bin` c973ad06…69952c1, `model.json` e6da6680…0894cd9 |
 
 ## Evaluation
 
@@ -26,6 +27,7 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `sr.x4plus`, `sr.x4plus-anime6b` | TEST-ML-001: ncnn CPU vs PyTorch fp32, 96×96 golden tile (`golden.lock`) | 64.5 dB, 63.9 dB; ≥ 40 dB on every PR (CI) |
 | `face.gfpgan-1.4` | ncnn fp16 vs PyTorch fp32 (S1) | CPU 54.8 dB, Vulkan 51.4 dB |
 | `face.codeformer` | ncnn fp16 vs PyTorch fp32, one real face (`test_faces`, nightly) | CPU 43.9 dB at w 0.7 (48.5 at 1.0, 40.1 at 0.5, 34.1 at 0); 252 of 256 codebook picks equal |
+| `jpeg.fbcnn` | TEST-ML-001: ncnn CPU vs PyTorch fp32, 96×96 golden tile at qf 0.7 (`golden.lock`); QF estimate per tile vs whole image at qualities 10–90 (S9) | ≥ 40 dB on every PR (CI); QF within ±0.004 across tiles |
 
 ## Known limitations
 
