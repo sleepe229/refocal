@@ -79,14 +79,13 @@ void rgb_of_hvi(Hvi x, float k, float& r, float& g, float& b) {
 
 Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_side) {
   // The downscale the network sees (never up), and its input padded to a multiple of 8.
-  const double sc = std::min(1.0, double(max_side) / std::max(img.w, img.h));
+  const double sc =
+      std::min(1.0, double(std::min(max_side, kLowLightSize)) / std::max(img.w, img.h));
   const int sw = std::max(1, int(std::lround(img.w * sc))),
             sh = std::max(1, int(std::lround(img.h * sc)));
   const Rgb8 small = sw == img.w && sh == img.h ? img : resize_area(img, sw, sh);
-  auto up8 = [](int n) {
-    return (n + kLowLightMultiple - 1) / kLowLightMultiple * kLowLightMultiple;
-  };
-  const int nw = up8(sw), nh = up8(sh);
+  // The graph has one input size (its attention's reshape is fixed): reflect-padded to it.
+  constexpr int nw = kLowLightSize, nh = kLowLightSize;
   ncnn::Mat in(nw, nh, 3);
   for (int y = 0; y < nh; ++y) {
     const uint8_t* row = small.row(reflect101(y, sh));

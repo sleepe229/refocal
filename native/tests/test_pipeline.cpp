@@ -381,8 +381,7 @@ static void test_lowlight() {
   for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 37 % 251);
   SameNet net;
   const Rgb8 out = enhance_low_light(net, img, k);
-  CHECK(net.w % kLowLightMultiple == 0 && net.h % kLowLightMultiple == 0);
-  CHECK(net.w == 384 && net.h == 128);  // 1001 x 333 to 384 x 128 (already a multiple of 8)
+  CHECK(net.w == kLowLightSize && net.h == kLowLightSize);  // 384 x 128, padded to 384 x 384
   int diff = 0;
   for (size_t i = 0; i < img.px.size(); ++i) diff = std::max(diff, std::abs(out.px[i] - img.px[i]));
   CHECK(out.w == img.w && out.h == img.h && diff <= 1);
@@ -392,7 +391,8 @@ static void test_lowlight() {
   tiny.h = 5;
   tiny.px.assign(size_t(13) * 5 * 3, 70);
   SameNet t;
-  CHECK(enhance_low_light(t, tiny, k).px == tiny.px && t.w == 16 && t.h == 8);
+  CHECK(enhance_low_light(t, tiny, k).px == tiny.px && t.w == kLowLightSize &&
+        t.h == kLowLightSize);
 }
 
 int main(int argc, char** argv) {

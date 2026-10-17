@@ -2,7 +2,7 @@
 // The network works in CIDNet's HVI colour space; the transforms are here (upstream
 // net/HVI_transform.py, with its learnt density k from model.json), the graph is HVI -> HVI.
 // Its attention spans the whole image, so it runs once, on the photo scaled to at most
-// [max_side] px (input a multiple of 8, reflect-padded); the correction it makes (output - input,
+// [max_side] px (reflect-padded to the graph's 384 x 384 input); the correction it makes (output - input,
 // in HVI) is upsampled bilinearly and added to each full-size pixel's HVI.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
@@ -14,7 +14,7 @@
 
 namespace enh {
 
-inline constexpr int kLowLightMultiple = 8;   // three bilinear halvings
+inline constexpr int kLowLightSize = 384;     // the graph's fixed input, n x n
 inline constexpr int kLowLightMaxSide = 384;  // S9 run 39065558081
 
 struct Hvi {

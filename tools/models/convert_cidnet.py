@@ -7,8 +7,8 @@ downscaled photo.
 
 CIDNet works in its HVI colour space: RGB -> HVI (a per-pixel transform with a learnt density
 k), the network adds a correction, HVI -> RGB. The transforms index with boolean masks, which
-ncnn has no layer for, so the graph is the network alone: HVI in, corrected HVI out (input a
-multiple of 8); the core does both transforms (k is in model.json). Its attention is over
+ncnn has no layer for, so the graph is the network alone: HVI in, corrected HVI out (always
+384 x 384, see SIZE: the photo reflect-padded); the core does both transforms (k is in model.json). Its attention is over
 channels with the whole image as the sequence, so tiles would each see other statistics and
 the seams would show: the core runs it once on the photo scaled to at most 384 px and adds the
 correction, upsampled, to the full-size HVI. low_report.json measures that against the
@@ -34,8 +34,11 @@ SRC_SHA = {
     "transformer_utils.py": "7bfb2659e97289f0e8005935e15edbe0af3ae5ef05c50863a074fd745617b13f",
 }
 WEIGHTS_SHA = "9fba75147e0275fa031bdf9905e2f1f8db49c861fc289d3520a509d5cba316aa"
-GOLDEN = 128
+GOLDEN = 384  # the graph's fixed input (see SIZE)
 MAX_SIDE = 384  # run 39065558081: 256 px 32.9 dB, 384 px 31.9, 512 px 25.9 vs the full image
+# The attention's reshape back to (h, w) is a constant in ncnn: the graph has one input size, and
+# the downscale is reflect-padded to it.
+SIZE = 384
 
 # The two rearrange patterns of LCA.py, as reshapes (einops is not in the lock).
 EINOPS = '''
@@ -132,6 +135,14 @@ def pad8(t: torch.Tensor) -> tuple[torch.Tensor, int, int]:
     return F.pad(t, (0, pw, 0, ph), mode="reflect"), h, w
 
 
+def pad_to(t: torch.Tensor, n: int) -> torch.Tensor:
+    """Reflect-padded to n x n at the right and bottom (repeated when the side is short)."""
+    while t.shape[2] < n or t.shape[3] < n:
+        ph, pw = min(n - t.shape[2], t.shape[2] - 1), min(n - t.shape[3], t.shape[3] - 1)
+        t = F.pad(t, (0, pw, 0, ph), mode="reflect")
+    return t
+
+
 def low_report(net, core) -> dict:
     """The network on the full image against once on a downscale with the correction upsampled."""
     x = torch.from_numpy(dark_photo()).permute(2, 0, 1)[None]
@@ -148,7 +159,7 @@ def low_report(net, core) -> dict:
             s = side / max(h, w)
             sh, sw = max(8, round(h * s)), max(8, round(w * s))
             small = F.interpolate(hvi, size=(sh, sw), mode="area")
-            small_in, _, _ = pad8(small)
+            small_in = pad_to(small, max(SIZE, side))
             delta = core(small_in)[:, :, :sh, :sw] - small
             up = hvi + F.interpolate(delta, size=(h, w), mode="bilinear", align_corners=False)
             net.trans.this_k = k
@@ -201,6 +212,7 @@ def main() -> int:
 
     with torch.no_grad():
         x = torch.from_numpy(dark_photo()).permute(2, 0, 1)[None][:, :, :GOLDEN, :GOLDEN]
+        assert x.shape[2:] == (GOLDEN, GOLDEN)
         hvi = net.trans.HVIT(x).contiguous()
         y = core(hvi)
     hvi.numpy().astype(np.float32).tofile(dst / f"golden_in_3x{GOLDEN}x{GOLDEN}.f32")
@@ -208,16 +220,16 @@ def main() -> int:
     x.numpy().astype(np.float32).tofile(dst / f"golden_rgb_3x{GOLDEN}x{GOLDEN}.f32")
 
     with torch.no_grad():
-        torch.jit.trace(core, torch.rand(1, 3, 256, 256)).save(str(work / "core.pt"))
+        torch.jit.trace(core, torch.rand(1, 3, SIZE, SIZE)).save(str(work / "core.pt"))
     subprocess.run(
-        [a.pnnx, str(work / "core.pt"), "inputshape=[1,3,256,256]", "inputshape2=[1,3,256,384]",
+        [a.pnnx, str(work / "core.pt"), f"inputshape=[1,3,{SIZE},{SIZE}]",
          "fp16=1", f"ncnnparam={dst / 'model.ncnn.param'}", f"ncnnbin={dst / 'model.ncnn.bin'}",
          f"pnnxparam={work / 'core.pnnx.param'}", f"pnnxbin={work / 'core.pnnx.bin'}",
          f"pnnxpy={work / 'core_pnnx.py'}", f"pnnxonnx={work / 'core.pnnx.onnx'}",
          f"ncnnpy={work / 'core_ncnn.py'}"],
         check=True, cwd=work, stdout=subprocess.DEVNULL)
     (dst / "model.json").write_text(
-        json.dumps({"scale": 1, "multiple": 8, "max_side": MAX_SIDE, "density_k": k}) + "\n")
+        json.dumps({"scale": 1, "size": SIZE, "max_side": MAX_SIDE, "density_k": k}) + "\n")
     for f in sorted(dst.iterdir()):
         print(f"  old.lowlight-cidnet/{f.name} {f.stat().st_size} {sha256(f)}")
     return 0
