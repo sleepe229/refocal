@@ -72,7 +72,7 @@ boundary, so `stage_peak_mb` in the stats JSON is a per-stage peak and `peak_rss
 ## Reproduce
 
 Timed runs share the machine with other benchmarks, so every timed command is wrapped in
-`flock /tmp/claude-1000/refocal-bench.lock` (the scripts do this).
+`flock /tmp/refocal-bench.lock` (the scripts do this).
 
 ```sh
 ./matrix.sh                                   # ~1 h; results in out/matrix/

@@ -3,7 +3,7 @@
 set -u
 cd "$(dirname "$0")/.."
 P=build/refocal-probe
-L="flock /tmp/claude-1000/refocal-bench.lock"
+L="flock /tmp/refocal-bench.lock"
 mkdir -p data/runs
 # 1) real garbage: original GFPGAN graph (fp16 overflow -> zeros, S1) on every backend
 rm -rf data/runs/garbage
