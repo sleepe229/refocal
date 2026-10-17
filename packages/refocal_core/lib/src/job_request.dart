@@ -14,6 +14,7 @@ class JobRequest {
     required this.srModel,
     this.faceModel,
     this.faceStrength = Recipe.defaultFaceStrength,
+    this.faceFidelity = Recipe.defaultFaceFidelity,
     this.facesOnly = false,
     this.facesOff = const [],
     this.crop,
@@ -42,6 +43,7 @@ class JobRequest {
     srModel: recipe.srModel,
     faceModel: recipe.faceModel,
     faceStrength: recipe.faceStrength,
+    faceFidelity: recipe.faceFidelity,
     facesOnly: recipe.facesOnly,
     facesOff: facesOff,
     crop: crop == null ? null : (crop.x, crop.y, crop.w, crop.h),
@@ -60,6 +62,9 @@ class JobRequest {
   /// default (bundled YuNet).
   final String? faceModel;
   final double faceStrength;
+
+  /// FR-FACE-005: CodeFormer's fidelity w (`face_fidelity` in the core).
+  final double faceFidelity;
 
   /// Region "Faces" (FR-FACE-006): `background: lanczos` in the core.
   final bool facesOnly;
@@ -80,6 +85,7 @@ class JobRequest {
     strength: strength,
     faceModel: faceModel,
     faceStrength: faceStrength,
+    faceFidelity: faceFidelity,
     facesOnly: facesOnly,
   );
 
@@ -95,6 +101,7 @@ class JobRequest {
     if (faceModel case final f?) ...{
       'face_model': f,
       'face_strength': faceStrength,
+      'face_fidelity': faceFidelity,
       if (facesOnly) 'background': 'lanczos',
       if (facesOff.isNotEmpty) 'faces_off': [for (final b in facesOff) b.toJson()],
     },
@@ -114,7 +121,8 @@ class JobRequest {
     }) {
       final face = j['face_model'];
       final faceStrength = j['face_strength'] ?? Recipe.defaultFaceStrength;
-      if ((face != null && face is! String) || faceStrength is! num) {
+      final faceFidelity = j['face_fidelity'] ?? Recipe.defaultFaceFidelity;
+      if ((face != null && face is! String) || faceStrength is! num || faceFidelity is! num) {
         throw FormatException('bad face fields', j);
       }
       try {
@@ -127,6 +135,7 @@ class JobRequest {
           // The core writes "" for no face restoration.
           faceModel: face == null || face == '' ? null : face as String,
           faceStrength: faceStrength.toDouble(),
+          faceFidelity: faceFidelity.toDouble(),
           facesOnly: j['background'] == 'lanczos',
           facesOff: switch (j['faces_off']) {
             null => const [],

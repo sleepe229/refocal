@@ -25,6 +25,8 @@ struct JobRequest {
   std::string face_model;
   std::string det_model = "det.yunet-2023mar";
   double face_strength = 0.5;
+  // FR-FACE-005: CodeFormer's fidelity w (0 detail .. 1 likeness); other face models ignore it.
+  double face_fidelity = 0.7;
   bool face_color_match = true;  // FR-FACE-008: on by default
   // FR-FACE-006 region: "sr" (the SR model, regions All/Background) or "lanczos" (region Faces:
   // only faces are restored, the rest is a Lanczos-3 upscale and the SR model is not run).

@@ -61,6 +61,7 @@ JobRequest parse_job_request(const std::string& text) {
     r.face_model = j.value("face_model", r.face_model);
     r.det_model = j.value("det_model", r.det_model);
     r.face_strength = j.value("face_strength", r.face_strength);
+    r.face_fidelity = j.value("face_fidelity", r.face_fidelity);
     r.face_color_match = j.value("face_color_match", r.face_color_match);
     r.background = j.value("background", r.background);
     for (const auto& b : j.value("faces_off", nlohmann::json::array())) {
@@ -95,6 +96,7 @@ JobRequest parse_job_request(const std::string& text) {
     fail(ENH_E_INVALID, "bad backend");
   if (r.preview_max < 64 || r.preview_max > 8192) fail(ENH_E_INVALID, "bad preview_max");
   if (!(r.face_strength >= 0 && r.face_strength <= 1)) fail(ENH_E_INVALID, "bad face_strength");
+  if (!(r.face_fidelity >= 0 && r.face_fidelity <= 1)) fail(ENH_E_INVALID, "bad face_fidelity");
   if (!r.face_model.empty() && r.det_model.empty()) fail(ENH_E_INVALID, "faces need det_model");
   if (r.background != "sr" && r.background != "lanczos") fail(ENH_E_INVALID, "bad background");
   if (r.background == "lanczos" && r.face_model.empty()) {
@@ -117,6 +119,7 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
                       {"face_model", r.face_model},
                       {"det_model", r.det_model},
                       {"face_strength", r.face_strength},
+                      {"face_fidelity", r.face_fidelity},
                       {"face_color_match", r.face_color_match},
                       {"background", r.background},
                       {"faces_off", [&] {
@@ -514,18 +517,17 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   std::vector<RestoredFace> out;
   if (found.empty()) return out;
 
-  const ModelInfo fm = resolve_model(s->models_dir, req.face_model);
+  const FaceModel fm = resolve_face_model(s->models_dir, req.face_model);
   Ladder lad = backend_ladder(*s, req, fm.id);
   // ADR-0016: the face model gets a CPU fp32 rung after CPU fp16.
   if (lad.rungs.back().kind == BackendKind::cpu)
     lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
   size_t rung = 0;
-  std::unique_ptr<InferenceBackend> be;
+  std::unique_ptr<FaceRestorer> be;
   auto load = [&] {
     for (;;) {
       try {
-        be = make_ncnn_backend(lad.rungs[rung]);
-        be->load(fm);
+        be = std::make_unique<FaceRestorer>(fm, lad.rungs[rung]);
         return;
       } catch (const Error& e) {
         if (e.status() == ENH_E_MODEL || rung + 1 >= lad.rungs.size()) throw;
@@ -562,7 +564,7 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     for (;;) {
       enh_status st = ENH_OK;
       try {
-        restored = restore_face(*be, aligned);
+        restored = be->restore(aligned, req.face_fidelity);
         if (req.face_color_match) {
           const double de = match_face_color(restored, aligned);
           ENH_LOGD("face %zu: colour shift dE %.1f", i, de);

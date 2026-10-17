@@ -5,10 +5,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
+#include <utility>
 
 #include "backend/backend.hpp"
 #include "image/ops.hpp"
 #include "util/error.hpp"
+#include "util/fs.hpp"
 
 namespace enh {
 namespace {
@@ -205,7 +208,10 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
   return out;
 }
 
-Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned) {
+namespace {
+
+// GFPGAN/CodeFormer io: RGB in [-1, 1], NCHW 1x3x512x512 (04 §3).
+ncnn::Mat face_to_mat(const Rgb8& aligned) {
   if (aligned.w != kFaceSide || aligned.h != kFaceSide) fail(ENH_E_INTERNAL, "face not 512x512");
   ncnn::Mat in(kFaceSide, kFaceSide, 3);
   for (int y = 0; y < kFaceSide; ++y) {
@@ -215,8 +221,10 @@ Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned) {
       for (int x = 0; x < kFaceSide; ++x) d[x] = p[3 * x + ch] / 127.5f - 1.f;
     }
   }
-  ncnn::Mat out;
-  model.run(in, out);
+  return in;
+}
+
+Rgb8 mat_to_face(const ncnn::Mat& out) {
   if (out.w != kFaceSide || out.h != kFaceSide || out.c != 3) {
     fail(ENH_E_MODEL, "face model: unexpected output shape");
   }
@@ -233,6 +241,87 @@ Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned) {
     }
   }
   return face;
+}
+
+}  // namespace
+
+Rgb8 restore_face(InferenceBackend& model, const Rgb8& aligned) {
+  ncnn::Mat out;
+  model.run(face_to_mat(aligned), out);
+  return mat_to_face(out);
+}
+
+FaceModel resolve_face_model(const std::string& models_dir, const std::string& id) {
+  FaceModel m;
+  m.id = id;
+  const std::string dir = fs::join(models_dir, id);
+  const std::string meta = fs::join(dir, "model.json");
+  if (fs::exists(meta)) {
+    const auto j = nlohmann::json::parse(fs::read_text(meta), nullptr, false);
+    if (j.is_discarded() || !j.is_object()) fail(ENH_E_MODEL, "bad model.json: " + id);
+    m.split = j.value("split", std::string()) == "codeformer";
+  }
+  if (!m.split) {
+    m.main = resolve_model(models_dir, id);
+    return m;
+  }
+  for (auto [info, name] :
+       {std::pair{&m.encoder, "encoder"}, std::pair{&m.generator, "generator"}}) {
+    info->id = id + "/" + name;
+    info->param_path = fs::join(dir, std::string(name) + ".ncnn.param");
+    info->bin_path = fs::join(dir, std::string(name) + ".ncnn.bin");
+    if (!fs::exists(info->param_path) || !fs::exists(info->bin_path)) {
+      fail(ENH_E_MODEL, "model not installed: " + id);
+    }
+  }
+  const std::string cb = fs::join(dir, "codebook.f32");
+  const size_t n = size_t(kCodebookSize) * kCodeDim;
+  if (fs::file_size(cb) != int64_t(n * sizeof(float))) fail(ENH_E_MODEL, "bad codebook: " + id);
+  m.codebook.resize(n);
+  fs::read_exact(cb, m.codebook.data(), n * sizeof(float));
+  for (float v : m.codebook)
+    if (!std::isfinite(v)) fail(ENH_E_MODEL, "bad codebook: " + id);
+  return m;
+}
+
+ncnn::Mat codebook_lookup(const ncnn::Mat& logits, const std::vector<float>& codebook) {
+  const int tokens = kCodeGrid * kCodeGrid;
+  if (logits.w != kCodebookSize || logits.h * logits.c * logits.d != tokens) {
+    fail(ENH_E_MODEL, "face model: unexpected logits shape");
+  }
+  if (codebook.size() != size_t(kCodebookSize) * kCodeDim) fail(ENH_E_MODEL, "no codebook");
+  ncnn::Mat feat(kCodeGrid, kCodeGrid, kCodeDim);
+  const float* rows = logits;  // contiguous: h rows of w (c = d = 1)
+  for (int t = 0; t < tokens; ++t) {
+    const float* r = rows + size_t(t) * kCodebookSize;
+    const int best = int(std::max_element(r, r + kCodebookSize) - r);  // first of ties
+    const float* code = codebook.data() + size_t(best) * kCodeDim;
+    for (int c = 0; c < kCodeDim; ++c) feat.channel(c)[t] = code[c];
+  }
+  return feat;
+}
+
+FaceRestorer::FaceRestorer(const FaceModel& model, const BackendConfig& cfg) : model_(model) {
+  a_ = make_ncnn_backend(cfg);
+  a_->load(model.split ? model.encoder : model.main);
+  if (model.split) {
+    b_ = make_ncnn_backend(cfg);
+    b_->load(model.generator);
+  }
+}
+
+Rgb8 FaceRestorer::restore(const Rgb8& aligned, double fidelity) {
+  if (!model_.split) return restore_face(*a_, aligned);
+  if (!(fidelity >= 0 && fidelity <= 1)) fail(ENH_E_INVALID, "fidelity must be 0..1");
+  auto enc = a_->run_inputs({face_to_mat(aligned)}, {"out0", "out1", "out2", "out3",
+                                                     "out4"});  // logits, features at 32..256 px
+  if (enc.size() != 5) fail(ENH_E_MODEL, "face model: unexpected encoder outputs");
+  ncnn::Mat w(1, 1, 1);  // [1,1,1,1] in the graph: a scalar the fuse blocks broadcast
+  w[0] = float(fidelity);
+  auto gen =
+      b_->run_inputs({codebook_lookup(enc[0], model_.codebook), enc[1], enc[2], enc[3], enc[4], w});
+  if (gen.size() != 1) fail(ENH_E_MODEL, "face model: unexpected generator outputs");
+  return mat_to_face(gen[0]);
 }
 
 namespace {
