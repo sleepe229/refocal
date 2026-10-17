@@ -9,8 +9,8 @@ Data: 8 photos of the Kodak test suite (768x512, released by Eastman Kodak for u
 usage; pinned by SHA-256 below), saved by Pillow (IJG tables, 4:2:0) at each quality. Each JPEG
 goes through refocal-cli at scale 1 (SR x4, area /4: the size stays) twice: the plain pipeline
 and the same with --jpeg-model jpeg.fbcnn, the QF read from the file's own tables as in the app.
-Both are compared with the original by PSNR / SSIM (Y) and scored without a reference by MUSIQ
-(pyiqa; --no-iqa skips it). Exit: NR-IQA of the cleanup >= the plain pipeline (S9).
+Both are compared with the original by PSNR / SSIM (Y) and scored without a reference by MUSIQ,
+CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA of the cleanup >= the plain pipeline (S9).
 
 Writes WORK_DIR/jpeg.json and prints a Markdown table. Needs numpy, pillow (pyiqa, torch).
 """
@@ -18,6 +18,16 @@ import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
 
 import numpy as np
 from PIL import Image
+
+# No-reference quality (04 §7.1, TEST-ML-006): MUSIQ, CLIP-IQA and MANIQA from pyiqa; higher
+# is better for all three. The S9 exit "NR-IQA >= the plain pipeline": at least two of them.
+NR_METRICS = ["musiq", "clipiqa", "maniqa"]
+
+
+def nr_ok(mean, a: str, b: str) -> bool:
+    """[a]'s mean is not below [b]'s on at least two of NR_METRICS."""
+    return sum(mean(f"{a}_{m}") >= mean(f"{b}_{m}") for m in NR_METRICS) >= 2
+
 
 KODAK = "https://r0k.us/graphics/kodak/kodak/kodim{}.png"
 IMAGES = {
@@ -91,7 +101,7 @@ def main() -> None:
     iqa = None
     if not a.no_iqa:
         import pyiqa, torch
-        iqa = pyiqa.create_metric("musiq", device=torch.device("cpu"))
+        iqa = {m: pyiqa.create_metric(m, device=torch.device("cpu")) for m in NR_METRICS}
 
     rows = []
     for q in [int(v) for v in a.qualities.split(",")]:
@@ -110,13 +120,14 @@ def main() -> None:
                 y = luma(path)
                 row[f"{kind}_psnr"], row[f"{kind}_ssim"] = psnr(ref, y), ssim(ref, y)
                 if iqa is not None:
-                    row[f"{kind}_musiq"] = float(iqa(str(path)).item())
+                    for m, f in iqa.items():
+                        row[f"{kind}_{m}"] = float(f(str(path)).item())
             rows.append(row)
             print(json.dumps(row), flush=True)
 
     (work / "jpeg.json").write_text(json.dumps(rows, indent=1))
     kinds = ["input", "plain", "jpeg"]
-    metrics = ["psnr", "ssim"] + ([] if iqa is None else ["musiq"])
+    metrics = ["psnr", "ssim"] + ([] if iqa is None else NR_METRICS)
     print("\n| Quality | " + " | ".join(f"{m.upper()} {k}" for m in metrics for k in kinds) +
           " | s plain | s jpeg |")
     print("|---" * (1 + len(metrics) * len(kinds) + 2) + "|")
@@ -128,7 +139,7 @@ def main() -> None:
                  for m in metrics for k in kinds]
         print(f"| {q} | " + " | ".join(cells) +
               f" | {mean('plain_s'):.1f} | {mean('jpeg_s'):.1f} |")
-        if iqa is not None and mean("jpeg_musiq") < mean("plain_musiq"):
+        if iqa is not None and not nr_ok(mean, "jpeg", "plain"):
             ok = False
     if not ok:
         sys.exit("NR-IQA of the JPEG cleanup is below the plain pipeline")

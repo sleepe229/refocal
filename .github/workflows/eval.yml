@@ -43,6 +43,7 @@ jobs:
           /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" pyiqa==0.1.16
       - name: Evaluate
         run: |
+          set -o pipefail
           mkdir -p out
           /tmp/venv/bin/python tools/ml/${{ inputs.category }}_eval.py out \
             --cli native/build/refocal-cli --models models | tee out/report.md

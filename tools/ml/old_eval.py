@@ -9,7 +9,7 @@ little blur and film grain (the reference: the aged print without damage), then 
 (bright and dark, 1-3 px, slightly bent) and dust. Each goes through refocal-cli at scale 1
 twice: plain, and with --scratch-model old.scratch. Both are compared with the undamaged aged
 print by PSNR / SSIM (luma) over the whole photo and PSNR inside the damage, and scored
-without a reference by MUSIQ (pyiqa; --no-iqa skips it). Exit: NR-IQA of the scratch removal
+without a reference by MUSIQ, CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA of the scratch removal
 >= the plain pipeline (S9).
 
 Writes WORK_DIR/old.json and prints a Markdown table. Needs numpy, pillow (pyiqa, torch).
@@ -19,7 +19,7 @@ import argparse, json, pathlib, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-from jpeg_eval import IMAGES, fetch, luma, psnr, run, ssim
+from jpeg_eval import IMAGES, NR_METRICS, fetch, luma, nr_ok, psnr, run, ssim
 
 
 def age(src: pathlib.Path, seed: int) -> tuple[Image.Image, Image.Image, np.ndarray]:
@@ -64,7 +64,7 @@ def main() -> None:
     iqa = None
     if not a.no_iqa:
         import pyiqa, torch
-        iqa = pyiqa.create_metric("musiq", device=torch.device("cpu"))
+        iqa = {m: pyiqa.create_metric(m, device=torch.device("cpu")) for m in NR_METRICS}
 
     rows = []
     for k, (name, sha) in enumerate(IMAGES.items()):
@@ -87,13 +87,14 @@ def main() -> None:
             row[f"{kind}_psnr"], row[f"{kind}_ssim"] = psnr(ref, y), ssim(ref, y)
             row[f"{kind}_psnr_damage"] = psnr(ref[mask], y[mask])
             if iqa is not None:
-                row[f"{kind}_musiq"] = float(iqa(str(path)).item())
+                for m, f in iqa.items():
+                    row[f"{kind}_{m}"] = float(f(str(path)).item())
         rows.append(row)
         print(json.dumps(row), flush=True)
 
     (work / "old.json").write_text(json.dumps(rows, indent=1))
     kinds = ["input", "plain", "scratches"]
-    metrics = ["psnr", "psnr_damage", "ssim"] + ([] if iqa is None else ["musiq"])
+    metrics = ["psnr", "psnr_damage", "ssim"] + ([] if iqa is None else NR_METRICS)
     mean = lambda key: sum(r[key] for r in rows) / len(rows)
     print("\n| Metric | " + " | ".join(kinds) + " |")
     print("|---" * (1 + len(kinds)) + "|")
@@ -102,7 +103,7 @@ def main() -> None:
         print(f"| {m} | " + " | ".join(fmt.format(mean(f"{k}_{m}")) for k in kinds) + " |")
     print(f"| s | - | {mean('plain_s'):.1f} | {mean('scratches_s'):.1f} |")
     print(f"\ndamage: {100 * mean('damage'):.2f}% of the photo")
-    if iqa is not None and mean("scratches_musiq") < mean("plain_musiq"):
+    if iqa is not None and not nr_ok(mean, "scratches", "plain"):
         sys.exit("NR-IQA of the scratch removal is below the plain pipeline")
 
 
