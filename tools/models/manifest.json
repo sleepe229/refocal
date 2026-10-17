@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "serial": 6,
-  "generated_at": "2026-10-18T04:00:00Z",
+  "serial": 7,
+  "generated_at": "2026-10-18T05:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -825,7 +825,7 @@
     },
     {
       "id": "old.lowlight-cidnet",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "old",
       "title": {
         "en": "Low light",
@@ -867,9 +867,9 @@
         "pad": 0,
         "params": {
           "max_side": 384,
-          "tile_multiple": 8,
           "density_k": 0.983547,
-          "in0": "HVI (CIDNet colour space), from RGB in the core"
+          "in0": "HVI (CIDNet colour space), from RGB in the core",
+          "size": 384
         }
       },
       "files": [
@@ -878,8 +878,8 @@
           "backend": "ncnn",
           "precision": "fp16",
           "path": "model.ncnn.param",
-          "size": 63782,
-          "sha256": "4ff94961fd558fa7a6e7abcde07711f5700296eac8b4117cbe472907f362507e",
+          "size": 63864,
+          "sha256": "8397e7eb93f7e60c333b3de8b67d6ab26c3a416a7b29fe20c8cad98e38d98f2f",
           "urls": [
             "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.ncnn.param"
           ]
@@ -900,8 +900,8 @@
           "backend": "ncnn",
           "precision": "fp16",
           "path": "model.json",
-          "size": 77,
-          "sha256": "0a2345dbd1f8559e25dba0df897b846507abb1afe507b6e42596d2b5dc722f65",
+          "size": 75,
+          "sha256": "00dd89eb60a8af2100d440e98dd7440ddc8e80e61d56d1e1271e3114a26c5e3f",
           "urls": [
             "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/model.json"
           ]

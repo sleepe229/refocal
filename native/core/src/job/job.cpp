@@ -31,6 +31,7 @@
 #include "pipeline/faces.hpp"
 #include "pipeline/geometry.hpp"
 #include "pipeline/jpeg_clean.hpp"
+#include "pipeline/lowlight.hpp"
 #include "pipeline/scratches.hpp"
 #include "policy/gpu_gate.hpp"
 #include "policy/gpu_identity.hpp"
@@ -69,6 +70,7 @@ JobRequest parse_job_request(const std::string& text) {
     r.jpeg_model = j.value("jpeg_model", r.jpeg_model);
     r.jpeg_qf = j.value("jpeg_qf", r.jpeg_qf);
     r.scratch_model = j.value("scratch_model", r.scratch_model);
+    r.lowlight_model = j.value("lowlight_model", r.lowlight_model);
     r.inpaint_model = j.value("inpaint_model", r.inpaint_model);
     for (const auto& b : j.value("faces_off", nlohmann::json::array())) {
       const auto v = b.get<std::vector<float>>();
@@ -134,6 +136,7 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
                       {"jpeg_model", r.jpeg_model},
                       {"jpeg_qf", r.jpeg_qf},
                       {"scratch_model", r.scratch_model},
+                      {"lowlight_model", r.lowlight_model},
                       {"inpaint_model", r.inpaint_model},
                       {"faces_off", [&] {
                          nlohmann::json a = nlohmann::json::array();
@@ -402,6 +405,7 @@ struct enh_job {
   std::vector<RestoredFace> restore_faces(const JobRequest& req, const Rgb8& img);
   Rgb8 clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality);
   Rgb8 remove_scratches(const JobRequest& req, Rgb8 img);
+  Rgb8 brighten(const JobRequest& req, Rgb8 img);
   // Runs [f](backend) with [id] loaded on each rung of its backend ladder (and CPU fp32 last)
   // until one succeeds; each failed rung is a FALLBACK event of [stage], the last one of kind
   // [kind] ("skipped"). False when every rung failed.
@@ -494,6 +498,7 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
   }
   if (!r.jpeg_model.empty()) s += ";jpeg=" + r.jpeg_model + "," + std::to_string(r.jpeg_qf);
   if (!r.scratch_model.empty()) s += ";scratches=" + r.scratch_model + "," + r.inpaint_model;
+  if (!r.lowlight_model.empty()) s += ";lowlight=" + r.lowlight_model;
   if (!stage.empty()) s += ";stage=" + stage;
   return Sha256::of_string(s);
 }
@@ -566,6 +571,23 @@ bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage,
     sink.emit(ENH_EV_FALLBACK, stage, 0, 0, p);
   }
   return false;
+}
+
+// S9: HVI-CIDNet once on a downscale (pipeline/lowlight). Failing on every backend leaves the
+// image as it is, with a FALLBACK event of kind "lowlight" (ADR-0016).
+Rgb8 enh_job::brighten(const JobRequest& req, Rgb8 img) {
+  sink.emit(ENH_EV_STAGE, kStageLowLight, 0, 0, {{"stage", "low_light"}});
+  const std::string meta = fs::join(fs::join(s->models_dir, req.lowlight_model), "model.json");
+  const auto j = nlohmann::json::parse(fs::read_text(meta), nullptr, false);
+  if (j.is_discarded() || !j.contains("density_k") || !j["density_k"].is_number())
+    fail(ENH_E_MODEL, "low-light pack without density_k");
+  const float k = j["density_k"].get<float>();
+  Rgb8 out;
+  if (!on_ladder(req, req.lowlight_model, kStageLowLight, "lowlight",
+                 [&](InferenceBackend& be) { out = enhance_low_light(be, img, k); }))
+    return img;
+  sink.progress(kStageLowLight, 1, 1, -1, true);
+  return out;
 }
 
 // S9: the BOPBTL detector, then MI-GAN on the holes it found. Either failing on every backend
@@ -907,6 +929,11 @@ void enh_job::run_impl(nlohmann::json& result) {
   // ---- JPEG cleanup (S9): the whole (cropped) photo, before faces see it ----
   if (!req.jpeg_model.empty()) {
     img = clean_jpeg(req, std::move(img), info.jpeg_quality);
+    if (stop()) throw Stopped{};
+  }
+  // ---- low light (S9): before the scratch detector, which sees a dark photo badly ----
+  if (!req.lowlight_model.empty()) {
+    img = brighten(req, std::move(img));
     if (stop()) throw Stopped{};
   }
   // ---- scratch removal (S9): after the cleanup, so the detector sees no blocking ----

@@ -546,13 +546,17 @@ const jpegPack = 'jpeg.fbcnn';
 const scratchPack = 'old.scratch';
 const inpaintPack = 'old.inpaint-migan';
 
+/// S9: low-light enhancement (HVI-CIDNet).
+const lowlightPack = 'old.lowlight-cidnet';
+
 /// Whether [r] can run with [available] models (faces need the detector as well).
 bool canRun(Recipe r, Set<String> available) =>
     available.contains(r.srModel) &&
     (r.faceModel == null ||
         (available.contains(r.faceModel) && available.contains(bundledDetector))) &&
     (r.scratchModel == null ||
-        (available.contains(r.scratchModel) && available.contains(r.inpaintModel)));
+        (available.contains(r.scratchModel) && available.contains(r.inpaintModel))) &&
+    (r.lowlightModel == null || available.contains(r.lowlightModel));
 
 /// The Models screen's state: the manifest shown (the last verified one until the user asks
 /// for a newer), and downloads in progress (they go on while the app runs).

@@ -36,6 +36,8 @@ const char* stage_name(int32_t s) {
       return "jpeg_clean";
     case kStageScratches:
       return "scratches";
+    case kStageLowLight:
+      return "low_light";
     default:
       return "unknown";
   }

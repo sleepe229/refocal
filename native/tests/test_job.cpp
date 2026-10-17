@@ -476,6 +476,39 @@ static void test_scratches(Session& se) {
   CHECK(run_job(se, b, bad).status != ENH_OK);
 }
 
+// S9 low light: a network that changes nothing leaves the photo as it is (to rounding of the
+// HVI round trip); a pack without density_k is refused.
+static void test_lowlight(Session& se) {
+  const std::string dir = fs::join(g_models, "light.same");
+  fs::mkdirs(dir);
+  fs::write_atomic(fs::join(dir, "model.ncnn.param"),
+                   std::string("7767517\n2 2\nInput in0 0 1 in0\nNoop id 1 1 in0 out0\n"));
+  fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
+  fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":1,\"density_k\":0.98}"));
+  const std::string in = make_jpeg("ll.jpg", 301, 157);
+  Collector plain, light;
+  CHECK(run_job(se, req("lp", in, "nearest4"), plain).status == ENH_OK);
+  json q = req("ll", in, "nearest4");
+  q["lowlight_model"] = "light.same";
+  CHECK(run_job(se, q, light).status == ENH_OK);
+  const auto a = read_output(fs::join(g_work, "ll")).px, b = read_output(fs::join(g_work, "lp")).px;
+  CHECK(a.size() == b.size());
+  int diff = 0;
+  for (size_t i = 0; i < a.size() && i < b.size(); ++i)
+    diff = std::max(diff, std::abs(a[i] - b[i]));
+  CHECK(diff <= 1);
+  bool staged = false;
+  {
+    std::lock_guard lk(light.mu);
+    for (const auto& e : light.evs) staged |= e.type == ENH_EV_STAGE && e.stage == 7;
+  }
+  CHECK(staged);
+  fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":1}"));
+  Collector bad;
+  q["job_id"] = "lb";
+  CHECK(run_job(se, q, bad).status != ENH_OK);
+}
+
 static void test_orientation(Session& se) {
   std::string in = make_jpeg("o.jpg", 120, 80, 6);  // rotate 90 CW
   Collector c;
@@ -1252,6 +1285,7 @@ int main(int argc, char** argv) {
     test_orientation(se);
     test_jpeg_clean(se);
     test_scratches(se);
+    test_lowlight(se);
     test_export(se);
     test_lanczos();
     test_icc_validation();
