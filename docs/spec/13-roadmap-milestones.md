@@ -189,7 +189,7 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 | SBOM и аттестации в релизах, GOVERNANCE/CONTRIBUTING/SECURITY/CoC, шаблоны issue, чек-лист релиза (OPS-REL-002/005, OPS-GOV-002/004, SEC-CI-004) | ✅ #34 |
 | Зависимости: Dependabot, ночная проверка OSV (SEC-INP-006); ncnn CVE-2026-50144 закрыт; DCO-проверка (OPS-GOV-001) | ✅ #36 |
 | F-Droid: метаданные fastlane (COMP-FDR-005), проверка «нет GMS» в fdroid-APK (COMP-FDR-001/007), черновик рецепта fdroiddata; своя иконка вместо логотипа Flutter | ✅ #37; ⏳ MR в fdroiddata и `fdroid build` (S8b) |
-| Weblate (NFR-L10N-005): репозиторий готов, `docs/ops/weblate.md` | ✅ #38; ⏳ проект на Hosted Weblate (мейнтейнер) |
+| Weblate (NFR-L10N-005): репозиторий готов, `docs/ops/weblate.md`; проект [Refocal на Hosted Weblate](https://hosted.weblate.org/projects/refocal/) (компонент App, ARB, PR через GitHub-приложение, `Signed-off-by` в коммитах) | ✅ #38; ⏳ одобрение libre-хостинга (заявка 2026-10-17) |
 | HEIC на Android (FR-EXP-002): HeifWriter + ICC/EXIF/XMP в контейнер (`heif_meta`), фаззинг | ✅ #42, проверено на Galaxy S24 Ultra |
 | CodeFormer и «Сходство ↔ Детализация» (FR-FACE-005, ML-CNV-003): разделённый граф (ADR-0024), пак `face.codeformer` | ✅ #43 |
 | Замеры на устройстве (S3b): NFR-PERF-001 3.8 с, PERF-002 38 с, PERF-008 40 мс, MEM-001 < 1 ГБ на T2; калибровка тиров для GPU | ✅ [S3b](../spikes/S3b.md), одно устройство |

@@ -64,6 +64,13 @@ tools/rebuilder/s8.sh            # two independent builds + diffoscope + signatu
 Beta builds are published as GitHub pre-releases by `.github/workflows/release.yml`; see
 [docs/ops/release.md](docs/ops/release.md) and [CHANGELOG.md](CHANGELOG.md).
 
+## Translations
+
+[![Translation status](https://hosted.weblate.org/widget/refocal/svg-badge.svg)](https://hosted.weblate.org/engage/refocal/)
+
+Refocal is translated on [Hosted Weblate](https://hosted.weblate.org/engage/refocal/), which
+opens pull requests with the changes. Thanks to Weblate for the free libre hosting.
+
 ## Privacy
 
 Refocal collects no data: [PRIVACY.md](PRIVACY.md), also at

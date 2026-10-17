@@ -7,6 +7,10 @@ its `app/lib/l10n/app_<code>.arb`: the language list in Settings is built from t
 
 ## One-time setup (maintainer)
 
+Done 2026-10-17: <https://hosted.weblate.org/projects/refocal/>. The merge and add-on commit
+templates have no `{{ author }}`; they are signed off as `Hosted Weblate <hosted@weblate.org>`.
+
+
 1. Sign in to hosted.weblate.org with GitHub and apply for libre hosting:
    <https://hosted.weblate.org/hosting/> → project **Refocal**, URL
    `https://github.com/sleepe229/refocal`, license Apache-2.0. Approval is manual.

@@ -55,8 +55,9 @@ C/C++ is formatted with clang-format 18 (`.clang-format`); `native/include/enh.h
   screenshot; new strings go to `app/lib/l10n/app_en.arb` (English is the template) and
   `app_ru.arb`.
 - Tests for new behaviour. Don't weaken a test to make it pass.
-- Translations: on Weblate once it is set up ([docs/ops/weblate.md](docs/ops/weblate.md)), not by
-  editing `.arb` files; English (`app_en.arb`) is edited here.
+- Translations: on [Hosted Weblate](https://hosted.weblate.org/engage/refocal/)
+  ([docs/ops/weblate.md](docs/ops/weblate.md)), not by editing `.arb` files; English
+  (`app_en.arb`) is edited here.
 
 ## Adding a model
 
