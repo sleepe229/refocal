@@ -438,6 +438,44 @@ static void test_jpeg_clean(Session& se) {
   CHECK(run_job(se, b, bad).status != ENH_OK);
 }
 
+// S9 scratches: a detector that finds nothing (probability 0) leaves the photo as it is, and
+// the inpainting model never runs (its graph would fail: it does not exist as a file).
+static void test_scratches(Session& se) {
+  const std::string dir = fs::join(g_models, "scratch.none");
+  fs::mkdirs(dir);
+  fs::write_atomic(fs::join(dir, "model.ncnn.param"),
+                   std::string("7767517\n2 2\nInput in0 0 1 in0\n"
+                               "BinaryOp zero 1 1 in0 out0 0=2 1=1 2=0.0\n"));
+  fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
+  fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":1}"));
+  const std::string fill = fs::join(g_models, "inpaint.none");
+  fs::mkdirs(fill);
+  fs::write_atomic(fs::join(fill, "model.ncnn.param"), std::string("7767517\n0 0\n"));
+  fs::write_atomic(fs::join(fill, "model.ncnn.bin"), std::string());
+  const std::string in = make_jpeg("sc.jpg", 301, 157);
+  Collector plain, clean;
+  CHECK(run_job(se, req("sp", in, "nearest4"), plain).status == ENH_OK);
+  json q = req("sc", in, "nearest4");
+  q["scratch_model"] = "scratch.none";
+  q["inpaint_model"] = "inpaint.none";
+  CHECK(run_job(se, q, clean).status == ENH_OK);
+  CHECK(read_output(fs::join(g_work, "sc")).px == read_output(fs::join(g_work, "sp")).px);
+  bool staged = false, progressed = false, fell_back = false;
+  {
+    std::lock_guard lk(clean.mu);
+    for (const auto& e : clean.evs) {
+      staged |= e.type == ENH_EV_STAGE && e.stage == 6;
+      progressed |= e.type == ENH_EV_PROGRESS && e.stage == 6 && e.done == e.total;
+      fell_back |= e.type == ENH_EV_FALLBACK && e.stage == 6;
+    }
+  }
+  CHECK(staged && progressed && !fell_back);
+  Collector bad;
+  json b = req("sb", in, "nearest4");
+  b["scratch_model"] = "scratch.none";
+  CHECK(run_job(se, b, bad).status != ENH_OK);
+}
+
 static void test_orientation(Session& se) {
   std::string in = make_jpeg("o.jpg", 120, 80, 6);  // rotate 90 CW
   Collector c;
@@ -1213,6 +1251,7 @@ int main(int argc, char** argv) {
     test_crop(se);
     test_orientation(se);
     test_jpeg_clean(se);
+    test_scratches(se);
     test_export(se);
     test_lanczos();
     test_icc_validation();

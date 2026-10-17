@@ -42,6 +42,10 @@ struct JobRequest {
   // the input is not a JPEG).
   std::string jpeg_model;
   double jpeg_qf = -1;
+  // S9 scratch removal: the detector and the inpainting pack ids (both or neither; "" = off),
+  // run 1x after the JPEG cleanup, before faces and SR.
+  std::string scratch_model;
+  std::string inpaint_model;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)

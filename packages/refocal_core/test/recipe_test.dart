@@ -73,6 +73,32 @@ void main() {
     expect(() => Recipe.fromJson({...r.toJson(), 'jpeg_qf': -1}), throwsFormatException);
   });
 
+  test('scratch removal round-trips as schema 4, both packs or neither (S9)', () {
+    final r = Recipe(
+      scale: 2,
+      srModel: 'm',
+      jpegModel: 'jpeg.fbcnn',
+      scratchModel: 'old.scratch',
+      inpaintModel: 'old.inpaint-migan',
+    );
+    expect(r.toJson()['schema'], 4);
+    expect(Recipe.fromJson(roundTrip(r)), r);
+    expect(r.copyWith(scratches: () => null).toJson()['schema'], 3);
+    expect(r.copyWith(scratches: () => ('a.b', 'c.d')).inpaintModel, 'c.d');
+    expect(() => Recipe(scale: 2, srModel: 'm', scratchModel: 'old.scratch'), throwsArgumentError);
+    expect(() => Recipe.fromJson({...r.toJson(), 'schema': 3}), throwsFormatException);
+    expect(() => Recipe.fromJson({...r.toJson(), 'inpaint_model': null}), throwsFormatException);
+    final q = JobRequest.of(r, '/in.jpg', id: 'j1');
+    expect(q.toJson()['inpaint_model'], 'old.inpaint-migan');
+    expect(JobRequest.fromJson({...q.toJson(), 'scale': 2}).recipe(), r);
+    final none = JobRequest.fromJson({
+      ...JobRequest.of(Recipe(scale: 2, srModel: 'm'), '/in.jpg', id: 'j2').toJson(),
+      'scratch_model': '',
+      'inpaint_model': '',
+    });
+    expect(none.scratchModel, isNull, reason: 'the core writes "" for off');
+  });
+
   test('anything else is a FormatException', () {
     final good = Recipe(scale: 4, srModel: 'm').toJson();
     for (final bad in <Map<String, Object?>>[

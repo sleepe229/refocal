@@ -10,6 +10,9 @@ enum JobStage {
 
   /// JPEG cleanup before SR (S9).
   jpeg('jpeg_clean'),
+
+  /// Scratch detection + inpainting before SR (S9).
+  scratches('scratches'),
   upscale('upscale'),
   finalize('finalize'),
   unknown('');
@@ -83,7 +86,10 @@ enum FallbackKind {
   face,
 
   /// JPEG cleanup skipped: the photo goes to SR as decoded (S9).
-  jpeg;
+  jpeg,
+
+  /// Scratch removal skipped: the photo goes on with its scratches (S9).
+  scratches;
 
   static FallbackKind fromName(String? name) =>
       values.where((k) => k.name == name).firstOrNull ?? backend;

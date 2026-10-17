@@ -19,6 +19,8 @@ class JobRequest {
     this.facesOff = const [],
     this.jpegModel,
     this.jpegQf,
+    this.scratchModel,
+    this.inpaintModel,
     this.crop,
   }) : id = id ?? 'job-${newId()}' {
     if (crop case (final x, final y, final w, final h)
@@ -50,6 +52,8 @@ class JobRequest {
     facesOff: facesOff,
     jpegModel: recipe.jpegModel,
     jpegQf: recipe.jpegQf,
+    scratchModel: recipe.scratchModel,
+    inpaintModel: recipe.inpaintModel,
     crop: crop == null ? null : (crop.x, crop.y, crop.w, crop.h),
   );
 
@@ -80,10 +84,20 @@ class JobRequest {
   final String? jpegModel;
   final double? jpegQf;
 
+  /// S9 scratch removal (`scratch_model`, `inpaint_model` in the core); null: off.
+  final String? scratchModel;
+  final String? inpaintModel;
+
   /// FR-ENH-015 fragment preview: only this part (x, y, w, h) of the oriented input.
   final (int, int, int, int)? crop;
 
   static final _id = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+
+  static String? _pack(Object? v, String key) => switch (v) {
+    null || '' => null,
+    final String m => m,
+    final other => throw FormatException('bad $key', other),
+  };
 
   /// The recipe this request runs, at [strength] (not stored in the request).
   Recipe recipe({double strength = 1}) => Recipe(
@@ -97,6 +111,8 @@ class JobRequest {
     facesOnly: facesOnly,
     jpegModel: jpegModel,
     jpegQf: jpegQf,
+    scratchModel: scratchModel,
+    inpaintModel: inpaintModel,
   );
 
   static const schemaVersion = 1;
@@ -116,6 +132,7 @@ class JobRequest {
       if (facesOff.isNotEmpty) 'faces_off': [for (final b in facesOff) b.toJson()],
     },
     if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
+    if (scratchModel case final m?) ...{'scratch_model': m, 'inpaint_model': inpaintModel},
     if (crop case (final x, final y, final w, final h)) 'crop': [x, y, w, h],
   };
 
@@ -165,6 +182,9 @@ class JobRequest {
             final num v => v.toDouble(),
             final other => throw FormatException('bad jpeg_qf', other),
           },
+          // "" for no scratch removal, as for the JPEG pack.
+          scratchModel: _pack(j['scratch_model'], 'scratch_model'),
+          inpaintModel: _pack(j['inpaint_model'], 'inpaint_model'),
           crop: switch (j['crop']) {
             null => null,
             [final int x, final int y, final int w, final int h] => (x, y, w, h),

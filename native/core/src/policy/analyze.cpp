@@ -56,8 +56,7 @@ nlohmann::json analyze_image(enh_session& s, const std::string& path,
     std::lock_guard run(s.run_mu);  // with jobs: one model run at a time (ADR-0006)
     auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s.cpu_threads});
     det->load(resolve_model(s.models_dir, det_model));
-    auto found = detect_faces(*det, img);
-    keep_restorable(found);  // the faces a job would restore, largest first
+    const auto found = find_faces(*det, img);  // the faces a job would restore, largest first
     float largest = 0;
     nlohmann::json boxes = nlohmann::json::array();
     for (const Face& f : found) {
