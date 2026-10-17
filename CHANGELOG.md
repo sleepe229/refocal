@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0-beta.1
+
+First step of "old photos" (1.1): JPEG cleanup.
+
+New:
+- **Remove JPEG artifacts** (Settings → Models: "JPEG cleanup", fast phones): smooths the
+  blocks and halos of strong JPEG compression before enhancing. Auto turns it on for heavily
+  compressed JPEGs once the model is installed; the strength comes from the photo itself.
+- Models that need a newer version of Refocal are no longer offered.
+
+Fixed:
+- Leaving the editor did not clean up: saved results and copies of the input stayed on the
+  phone until the weekly cleanup.
+- "Fast 2×" broke in the middle of the word in Russian.
+- Security: a crafted HEIC file could make saving metadata misbehave (found by fuzzing).
+
 ## 0.5.0-beta.2
 
 Security and packaging fixes for the public beta.
