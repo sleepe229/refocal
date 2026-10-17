@@ -17,6 +17,8 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `sr.x4plus` | pack (0.5), T2 | [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) v0.1.0 `RealESRGAN_x4plus.pth` (4fa0d389…d682f1), RRDBNet 23 blocks | BSD-3-Clause, © 2021 Xintao Wang | `tools/models/convert_rrdb.py` (TorchScript → pnnx → ncnn) | `model.ncnn.param` 86de8b20…04538f, `model.ncnn.bin` cae0a543…9a2159, `model.json` a034657c…b9a2ca |
 | `sr.x4plus-anime6b` | pack (0.5), T1 | as above, v0.2.2.4 `RealESRGAN_x4plus_anime_6B.pth` (f872d837…5e99da), RRDBNet 6 blocks | BSD-3-Clause, © 2021 Xintao Wang | `tools/models/convert_rrdb.py` | `model.ncnn.param` 8fb8b2a1…c5f6ed, `model.ncnn.bin` e8b012c2…c62d2c, `model.json` 1d308df1…f62dfb |
 | `jpeg.fbcnn` | pack (0.6), T2 | [jiaxi-jiang/FBCNN](https://github.com/jiaxi-jiang/FBCNN) v1.0 release `fbcnn_color.pth` (8b0e4ef2…2387e8), commit 54d18319 | Apache-2.0, © Jiaxi Jiang et al. | `tools/models/convert_fbcnn.py` (restore graph only, QF as the second input; S9) | `model.ncnn.param` f3662e8a…b7b89a5, `model.ncnn.bin` c973ad06…69952c1, `model.json` e6da6680…0894cd9 |
+| `old.scratch` | pack (0.6), T1 | [microsoft/Bringing-Old-Photos-Back-to-Life](https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life) v1.0 release, `checkpoints/detection/FT_Epoch_latest.pt` (b2d7ab04…ba59a95), commit 33875ecc | MIT, © Microsoft Corporation | `tools/models/convert_scratch.py` (grey in, scratch probability out; S9) | `model.ncnn.param` 0986bf5e…16084e, `model.ncnn.bin` 12984526…1654dcc, `model.json` 6f23279c…462b3 |
+| `old.inpaint-migan` | pack (0.6), T1 | [Picsart-AI-Research/MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) 512 Places2, from the ONNX pipeline on Hugging Face `andraniksargsyan/migan` (593eba0b…80fc5ae), revision 406830d0 | MIT (code and `LICENSE-WEIGHTS`), © Picsart AI Research | `tools/models/convert_migan.py` (the generator cut out of the pipeline; S9) | `model.ncnn.param` 6088ec4a…0f0933b0a, `model.ncnn.bin` 319e248f…73722d, `model.json` df2fc58b…a5a96a9f |
 
 ## Evaluation
 
@@ -28,9 +30,15 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `face.gfpgan-1.4` | ncnn fp16 vs PyTorch fp32 (S1) | CPU 54.8 dB, Vulkan 51.4 dB |
 | `face.codeformer` | ncnn fp16 vs PyTorch fp32, one real face (`test_faces`, nightly) | CPU 43.9 dB at w 0.7 (48.5 at 1.0, 40.1 at 0.5, 34.1 at 0); 252 of 256 codebook picks equal |
 | `jpeg.fbcnn` | TEST-ML-001: ncnn CPU vs PyTorch fp32, 96×96 golden tile at qf 0.7 (`golden.lock`); QF estimate per tile vs whole image at qualities 10–90 (S9) | ≥ 40 dB on every PR (CI); QF within ±0.004 across tiles |
+| `jpeg.fbcnn` | "jpeg" golden category: 8 Kodak photos at JPEG quality 10–50, plain pipeline vs cleanup (`tools/ml/jpeg_eval.py`, S9) | MUSIQ 75.4 vs 70.6 at q10, 77.3 vs 76.7 at q50; PSNR and SSIM higher at every quality |
+| `old.scratch` | TEST-ML-001: ncnn CPU vs PyTorch fp32, 256×384 golden input (`golden.lock`); synthetic scratches (S9) | ≥ 40 dB on every PR (CI); precision 0.98, recall 0.64 at threshold 0.4 |
+| `old.inpaint-migan` | TEST-ML-001: ncnn CPU vs onnxruntime fp32, 512×512 golden input (`golden.lock`); synthetic holes (S9) | ≥ 40 dB on every PR (CI); 32.5 dB inside the holes (mean fill 16.4 dB) |
 
 ## Known limitations
 
+- `old.scratch` misses part of the thinnest scratches (under a pixel at the 256 px it runs at);
+  `old.inpaint-migan` fills smoothly and does not recreate film grain, so a filled scratch on
+  a grainy scan stays faintly visible.
 - `sr.x4plus-anime6b` is trained on drawings: on photos it flattens texture into flat colour
   areas.
 - SR models invent plausible detail; they cannot recover text, number plates or fine patterns
