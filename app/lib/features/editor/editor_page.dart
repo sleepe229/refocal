@@ -743,12 +743,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 
   // Stages whose progress is a fraction (the others show an indeterminate bar).
-  static const _determinate = {
-    JobStage.upscale,
-    JobStage.faces,
-    JobStage.jpeg,
-    JobStage.scratches,
-  };
+  static const _determinate = {JobStage.upscale, JobStage.faces, JobStage.jpeg, JobStage.scratches};
 
   Widget _progress(Running s, EnhanceController ctl, AppLocalizations l10n) {
     final eta = s.eta;
@@ -781,9 +776,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LinearProgressIndicator(
-                  value: _determinate.contains(s.stage) ? s.progress : null,
-                ),
+                LinearProgressIndicator(value: _determinate.contains(s.stage) ? s.progress : null),
                 const SizedBox(height: 8),
                 Text(label, textAlign: TextAlign.center),
               ],

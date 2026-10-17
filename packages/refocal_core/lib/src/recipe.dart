@@ -254,10 +254,7 @@ class Recipe {
       };
       final (scratchModel, inpaintModel) = switch ((j['scratch_model'], j['inpaint_model'])) {
         (null, null) => (null, null),
-        (final String d, final String f) when schema >= 4 && d.isNotEmpty && f.isNotEmpty => (
-          d,
-          f,
-        ),
+        (final String d, final String f) when schema >= 4 && d.isNotEmpty && f.isNotEmpty => (d, f),
         final other => throw FormatException('bad scratch_model / inpaint_model', other),
       };
       if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
