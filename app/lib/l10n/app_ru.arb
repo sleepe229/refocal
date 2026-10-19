@@ -76,11 +76,9 @@
   "settingsSavedPhotos": "Сохранённые фото",
   "settingsFormat": "Формат",
   "settingsQuality": "Качество",
-  "settingsQualityHint": "Для JPEG и WebP.",
   "settingsMetadata": "Метаданные",
   "settingsMetadataBody": "Дата, камера и цветовой профиль сохраняются.",
   "settingsKeepLocation": "Сохранять геопозицию",
-  "settingsKeepLocationSub": "Координаты в сохранённых фото.",
   "settingsAiMarker": "Отмечать как улучшенное ИИ",
   "settingsAiMarkerSub": "Другие приложения смогут показать, что фото изменено ИИ.",
   "markerOffTitle": "Отключить отметку ИИ?",
@@ -351,5 +349,6 @@
   "moreTooltip": "Ещё",
   "resultDetails": "Подробнее",
   "editorSave": "Сохранить",
-  "homeSeeAll": "Все"
+  "homeSeeAll": "Все",
+  "settingsAdvanced": "Дополнительно"
 }
