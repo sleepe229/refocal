@@ -8,6 +8,7 @@ import android.app.ApplicationExitInfo
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ComponentCallbacks2
+import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
@@ -344,7 +345,14 @@ class RefocalPlatformPlugin :
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     send.clipData = ClipData.newRawUri(null, uri)
-    activity.startActivity(Intent.createChooser(send, chooserTitle))
+    // Not to the app itself (it takes shared images as new input, FR-SHARE-001).
+    val chooser =
+        Intent.createChooser(send, chooserTitle)
+            .putExtra(
+                Intent.EXTRA_EXCLUDE_COMPONENTS,
+                arrayOf(ComponentName(activity, activity.javaClass)),
+            )
+    activity.startActivity(chooser)
   }
 
   override suspend fun takeSharedImages(inboxDir: String): PickedImages {
