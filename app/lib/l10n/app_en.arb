@@ -831,5 +831,9 @@
   "homeSeeAll": "See all",
   "@homeSeeAll": {"description": "Opens the whole history from the home screen's recent results."},
   "settingsAdvanced": "Advanced",
-  "@settingsAdvanced": {"description": "Settings screen with what few people change: AI marker, models, device class (06 §1.1)."}
+  "@settingsAdvanced": {"description": "Settings screen with what few people change: AI marker, models, device class (06 §1.1)."},
+  "share": "Share",
+  "@share": {"description": "Result screen: hands the photo to another app (06 §3.2)."},
+  "shareFailed": "Couldn't share: {error}",
+  "@shareFailed": {"placeholders": {"error": {"type": "String"}}}
 }

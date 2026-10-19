@@ -6,10 +6,12 @@ import 'package:refocal_core/refocal_core.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
+import '../../bootstrap/storage.dart';
 import '../../bootstrap/tier.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
 import '../../ui_kit/errors.dart';
+import '../storage/storage_page.dart';
 
 /// Export format and quality, location, history and presets, storage, language
 /// (FR-SET-001/002/004/006, FR-META-003, FR-HIST-005, FR-PRE-002); the rest in Advanced.
@@ -108,7 +110,7 @@ class SettingsPage extends ConsumerWidget {
                   },
                 ),
                 _Link(l10n.presetsTitle, '/presets'),
-                _Link(l10n.settingsStorage, '/storage'),
+                const _StorageRow(),
               ],
             ),
             SettingsSection(
@@ -232,6 +234,35 @@ class AdvancedSettingsPage extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Storage in one row (06 §1.1): what the app takes; the categories and clearing are inside.
+class _StorageRow extends ConsumerWidget {
+  const _StorageRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final size = ref.watch(storageUsageProvider).value?.total;
+    return ListTile(
+      title: Text(l10n.settingsStorage),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (size != null)
+            Text(
+              formatBytes(context, size),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
+      onTap: () async {
+        await context.push('/storage');
+        ref.invalidate(storageUsageProvider); // cleared there
+      },
     );
   }
 }

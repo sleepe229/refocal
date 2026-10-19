@@ -985,12 +985,42 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (busy) ...[const LinearProgressIndicator(), const SizedBox(height: 8)],
-        FilledButton(
-          onPressed: busy ? null : () => _save(() => ctl.saveToGallery(), l10n.savedToGallery),
-          child: Text(l10n.editorSave),
+        Row(
+          children: [
+            IconButton.filledTonal(
+              tooltip: l10n.share,
+              onPressed: busy ? null : () => _share(ctl, l10n),
+              icon: const Icon(Icons.share_outlined),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => _save(() => ctl.saveToGallery(), l10n.savedToGallery),
+                child: Text(l10n.editorSave),
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  /// 06 §3.2: the result to another app, in the default format.
+  Future<void> _share(EnhanceController ctl, AppLocalizations l10n) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ctl.share(l10n.share);
+    } on EnhException catch (e, stack) {
+      if (e.status == EnhStatus.limit) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.formatTooLarge)));
+      } else {
+        showError(messenger, l10n, 'share', e, stack, l10n.shareFailed);
+      }
+    } on Exception catch (e, stack) {
+      showError(messenger, l10n, 'share', e, stack, l10n.shareFailed);
+    }
   }
 
   /// FR-ENH-005: the blend with the original, from the "…" menu.

@@ -212,6 +212,14 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+echo "== share (06 §3.2): the system chooser opens with the result"
+tap_text "Share" 30
+sleep 4
+adb_ shell dumpsys activity activities | grep -q "ChooserActivity\|ResolverActivity" \
+  || { echo "FAIL: no share sheet"; exit 1; }
+shot share
+adb_ shell input keyevent KEYCODE_BACK
+sleep 1
 if [[ ${HEIC:-0} = 1 ]]; then
   # FR-EXP-002: HeifWriter on the device, metadata from the core; the file is checked on the
   # host (tools/emulator/check_heic.py, HEIC_CHECK: --icc for a photo with a profile, --exif).
