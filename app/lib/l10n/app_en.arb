@@ -176,11 +176,9 @@
   "settingsSavedPhotos": "Saved photos",
   "settingsFormat": "Format",
   "settingsQuality": "Quality",
-  "settingsQualityHint": "For JPEG and WebP.",
   "settingsMetadata": "Metadata",
   "settingsMetadataBody": "Date, camera and colour profile are kept.",
   "settingsKeepLocation": "Keep location",
-  "settingsKeepLocationSub": "GPS in saved photos.",
   "settingsAiMarker": "Mark as AI-enhanced",
   "settingsAiMarkerSub": "Other apps can show that AI changed the photo.",
   "markerOffTitle": "Turn off the AI marker?",
@@ -831,5 +829,7 @@
   "editorSave": "Save",
   "@editorSave": {"description": "The result's main action: save to the gallery."},
   "homeSeeAll": "See all",
-  "@homeSeeAll": {"description": "Opens the whole history from the home screen's recent results."}
+  "@homeSeeAll": {"description": "Opens the whole history from the home screen's recent results."},
+  "settingsAdvanced": "Advanced",
+  "@settingsAdvanced": {"description": "Settings screen with what few people change: AI marker, models, device class (06 §1.1)."}
 }

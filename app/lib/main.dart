@@ -46,6 +46,7 @@ final _router = GoRouter(
     GoRoute(path: '/storage', builder: (_, _) => const StoragePage()),
     GoRoute(path: '/models', builder: (_, _) => const ModelsPage()),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+    GoRoute(path: '/settings/advanced', builder: (_, _) => const AdvancedSettingsPage()),
     GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),
     GoRoute(path: '/report', builder: (_, _) => const ReportPage()),
