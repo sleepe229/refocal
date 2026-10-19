@@ -140,7 +140,6 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         brightness: Brightness.dark,
         surface: Colors.black,
       ),
-      textTheme: base.textTheme,
     );
     return PopScope(
       canPop: state is! Running,
@@ -739,7 +738,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           ),
         if (ref.watch(availableModelsProvider).contains(bundledDetector)) ...[
           preset(BuiltinPreset.portrait, Icons.face_outlined),
-          preset(BuiltinPreset.oldPhoto, Icons.filter_vintage_outlined),
+          preset(BuiltinPreset.oldPhoto, Icons.filter_b_and_w_outlined),
         ],
         _Tool(
           text: choice == null ? '' : scaleLabel(l10n, choice.scale, fast2: choice.fastPath),
