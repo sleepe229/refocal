@@ -302,6 +302,24 @@ class EnhanceController extends Notifier<EnhanceState> {
     return _save(settings.format, Destination.gallery);
   }
 
+  /// Shares the result in the default format (06 §3.2); not recorded in the history.
+  Future<void> share(String title) async {
+    final s = state;
+    if (s is! Finished || s.saving) return;
+    final saver = await readResultSaver(ref);
+    state = s.copyWith(saving: true);
+    try {
+      await saver.share(
+        s.result,
+        output: OutputSpec(saver.settings.format, quality: saver.settings.quality),
+        strength: s.strength,
+        title: title,
+      );
+    } finally {
+      state = s.copyWith(saving: false);
+    }
+  }
+
   /// Exports in [format] to a document the user picks (FR-EXP-006). Null when cancelled.
   Future<String?> saveToFile(ExportFormat format) => _save(format, Destination.file);
 

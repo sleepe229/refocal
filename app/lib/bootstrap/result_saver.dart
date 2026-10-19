@@ -65,24 +65,8 @@ class ResultSaver {
     final name = 'Refocal_${r.jobId}.${format.extension}';
     final tmp = '${engine.exportDir}/$name';
     String? uri;
-    final quality = output.quality ?? settings.quality; // ignored by lossless formats
     try {
-      if (format == ExportFormat.heic) {
-        await _exportHeic(r, tmp, quality: quality, strength: strength, thumbnail: preview);
-      } else {
-        await engine.session.export(
-          r.jobDir,
-          tmp,
-          format: format.format,
-          quality: quality,
-          lossless: format.lossless,
-          strength: strength,
-          keepGps: settings.keepGps,
-          aiMarker: settings.aiMarker,
-          thumbnail: preview,
-          thumbnailMaxSide: HistoryStore.previewMaxSide,
-        );
-      }
+      await _encode(r, tmp, output, strength: strength, thumbnail: preview);
       uri = switch (to) {
         Destination.gallery => await platform.saveToGallery(tmp, name, format.mimeType),
         Destination.file => await platform.saveToFile(tmp, name, format.mimeType),
@@ -136,7 +120,64 @@ class ResultSaver {
   }
 }
 
+extension ResultSharing on ResultSaver {
+  /// Hands the result to another app through the system share sheet (06 §3.2), in [output]
+  /// with the same metadata policy as a save (location, AI marker). Not a save: nothing goes to
+  /// the gallery or the history. The copy stays in cache/share/ for the receiving app to read
+  /// (Storage → Cache clears it).
+  Future<void> share(
+    JobResult r, {
+    required OutputSpec output,
+    required double strength,
+    required String title,
+  }) async {
+    if (output.format == ExportFormat.heic && !heicSupported) {
+      output = OutputSpec(ExportFormat.jpeg, quality: output.quality ?? settings.quality);
+    }
+    final dir = await Directory('${engine.dirs.cache}/share').create(recursive: true);
+    final path = '${dir.path}/Refocal_${r.jobId}.${output.format.extension}';
+    try {
+      await _encode(r, path, output, strength: strength);
+    } catch (e, stack) {
+      AppLog.error('share ${output.format.name} failed', e, stack);
+      await deleteIfPresent(path);
+      rethrow;
+    }
+    AppLog.info('share ${output.format.name} strength $strength');
+    await platform.shareFile(path, output.format.mimeType, title);
+  }
+}
+
 extension on ResultSaver {
+  /// The result in [output] at [path], with the metadata of the settings; [thumbnail]: also a
+  /// small preview there (the history entry).
+  Future<void> _encode(
+    JobResult r,
+    String path,
+    OutputSpec output, {
+    required double strength,
+    String? thumbnail,
+  }) async {
+    final format = output.format;
+    final quality = output.quality ?? settings.quality; // ignored by lossless formats
+    if (format == ExportFormat.heic) {
+      await _exportHeic(r, path, quality: quality, strength: strength, thumbnail: thumbnail);
+      return;
+    }
+    await engine.session.export(
+      r.jobDir,
+      path,
+      format: format.format,
+      quality: quality,
+      lossless: format.lossless,
+      strength: strength,
+      keepGps: settings.keepGps,
+      aiMarker: settings.aiMarker,
+      thumbnail: thumbnail,
+      thumbnailMaxSide: HistoryStore.previewMaxSide,
+    );
+  }
+
   /// HEIC (FR-EXP-002): the core writes raw pixels (and the thumbnail), the platform encodes
   /// them, the core adds the metadata to the encoded file (ICC, EXIF, XMP AI marker).
   Future<void> _exportHeic(

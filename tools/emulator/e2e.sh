@@ -212,6 +212,31 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+echo "== share (06 §3.2): the system chooser opens with the result"
+adb_ logcat -c
+tap_text "Share" 30
+# The result is encoded first (a 20 MP JPEG takes a while on the emulator's CPU). Not
+# "dumpsys | grep -q": with pipefail, grep's early exit fails the pipeline.
+chooser=0
+for _ in $(seq 90); do
+  acts=$(adb_ shell dumpsys activity activities)
+  if grep -q "ChooserActivity\|ResolverActivity" <<<"$acts"; then
+    chooser=1; break
+  fi
+  sleep 2
+done
+sleep 3  # the chooser's preview reads the file
+if adb_ logcat -d | grep -q "Permission Denial: opening provider io.github.refocal"; then
+  echo "FAIL: the share sheet cannot read the shared file"; exit 1
+fi
+if [[ $chooser != 1 ]]; then
+  shot share_fail
+  adb_ logcat -d | grep -iE "flutter|refocal|share|intentresolver" | tail -40
+  echo "FAIL: no share sheet"; exit 1
+fi
+shot share
+adb_ shell input keyevent KEYCODE_BACK
+sleep 1
 if [[ ${HEIC:-0} = 1 ]]; then
   # FR-EXP-002: HeifWriter on the device, metadata from the core; the file is checked on the
   # host (tools/emulator/check_heic.py, HEIC_CHECK: --icc for a photo with a profile, --exif).

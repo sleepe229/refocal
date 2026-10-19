@@ -350,5 +350,7 @@
   "resultDetails": "Подробнее",
   "editorSave": "Сохранить",
   "homeSeeAll": "Все",
-  "settingsAdvanced": "Дополнительно"
+  "settingsAdvanced": "Дополнительно",
+  "share": "Поделиться",
+  "shareFailed": "Не удалось поделиться: {error}"
 }
