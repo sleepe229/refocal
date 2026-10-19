@@ -3,7 +3,7 @@
   "appTitle": "Refocal",
   "homeTagline": "Bring your photos back into focus.",
   "homePrivacy": "Everything runs on this phone. Photos never leave it.",
-  "homeModelMissing": "The enhancement model is missing from this build.",
+  "homeModelMissing": "This build has no model.",
   "homeChoosePhoto": "Choose a photo",
   "homeNotFinished": "Not finished",
   "homeCore": "Core {version}",
@@ -54,7 +54,7 @@
       }
     }
   },
-  "jobOriginalGone": "{scale} · the original is gone, cannot continue",
+  "jobOriginalGone": "{scale} · original deleted",
   "@jobOriginalGone": {
     "placeholders": {
       "scale": {
@@ -67,7 +67,7 @@
   "scaleX2": "2×",
   "scaleFast2": "Fast 2×",
   "scaleX1": "1×",
-  "scaleX1Hint": "1×: same size, only noise and blur are cleaned up.",
+  "scaleX1Hint": "Same size, just cleaner.",
   "editorTitle": "Enhance",
   "sizePx": "{width} × {height} px",
   "@sizePx": {
@@ -83,7 +83,7 @@
   "enhance": "Enhance",
   "aiDisclaimer": "AI adds plausible detail that was not in the original photo.",
   "stageWaiting": "Waiting…",
-  "stageReading": "Reading the photo…",
+  "stageReading": "Opening the photo…",
   "stageEnhancing": "Enhancing {percent}%",
   "@stageEnhancing": {
     "placeholders": {
@@ -107,8 +107,8 @@
   "stageWorking": "Working…",
   "pause": "Pause",
   "cancel": "Cancel",
-  "backgroundHint": "You can leave the app: processing continues in the background.",
-  "pausedByTimeout": "Paused: Android limits background work. Continue when you are ready.",
+  "backgroundHint": "You can leave the app. It keeps working.",
+  "pausedByTimeout": "Android paused the work in the background.",
   "pausedAt": "Paused at {percent}%.",
   "@pausedAt": {
     "placeholders": {
@@ -127,8 +127,8 @@
       }
     }
   },
-  "noteAlphaKept": "Transparency is kept in PNG and WebP; in JPEG it becomes white",
-  "noteFirstFrame": "Only the first frame of the animation is enhanced",
+  "noteAlphaKept": "Transparency is kept in PNG and WebP",
+  "noteFirstFrame": "Only the first frame is enhanced",
   "strength": "Strength",
   "strengthValue": "{percent}%",
   "@strengthValue": {
@@ -138,7 +138,7 @@
       }
     }
   },
-  "strengthNeedsOriginal": "The original photo is gone: only 100% strength can be saved.",
+  "strengthNeedsOriginal": "The original is deleted, so only 100% can be saved.",
   "saveToGallery": "Save to gallery",
   "saveAsFile": "Save as file…",
   "savedToGallery": "Saved to Pictures/Refocal",
@@ -155,11 +155,11 @@
   "tryAnotherScale": "Try another scale",
   "failCancelled": "Cancelled.",
   "failPaused": "Paused.",
-  "failDiskFull": "Not enough free storage for this size.",
-  "failInvalid": "This photo could not be read: the format is not supported or the file is damaged.",
-  "failLimit": "This photo is too large (the limit is 30000 px per side and 200 MP).",
-  "failOom": "Not enough memory. Try Fast 2×.",
-  "failOther": "Something went wrong ({status}).",
+  "failDiskFull": "Not enough storage on the phone.",
+  "failInvalid": "This file can't be opened.",
+  "failLimit": "This photo is too large.",
+  "failOom": "Not enough memory. Try a smaller scale.",
+  "failOther": "Couldn't enhance the photo.",
   "@failOther": {
     "placeholders": {
       "status": {
@@ -168,35 +168,35 @@
     }
   },
   "back": "Back",
-  "tooLargeTitle": "This photo is too large for that scale",
-  "tooLargeBody": "Choose a smaller output size.",
+  "tooLargeTitle": "Too large for this scale",
+  "tooLargeBody": "Choose a smaller scale.",
   "notifEnhancing": "Enhancing a photo",
-  "notifReady": "Photo ready. Tap to open.",
-  "notifFailed": "Enhancement failed. Tap to open.",
-  "notifTimedOut": "Paused: Android's time limit for background work was reached. Tap to continue.",
+  "notifReady": "Photo ready",
+  "notifFailed": "Couldn't enhance the photo",
+  "notifTimedOut": "Paused. Tap to continue.",
   "notifChannelName": "Processing",
   "notifChannelDescription": "Progress of photos being enhanced",
   "formatJpeg": "JPEG",
   "formatPng": "PNG (lossless)",
   "formatWebp": "WebP",
   "formatWebpLossless": "WebP (lossless)",
-  "formatWebpTooLarge": "WebP is limited to 50 MP (lossless: 24 MP).",
+  "formatWebpTooLarge": "WebP: up to 50 MP (lossless: 24 MP).",
   "formatHeic": "HEIC",
-  "formatHeicTooLarge": "HEIC is limited to 50 MP.",
-  "formatTooLarge": "The result is too large for this format (WebP and HEIC: 50 MP, lossless WebP: 24 MP).",
+  "formatHeicTooLarge": "HEIC: up to 50 MP.",
+  "formatTooLarge": "Too large for this format.",
   "settingsTitle": "Settings",
   "settingsSavedPhotos": "Saved photos",
   "settingsFormat": "Format",
   "settingsQuality": "Quality",
-  "settingsQualityHint": "JPEG and WebP. Higher is larger and closer to the result on screen.",
+  "settingsQualityHint": "For JPEG and WebP.",
   "settingsMetadata": "Metadata",
-  "settingsMetadataBody": "Date, camera and color profile are kept. Camera serial numbers and the maker notes are always removed.",
+  "settingsMetadataBody": "Date, camera and colour profile are kept.",
   "settingsKeepLocation": "Keep location",
-  "settingsKeepLocationSub": "Off: GPS coordinates are removed from the result.",
+  "settingsKeepLocationSub": "GPS in saved photos.",
   "settingsAiMarker": "Mark as AI-enhanced",
-  "settingsAiMarkerSub": "Writes the IPTC \"trained algorithmic media\" tag, which other apps can show.",
+  "settingsAiMarkerSub": "Other apps can show that AI changed the photo.",
   "markerOffTitle": "Turn off the AI marker?",
-  "markerOffBody": "Enhanced photos contain detail the AI invented. Without the marker, people who see the photo cannot tell it was changed.",
+  "markerOffBody": "No one will be able to tell that AI changed the photo.",
   "markerKeep": "Keep it",
   "markerTurnOff": "Turn off",
   "settingsLanguage": "Language",
@@ -207,9 +207,9 @@
   },
   "settingsShowIntro": "Show the introduction",
   "aboutTitle": "About",
-  "aboutAlpha": "Public beta. Android only; please report problems.",
-  "aboutPrivacy": "All processing happens on this device. Refocal has no accounts, no ads and no telemetry; the network is used only to download optional models when you ask.",
-  "aboutAiWarning": "AI enhancement adds plausible detail that was not in the original photo. Do not use results as evidence of what a scene or person looked like.",
+  "aboutAlpha": "Beta. Please report problems.",
+  "aboutPrivacy": "Photos are processed on the phone. No accounts, ads or tracking. The internet is used only to download models.",
+  "aboutAiWarning": "AI adds detail that wasn't there. A result is not evidence of how a place or a person looked.",
   "aboutCredits": "Credits",
   "aboutPrivacyPolicy": "Privacy policy: {url}",
   "@aboutPrivacyPolicy": {
@@ -242,18 +242,18 @@
   "onbSkip": "Skip",
   "onbNext": "Next",
   "onbStart": "Start",
-  "onb1Title": "Everything stays on your phone",
-  "onb1Body": "Photos are enhanced on this device. Nothing is uploaded, there are no accounts and no tracking.",
-  "onb2Title": "AI can change details",
-  "onb2Body": "The model adds detail that looks right but was not in the photo: text, faces and textures may differ from reality. Saved photos are marked as AI-enhanced.",
-  "onb3Title": "Compare before you save",
-  "onb3Body": "Drag the slider over the result to see the original, and lower the strength if the effect is too much. The original is never changed.",
+  "onb1Title": "Stays on your phone",
+  "onb1Body": "Nothing is uploaded. No accounts, no tracking.",
+  "onb2Title": "AI adds detail",
+  "onb2Body": "Text, faces and textures may differ from the real thing. Saved photos are marked as changed by AI.",
+  "onb3Title": "Compare before saving",
+  "onb3Body": "Touch and hold the result to see the original. The original is never changed.",
   "historyTitle": "History",
-  "historyEmpty": "Saved photos appear here with their settings and a small preview.",
-  "historyOff": "History is off. Turn it on in Settings.",
+  "historyEmpty": "Saved photos appear here.",
+  "historyOff": "History is off.",
   "historyDeleteAll": "Delete all",
   "historyDeleteAllTitle": "Delete the whole history?",
-  "historyDeleteAllBody": "Previews and settings are deleted. Saved photos stay in the gallery.",
+  "historyDeleteAllBody": "Photos in the gallery stay.",
   "historyDeleteFailed": "Some files could not be deleted: {error}",
   "@historyDeleteFailed": {
     "placeholders": {
@@ -277,8 +277,8 @@
       }
     }
   },
-  "historyProcessAgain": "Process again with other settings",
-  "historyOriginalGone": "The original is no longer on this device: history keeps only the settings and a small preview. Open the photo again to process it.",
+  "historyProcessAgain": "Process again",
+  "historyOriginalGone": "The original is no longer on the phone. Open the photo again to process it.",
   "historyDeleteEntry": "Delete from history",
   "historyNotRecorded": "Saved, but not added to the history: {error}",
   "@historyNotRecorded": {
@@ -289,10 +289,10 @@
     }
   },
   "historyOffTitle": "Turn off the history?",
-  "historyOffBody": "The current history is deleted and new photos are not recorded.",
+  "historyOffBody": "The history is deleted and nothing new is recorded.",
   "historyOffConfirm": "Turn off",
   "settingsKeepHistory": "Keep a history",
-  "settingsKeepHistorySub": "Settings and a small preview of each saved photo, on this device only.",
+  "settingsKeepHistorySub": "On this phone only.",
   "settingsSaveFailed": "Could not save the setting: {error}",
   "@settingsSaveFailed": {
     "placeholders": {
@@ -304,7 +304,7 @@
   "presetsTitle": "Presets",
   "presetsBuiltin": "Built-in",
   "presetsYours": "Yours",
-  "presetsEmpty": "Save one from the editor after enhancing a photo.",
+  "presetsEmpty": "Save one after enhancing a photo.",
   "presetFast": "Fast",
   "presetQuality": "Quality",
   "presetRename": "Rename",
@@ -319,7 +319,7 @@
       }
     }
   },
-  "presetModelMissing": "This needs a model that is not installed.",
+  "presetModelMissing": "This needs a model that isn't installed.",
   "presetName": "Name",
   "presetNameTooLong": "At most {max} characters",
   "@presetNameTooLong": {
@@ -329,7 +329,7 @@
       }
     }
   },
-  "presetStrengthAfter": "Strength {strength} after enhancing",
+  "presetStrengthAfter": "Strength after: {strength}",
   "@presetStrengthAfter": {
     "placeholders": {
       "strength": {
@@ -339,8 +339,8 @@
   },
   "reportTitle": "Report a problem",
   "reportEntry": "Report a problem",
-  "reportEntrySub": "View and share the app's log",
-  "reportIntro": "This log helps find bugs. It contains app events and errors, never your photos, file names or locations. Nothing is sent until you share it; attach it to an issue or an e-mail.",
+  "reportEntrySub": "The app's log",
+  "reportIntro": "The log holds app events and errors only: no photos, file names or locations. It goes nowhere unless you share it.",
   "reportEmpty": "The log is empty.",
   "reportShare": "Share the log",
   "reportShareTitle": "Share the Refocal log",
@@ -352,7 +352,7 @@
   "@errorSystem": {
     "description": "Reason inserted into an error message ({error})."
   },
-  "errorUnexpected": "unexpected error (details are in the log)",
+  "errorUnexpected": "unexpected error",
   "@errorUnexpected": {
     "description": "Reason inserted into an error message ({error})."
   },
@@ -377,7 +377,7 @@
     }
   },
   "queueTitle": "Queue",
-  "queueEmpty": "The queue is empty. Choose several photos, or share them to Refocal.",
+  "queueEmpty": "The queue is empty.",
   "queueStart": "Start",
   "queuePause": "Pause",
   "queueClearFinished": "Clear finished",
@@ -399,8 +399,8 @@
       }
     }
   },
-  "queueStateDone": "Ready, not saved: tap to open",
-  "queueStateSaved": "Saved to the gallery",
+  "queueStateDone": "Ready. Tap to open",
+  "queueStateSaved": "Saved",
   "queueStateFailed": "Failed: {reason}",
   "@queueStateFailed": {
     "placeholders": {
@@ -460,10 +460,10 @@
       }
     }
   },
-  "batchAutosaveOff": "Results wait in the queue until you save them.",
+  "batchAutosaveOff": "Results wait in the queue.",
   "batchAdd": "Add to the queue",
-  "settingsBatchAutosave": "Batch: save results automatically",
-  "settingsBatchAutosaveHint": "Each result of a batch goes to Pictures/Refocal in the default format.",
+  "settingsBatchAutosave": "Save queue results right away",
+  "settingsBatchAutosaveHint": "To Pictures/Refocal.",
   "queueActionFailed": "Could not change the queue: {error}",
   "@queueActionFailed": {
     "placeholders": {
@@ -508,18 +508,18 @@
     }
   },
   "storageNoUndo": "This cannot be undone.",
-  "storageCopies": "Copies of originals",
-  "storageCopiesHint": "kept to process a history entry again; copies a paused job or the queue needs are not counted",
-  "storageCopiesClear": "History entries can no longer be processed again. Paused jobs and the queue keep their copies.",
+  "storageCopies": "Photo copies",
+  "storageCopiesHint": "to process history entries again",
+  "storageCopiesClear": "Photos in the history can't be processed again.",
   "storageUnfinished": "Unfinished jobs",
-  "storageUnfinishedHint": "paused or unsaved results of the editor",
-  "storageUnfinishedClear": "Paused and unsaved results are deleted. The queue is not affected.",
-  "storageHistoryHint": "previews of saved results",
-  "storageHistoryClear": "The whole history is deleted. Saved photos stay in the gallery.",
+  "storageUnfinishedHint": "paused and unsaved",
+  "storageUnfinishedClear": "Paused photos and unsaved results are deleted.",
+  "storageHistoryHint": "previews of saved photos",
+  "storageHistoryClear": "Photos in the gallery stay.",
   "storageCache": "Cache",
-  "storageCacheHint": "temporary copies for saving and sharing",
+  "storageCacheHint": "temporary files",
   "storageLogs": "Log",
-  "storageLogsHint": "for bug reports, never sent by itself",
+  "storageLogsHint": "for bug reports",
   "storageModels": "Models",
   "storageModelsHint": "built into the app",
   "sizeKb": "{n} KB",
@@ -546,8 +546,8 @@
       }
     }
   },
-  "noteThermalWait": "The phone is hot: waiting for it to cool down.",
-  "noteThermalThrottle": "The phone is warm: processing more slowly.",
+  "noteThermalWait": "The phone is hot. Waiting for it to cool down.",
+  "noteThermalThrottle": "The phone is warm. Going slower.",
   "compareShowOriginal": "Show original",
   "compareShowResult": "Show result",
   "resultAlt": "Result, {width}×{height}, enhanced by AI",
@@ -563,11 +563,11 @@
   },
   "modelsTitle": "Models",
   "settingsModels": "Models",
-  "modelsBuiltIn": "Built in: Real-ESRGAN general (denoise 0.5)",
-  "modelsBuiltInHint": "Always available, works offline.",
+  "modelsBuiltIn": "Built-in model",
+  "modelsBuiltInHint": "Works offline.",
   "modelsCheck": "Check for models",
-  "modelsNotChecked": "Tap \"Check for models\" to see what can be downloaded.",
-  "modelsPrivacy": "Refocal connects to the internet only when you check for models or download one. Files are verified with a signature and a checksum before use.",
+  "modelsNotChecked": "See which models you can download.",
+  "modelsPrivacy": "The internet is used only to check for and download models.",
   "modelsNonCommercial": "non-commercial",
   "modelsInstalled": "installed",
   "modelsUpdate": "installed {installedVersion}, available {availableVersion}",
@@ -592,9 +592,9 @@
       }
     }
   },
-  "modelsErrorNetwork": "Could not reach the model server. Check the connection and try again.",
-  "modelsErrorIntegrity": "The download did not pass verification and was not used.",
-  "modelsErrorRollback": "The server offered an older model list; it was not used.",
+  "modelsErrorNetwork": "Can't reach the model server.",
+  "modelsErrorIntegrity": "The file is damaged and was not used.",
+  "modelsErrorRollback": "The server sent an outdated list. It was not used.",
   "modelsLicenseTitle": "License: {name}",
   "@modelsLicenseTitle": {
     "placeholders": {
@@ -603,7 +603,7 @@
       }
     }
   },
-  "modelsLicenseIntro": "This model is not free for every use. Read its license; download it only if you accept it.",
+  "modelsLicenseIntro": "This model's license limits how it can be used. Download it only if you agree.",
   "modelsLicenseAccept": "Accept and download",
   "denoise": "Denoise",
   "denoiseNone": "Off",
@@ -619,29 +619,29 @@
       }
     }
   },
-  "jpegClean": "Remove JPEG artifacts",
-  "jpegCleanHint": "Smooths blocks and halos of strong compression before enhancing. Slower.",
-  "lowLight": "Brighten a dark photo",
-  "lowLightHint": "Lifts shadows and colour of under-exposed photos. Can add noise.",
+  "jpegClean": "Remove compression artifacts",
+  "jpegCleanHint": "Blocks and halos from heavy compression.",
+  "lowLight": "Brighten",
+  "lowLightHint": "For dark shots.",
   "scratches": "Remove scratches",
-  "scratchesHint": "Finds and fills scratches and cracks of old prints. Slower.",
-  "faces": "Restore faces",
-  "facesHint": "Uses the face model on each face, then blends it with the enhanced photo.",
+  "scratchesHint": "For old prints.",
+  "faces": "Enhance faces",
+  "facesHint": "Makes faces sharper.",
   "faceModelGfpgan": "GFPGAN",
   "faceModelCodeFormer": "CodeFormer",
   "faceFidelityDetail": "Detail",
   "faceFidelityLikeness": "Likeness",
   "faceFidelityValue": "{value}",
   "@faceFidelityValue": {"placeholders": {"value": {"type": "String"}}},
-  "faceFidelitySemantics": "Likeness {value} of 1: higher keeps the face closer to the photo, lower adds more detail",
+  "faceFidelitySemantics": "Likeness {value} of 1",
   "@faceFidelitySemantics": {"placeholders": {"value": {"type": "String"}}},
   "facesStrength": "Face strength",
-  "facesNeedPack": "Face restoration needs the face model (about 177 MB, non-commercial license).",
-  "facesGetPack": "Models",
-  "facesNoticeTitle": "About face restoration",
-  "facesNoticeBody": "The face model redraws faces from what it has learned. Faces can look sharper but also different from the real person, especially in old or small photos. Refocal blends the result with the original (50% by default) and marks saved photos as AI-edited.",
-  "facesNoticeOk": "I understand",
-  "stageFaces": "Restoring faces… {percent}%",
+  "facesNeedPack": "Needs the face model, about 177 MB.",
+  "facesGetPack": "Download",
+  "facesNoticeTitle": "About faces",
+  "facesNoticeBody": "AI redraws faces. They get sharper but may look less like the person, especially in old or small photos. It's an interpretation, not the original.",
+  "facesNoticeOk": "Got it",
+  "stageFaces": "Faces… {percent}%",
   "@stageFaces": {
     "placeholders": {
       "percent": {
@@ -649,7 +649,7 @@
       }
     }
   },
-  "stageJpeg": "Removing JPEG artifacts… {percent}%",
+  "stageJpeg": "Cleaning up… {percent}%",
   "@stageJpeg": {
     "placeholders": {
       "percent": {
@@ -666,7 +666,7 @@
       }
     }
   },
-  "noteFacesFound": "Faces found: {count}",
+  "noteFacesFound": "Faces: {count}",
   "@noteFacesFound": {
     "placeholders": {
       "count": {
@@ -697,8 +697,8 @@
   "tierUnknown": "Not measured: T0, the safe one",
   "tierMeasuring": "Measuring…",
   "autoChip": "Auto",
-  "autoAnalyzing": "Looking at the photo…",
-  "autoFailed": "Auto is unavailable: the photo could not be analysed",
+  "autoAnalyzing": "Analysing…",
+  "autoFailed": "Auto isn't available for this photo",
   "autoFaces": "faces: {count}",
   "@autoFaces": {
     "placeholders": {
@@ -707,9 +707,9 @@
       }
     }
   },
-  "autoFacesNotRestored": "not restored on this device",
-  "autoFacesNeedPack": "face model not installed",
-  "autoJpeg": "JPEG artifacts (quality {quality})",
+  "autoFacesNotRestored": "not enhanced on this phone",
+  "autoFacesNeedPack": "no face model",
+  "autoJpeg": "compression artifacts",
   "@autoJpeg": {
     "placeholders": {
       "quality": {
@@ -719,10 +719,10 @@
   },
   "autoFacesOnly": "only faces",
   "autoDenoiseNone": "no denoise",
-  "autoDenoiseStandard": "denoise medium",
-  "autoDenoiseStrong": "denoise strong",
+  "autoDenoiseStandard": "denoise",
+  "autoDenoiseStrong": "strong denoise",
   "noteTileSmaller": "Low on memory: processing in smaller pieces, slower",
-  "noteFaceSkipped": "Reduced quality: face {number} could not be restored",
+  "noteFaceSkipped": "Couldn't enhance face {number}",
   "@noteFaceSkipped": {
     "placeholders": {
       "number": {
@@ -730,12 +730,12 @@
       }
     }
   },
-  "noteFacesSkipped": "Reduced quality: faces could not be restored",
-  "noteJpegSkipped": "Reduced quality: JPEG artifacts could not be removed",
-  "noteScratchesSkipped": "Reduced quality: scratches could not be removed",
-  "noteLowLightSkipped": "Reduced quality: the photo could not be brightened",
+  "noteFacesSkipped": "Couldn't enhance faces",
+  "noteJpegSkipped": "Couldn't remove compression artifacts",
+  "noteScratchesSkipped": "Couldn't remove scratches",
+  "noteLowLightSkipped": "Couldn't brighten the photo",
   "oomTitle": "Not enough memory",
-  "oomBody": "Not enough memory for {scale}. Process at a smaller size?",
+  "oomBody": "Not enough memory for {scale}. Use a smaller scale?",
   "@oomBody": {
     "placeholders": {
       "scale": {
@@ -752,13 +752,13 @@
       }
     }
   },
-  "modelsErrorNotAPack": "Not a Refocal model pack, or the file is damaged",
+  "modelsErrorNotAPack": "Not a Refocal model file.",
   "modelsErrorStorage": "The file could not be read",
   "faceOfferTitle": "Face model for portraits",
   "faceOfferBody": "Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.",
   "faceOfferOpen": "Models",
   "faceOfferLater": "Not now",
-  "facesTapHint": "Tap a face to leave it as it is",
+  "facesTapHint": "Tap a face to leave it alone",
   "faceToggle": "Face {number}: restore",
   "@faceToggle": {
     "placeholders": {
@@ -767,8 +767,8 @@
       }
     }
   },
-  "fragmentTitle": "Preview of a part",
-  "fragmentRunning": "Enhancing a part of the photo…",
+  "fragmentTitle": "Preview",
+  "fragmentRunning": "Enhancing a part…",
   "fragmentInfo": "Part {width} × {height} px in {seconds} s",
   "@fragmentInfo": {
     "placeholders": {
@@ -800,14 +800,14 @@
   "badOtherFace": "Someone else's face",
   "badArtifacts": "Artifacts",
   "badColor": "Colours",
-  "badBias": "Unfair to a group of people",
+  "badBias": "Biased against a group of people",
   "badOther": "Something else",
   "reportComment": "What did you notice? (optional)",
   "reportWillSend": "This text will be in a public GitHub issue (no photo):",
   "reportOpenIssue": "Open the issue on GitHub",
   "reportSharePhoto": "Share the result photo…",
   "reportPhotoTitle": "The photo will be public",
-  "reportPhotoBody": "GitHub issues can be read by anyone. Share the photo only if you are fine with that, and never photos of other people without their consent.",
+  "reportPhotoBody": "Anyone can read GitHub issues. Never share photos of other people without their consent.",
   "reportPhotoOk": "Share the photo",
   "reportNoBrowser": "No app on this phone opens links",
   "presetsImport": "Import presets",
@@ -821,9 +821,9 @@
       }
     }
   },
-  "presetsNotAFile": "Not a Refocal presets file, or a newer one",
+  "presetsNotAFile": "Not a Refocal presets file.",
   "settingsPackUpdates": "Check for model updates",
-  "settingsPackUpdatesHint": "Once a day, Refocal downloads the signed list of models to see if yours have updates. Nothing about you or your photos is sent.",
+  "settingsPackUpdatesHint": "Once a day. Nothing about you is sent.",
   "packUpdatesAvailable": "Model updates: {count}",
   "@packUpdatesAvailable": {
     "placeholders": {
