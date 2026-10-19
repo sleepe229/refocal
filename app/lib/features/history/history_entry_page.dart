@@ -76,26 +76,32 @@ class HistoryEntryPage extends ConsumerWidget {
               ? formatLabel(l10n, out.format)
               : '${formatLabel(l10n, out.format)} ${out.quality}',
         ),
-        row(l10n.historyOriginalSize, l10n.sizePx(e.sourceWidth, e.sourceHeight)),
-        row(l10n.historyResultSize, l10n.sizePx(e.width, e.height)),
-        row(l10n.historyModel, e.modelIds.join(', ')),
-        row(l10n.historyBackend, e.backend),
-        if (e.duration case final d?) row(l10n.historyDuration, l10n.historySeconds(d.inSeconds)),
+        // FR-CMP-007 (06 §1.1): sizes, models, processor and time on request.
+        ExpansionTile(
+          title: Text(l10n.resultDetails),
+          children: [
+            row(l10n.historyOriginalSize, l10n.sizePx(e.sourceWidth, e.sourceHeight)),
+            row(l10n.historyResultSize, l10n.sizePx(e.width, e.height)),
+            row(l10n.historyModel, e.modelIds.join(', ')),
+            row(l10n.historyBackend, e.backend),
+            if (e.duration case final d?)
+              row(l10n.historyDuration, l10n.historySeconds(d.inSeconds)),
+          ],
+        ),
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton.icon(
+              FilledButton(
                 onPressed: canRun
                     ? () => context.push(
                         '/editor',
                         extra: EditorArgs(input, recipe: r.copyWith(output: () => null)),
                       )
                     : null,
-                icon: const Icon(Icons.tune),
-                label: Text(l10n.historyProcessAgain),
+                child: Text(l10n.historyProcessAgain),
               ),
               if (!canRun) ...[
                 const SizedBox(height: 8),

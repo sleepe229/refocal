@@ -132,38 +132,106 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       width: 2048,
       policy: ResizeImagePolicy.fit,
     );
+    // 06 §1, §7: the photo on a dark canvas, the controls in a panel below it (Apple's Photos).
+    final base = Theme.of(context);
+    final canvas = _canvas = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: base.colorScheme.primary,
+        brightness: Brightness.dark,
+        surface: Colors.black,
+      ),
+    );
     return PopScope(
       canPop: state is! Running,
-      child: Scaffold(
-        appBar: AppBar(title: Text(l10n.editorTitle)),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            switch (state) {
-              Finished(:final result, :final strength) => CompareSlider(
-                before: original,
-                after: FileImage(File(result.previewPath)),
-                aspectRatio: result.width / result.height,
-                strength: strength,
-                resultLabel: l10n.resultAlt(result.width, result.height),
-                // Zoom to 1:1 of the result (FR-CMP-005): tiles from its BandStore.
-                tiles: ref.watch(viewerTilesProvider(result.jobDir)).value,
-                resultWidth: result.width,
-                resultHeight: result.height,
+      child: Theme(
+        data: canvas,
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(backgroundColor: Colors.black, actions: [?_menu(state, ctl, l10n)]),
+            body: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: switch (state) {
+                        Finished(:final result, :final strength) => CompareSlider(
+                          before: original,
+                          after: FileImage(File(result.previewPath)),
+                          aspectRatio: result.width / result.height,
+                          strength: strength,
+                          resultLabel: l10n.resultAlt(result.width, result.height),
+                          // Zoom to 1:1 of the result (FR-CMP-005): tiles from its BandStore.
+                          tiles: ref.watch(viewerTilesProvider(result.jobDir)).value,
+                          resultWidth: result.width,
+                          resultHeight: result.height,
+                        ),
+                        _ => _preview(original, state is Idle || state is AskUser, l10n),
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: AnimatedSize(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      alignment: Alignment.bottomCenter,
+                      child: switch (state) {
+                        Idle() || AskUser() => _controls(ctl, l10n),
+                        Running() => _progress(state, ctl, l10n),
+                        Paused() => _paused(state, ctl, l10n),
+                        Finished() => _finished(state, ctl, l10n),
+                        Failed() => _failed(state, ctl, l10n),
+                      },
+                    ),
+                  ),
+                ],
               ),
-              _ => _preview(original, state is Idle || state is AskUser, l10n),
-            },
-            const SizedBox(height: 16),
-            switch (state) {
-              Idle() || AskUser() => _controls(ctl, l10n),
-              Running() => _progress(state, ctl, l10n),
-              Paused() => _paused(state, ctl, l10n),
-              Finished() => _finished(state, ctl, l10n),
-              Failed() => _failed(state, ctl, l10n),
-            },
-          ],
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  /// The "…" menu (06 §3.2): what is not the screen's main action.
+  Widget? _menu(EnhanceState state, EnhanceController ctl, AppLocalizations l10n) {
+    final items = <(String, VoidCallback?)>[];
+    switch (state) {
+      case Idle() || AskUser():
+        final r = _recipe;
+        final a = ref.watch(photoAnalysisProvider(widget.input)).value;
+        items.add((
+          l10n.fragmentAction,
+          r != null && a != null ? () => _previewFragment(ctl, r, l10n) : null,
+        ));
+      case Finished(saving: final busy):
+        if (!busy) {
+          items.addAll([
+            (l10n.saveAsFile, () => _saveAs(state, ctl, l10n)),
+            (l10n.strength, () => _strengthSheet(l10n)),
+            (l10n.presetSaveAs, () => _saveAsPreset(ctl, l10n)),
+            (l10n.tryAnotherScale, ctl.reset),
+            (l10n.resultDetails, () => _details(state, l10n)),
+            // FR-REP-001: tell the project about a bad result (15 §5).
+            (l10n.reportBadAction, () => showBadResultReport(context, state.result)),
+          ]);
+        }
+      default:
+    }
+    if (items.isEmpty) return null;
+    return PopupMenuButton<int>(
+      tooltip: l10n.moreTooltip,
+      icon: const Icon(Icons.more_horiz),
+      itemBuilder: (_) => [
+        for (final (i, (label, action)) in items.indexed)
+          PopupMenuItem(value: i, enabled: action != null, child: Text(label)),
+      ],
+      onSelected: (i) => items[i].$2?.call(),
     );
   }
 
@@ -216,74 +284,58 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           const SizedBox(height: 200, child: Center(child: Icon(Icons.image_outlined, size: 64))),
     );
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
-    if (!editable || a == null) {
-      return ClipRRect(borderRadius: BorderRadius.circular(8), child: image);
-    }
+    if (!editable || a == null) return Center(child: image);
     final boxes = _faces && a.boxes.isNotEmpty;
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = _canvas.colorScheme;
     final crop = _fragmentPicked ? _fragmentCrop(a) : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: AspectRatio(
-            aspectRatio: a.width / a.height,
-            child: LayoutBuilder(
-              builder: (context, c) {
-                final k = c.maxWidth / a.width;
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // A tap chooses the part for the fragment preview (FR-ENH-015).
-                    GestureDetector(
-                      onTapUp: (d) => setState(() {
-                        _fragmentPicked = true;
-                        _fragmentCentre = Offset(
-                          d.localPosition.dx / c.maxWidth,
-                          d.localPosition.dy / c.maxHeight,
-                        );
-                      }),
-                      child: image,
-                    ),
-                    if (crop != null)
-                      Positioned(
-                        left: crop.x * k,
-                        top: crop.y * k,
-                        width: crop.w * k,
-                        height: crop.h * k,
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: scheme.tertiary, width: 2),
-                            ),
-                          ),
+    return Center(
+      child: AspectRatio(
+        aspectRatio: a.width / a.height,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final k = c.maxWidth / a.width;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // A tap chooses the part for the fragment preview (FR-ENH-015).
+                GestureDetector(
+                  onTapUp: (d) => setState(() {
+                    _fragmentPicked = true;
+                    _fragmentCentre = Offset(
+                      d.localPosition.dx / c.maxWidth,
+                      d.localPosition.dy / c.maxHeight,
+                    );
+                  }),
+                  child: image,
+                ),
+                if (crop != null)
+                  Positioned(
+                    left: crop.x * k,
+                    top: crop.y * k,
+                    width: crop.w * k,
+                    height: crop.h * k,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: scheme.tertiary, width: 2),
                         ),
                       ),
-                    if (boxes)
-                      for (final (i, b) in a.boxes.indexed)
-                        Positioned(
-                          left: b.x * k,
-                          top: b.y * k,
-                          width: b.w * k,
-                          height: b.h * k,
-                          child: _faceBox(i, b, scheme, l10n),
-                        ),
-                  ],
-                );
-              },
-            ),
-          ),
+                    ),
+                  ),
+                if (boxes)
+                  for (final (i, b) in a.boxes.indexed)
+                    Positioned(
+                      left: b.x * k,
+                      top: b.y * k,
+                      width: b.w * k,
+                      height: b.h * k,
+                      child: _faceBox(i, b, scheme, l10n),
+                    ),
+              ],
+            );
+          },
         ),
-        if (boxes) ...[
-          const SizedBox(height: 4),
-          Text(
-            l10n.facesTapHint,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ],
+      ),
     );
   }
 
@@ -606,49 +658,6 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// Presets apply before Enhance (FR-PRE-001/002); one of a model the device does not have
-  /// (a pack not installed) cannot run.
-  Widget _presets(AppLocalizations l10n) {
-    final user = ref.watch(presetsProvider).value ?? const <Preset>[];
-    final available = ref.watch(availableModelsProvider);
-    final messenger = ScaffoldMessenger.of(context);
-    Widget chip(String label, Recipe r) => ChoiceChip(
-      label: Text(label),
-      selected: _matches(r),
-      onSelected: (_) {
-        if (!canRun(r, available)) {
-          messenger.showSnackBar(SnackBar(content: Text(l10n.presetModelMissing)));
-          return;
-        }
-        setState(() => _apply(r));
-      },
-    );
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      alignment: WrapAlignment.center,
-      children: [
-        if (widget.args.jobDir == null) _autoChip(l10n),
-        for (final b in BuiltinPreset.values) chip(builtinPresetLabel(l10n, b), b.recipe),
-        for (final p in user) chip(p.name, p.recipe),
-      ],
-    );
-  }
-
-  /// Auto (FR-ENH-007): enh_analyze + AutoPolicy; disabled until the analysis is done.
-  Widget _autoChip(AppLocalizations l10n) {
-    final auto = ref.watch(autoProvider(widget.input));
-    final p = auto.value;
-    return ChoiceChip(
-      avatar: auto.isLoading
-          ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-          : null,
-      label: Text(l10n.autoChip),
-      selected: p != null && _matches(p.decision.recipe),
-      onSelected: p == null ? null : (_) => setState(() => _apply(p.decision.recipe)),
-    );
-  }
-
   /// What Auto found and chose (06 §3.2), while Auto is selected.
   Widget? _autoExplanation(AppLocalizations l10n) {
     if (widget.args.jobDir != null) return null;
@@ -667,92 +676,205 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       padding: const EdgeInsets.only(top: 8),
       child: Semantics(
         liveRegion: true,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        child: Text(text, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
       ),
     );
   }
 
+  /// The editor's dark theme (set in build): the panels are built with this State's context,
+  /// which is above the Theme that applies it.
+  ThemeData _canvas = ThemeData(brightness: Brightness.dark);
+
+  /// The fine settings panel is open (06 §3.2 "Настроить", like Adjust in Apple's Photos).
+  bool _adjusting = false;
+
+  /// Before Enhance (06 §3.2): what Auto chose in a line, the modes as a bar, Enhance. The fine
+  /// settings open in place of the bar.
   Widget _controls(EnhanceController ctl, AppLocalizations l10n) {
-    final size = _size;
+    final small = _canvas.textTheme.bodySmall;
+    final a = ref.watch(photoAnalysisProvider(widget.input)).value;
+    final hint = _faces && (a?.boxes.isNotEmpty ?? false) ? l10n.facesTapHint : null;
+    if (_adjusting) return _adjustPanel(l10n);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (size != null)
-          Text(l10n.sizePx(size.width.toInt(), size.height.toInt()), textAlign: TextAlign.center),
-        const SizedBox(height: 12),
-        _presets(l10n),
         ?_autoExplanation(l10n),
-        ?_srModel(l10n),
-        ?_denoise(l10n),
-        _facesControls(l10n),
-        _jpegControl(l10n),
-        _lowLightControl(l10n),
-        _scratchesControl(l10n),
+        if (hint != null) Text(hint, textAlign: TextAlign.center, style: small),
         const SizedBox(height: 8),
-        SegmentedButton<ScaleChoice>(
-          segments: [
-            for (final c in ScaleChoice.values)
-              if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
-                ButtonSegment(
-                  value: c,
-                  // A fifth of the width: "Быстрый 2×" broke inside the word on a 1080 px
-                  // phone. Scaled down instead, on one line.
-                  label: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath), maxLines: 1),
-                  ),
-                ),
-          ],
-          selected: {?_choice},
-          // Empty only until a scale is first chosen; tapping the selected one keeps it (a
-          // deselected scale left Enhance disabled without a word, found on a device).
-          emptySelectionAllowed: _choice == null,
-          onSelectionChanged: (s) {
-            if (s.isNotEmpty) setState(() => _choice = s.first);
-          },
-        ),
-        if (_choice == ScaleChoice.x1) ...[
-          const SizedBox(height: 8),
-          Text(l10n.scaleX1Hint, textAlign: TextAlign.center),
-        ],
-        if (_strength != 1) ...[
-          const SizedBox(height: 8),
-          Text(
-            l10n.presetStrengthAfter(l10n.strengthValue((_strength * 100).round())),
-            textAlign: TextAlign.center,
-          ),
-        ],
-        const SizedBox(height: 16),
-        FilledButton.icon(
+        _modeBar(l10n),
+        const SizedBox(height: 12),
+        FilledButton(
           onPressed: switch (_recipe) {
             final r? => () => _enhance(ctl, r, l10n),
             null => null,
           },
-          icon: const Icon(Icons.auto_fix_high),
-          label: Text(l10n.enhance),
+          child: Text(l10n.enhance),
         ),
-        TextButton.icon(
-          onPressed: switch ((_recipe, ref.watch(photoAnalysisProvider(widget.input)).value)) {
-            (final r?, _?) => () => _previewFragment(ctl, r, l10n),
-            _ => null,
-          },
-          icon: const Icon(Icons.crop_free),
-          label: Text(l10n.fragmentAction),
+      ],
+    );
+  }
+
+  /// Auto, Portrait, Old photo, the scale and Adjust (06 §3.2).
+  Widget _modeBar(AppLocalizations l10n) {
+    final auto = ref.watch(autoProvider(widget.input));
+    final p = auto.value;
+    Widget preset(BuiltinPreset b, IconData icon) => _Tool(
+      icon: icon,
+      label: builtinPresetLabel(l10n, b),
+      selected: _matches(b.recipe),
+      onTap: () => _choose(b.recipe, l10n),
+    );
+    final choice = _choice;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.args.jobDir == null)
+          _Tool(
+            icon: Icons.hdr_auto_outlined,
+            label: l10n.autoChip,
+            busy: auto.isLoading,
+            selected: p != null && _matches(p.decision.recipe),
+            onTap: p == null ? null : () => setState(() => _apply(p.decision.recipe)),
+          ),
+        if (ref.watch(availableModelsProvider).contains(bundledDetector)) ...[
+          preset(BuiltinPreset.portrait, Icons.face_outlined),
+          preset(BuiltinPreset.oldPhoto, Icons.filter_b_and_w_outlined),
+        ],
+        _Tool(
+          text: choice == null ? '' : scaleLabel(l10n, choice.scale, fast2: choice.fastPath),
+          label: l10n.editorScale,
+          onTap: () => _scaleSheet(l10n),
         ),
-        Text(
-          l10n.fragmentHint,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+        _Tool(
+          icon: Icons.tune,
+          label: l10n.editorAdjust,
+          onTap: () => setState(() => _adjusting = true),
         ),
-        const SizedBox(height: 8),
-        Text(
-          l10n.aiDisclaimer,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+      ],
+    );
+  }
+
+  /// A preset or a mode; one that needs a model the device does not have offers the Models
+  /// screen (FR-ONB-003: the face model when it is first wanted).
+  Future<void> _choose(Recipe r, AppLocalizations l10n) async {
+    final available = ref.read(availableModelsProvider);
+    if (canRun(r, available)) {
+      setState(() => _apply(r));
+      return;
+    }
+    final face = r.faceModel != null && !available.contains(r.faceModel);
+    final open = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                face ? l10n.faceOfferTitle : l10n.presetModelMissing,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (face) ...[const SizedBox(height: 8), Text(l10n.faceOfferBody)],
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.faceOfferOpen),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.faceOfferLater),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (open == true && mounted) await context.push('/models');
+  }
+
+  /// The scales this photo can take (ADR-0014; 8x on T2 for a small input).
+  Future<void> _scaleSheet(AppLocalizations l10n) async {
+    final picked = await showModalBottomSheet<ScaleChoice>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: RadioGroup<ScaleChoice>(
+          groupValue: _choice,
+          onChanged: (c) => Navigator.pop(context, c),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final c in ScaleChoice.values)
+                if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
+                  RadioListTile<ScaleChoice>(
+                    value: c,
+                    title: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
+                    subtitle: c == ScaleChoice.x1 ? Text(l10n.scaleX1Hint) : null,
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _choice = picked);
+  }
+
+  /// "Настроить" (06 §3.2): the other presets, the model, denoise, faces and the S9 stages, in
+  /// place of the mode bar; the photo stays in view.
+  Widget _adjustPanel(AppLocalizations l10n) {
+    final user = ref.watch(presetsProvider).value ?? const <Preset>[];
+    final strength = _strength != 1
+        ? Text(
+            l10n.presetStrengthAfter(l10n.strengthValue((_strength * 100).round())),
+            textAlign: TextAlign.center,
+            style: _canvas.textTheme.bodySmall,
+          )
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(l10n.editorAdjust, style: _canvas.textTheme.titleMedium)),
+            TextButton(
+              onPressed: () => setState(() => _adjusting = false),
+              child: Text(l10n.editorDone),
+            ),
+          ],
+        ),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.45),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final b in [BuiltinPreset.fast, BuiltinPreset.quality, BuiltinPreset.anime])
+                    ChoiceChip(
+                      label: Text(builtinPresetLabel(l10n, b)),
+                      selected: _matches(b.recipe),
+                      onSelected: (_) => _choose(b.recipe, l10n),
+                    ),
+                  for (final p in user)
+                    ChoiceChip(
+                      label: Text(p.name),
+                      selected: _matches(p.recipe),
+                      onSelected: (_) => _choose(p.recipe, l10n),
+                    ),
+                ],
+              ),
+              ?_srModel(l10n),
+              ?_denoise(l10n),
+              _facesControls(l10n),
+              _jpegControl(l10n),
+              _lowLightControl(l10n),
+              _scratchesControl(l10n),
+              ?strength,
+            ],
+          ),
         ),
       ],
     );
@@ -809,11 +931,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         if (s.note != null) // A11Y-PRG-002: fallback and thermal notes are announced
           Semantics(
             liveRegion: true,
-            child: Text(
-              s.note!,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(s.note!, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
           ),
         const SizedBox(height: 16),
         Row(
@@ -831,11 +949,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          l10n.backgroundHint,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(l10n.backgroundHint, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
       ],
     );
   }
@@ -864,71 +978,85 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
+  /// The result (06 §3.2): the comparison above, Save here, the rest in the "…" menu.
   Widget _finished(Finished s, EnhanceController ctl, AppLocalizations l10n) {
-    // The input is the blend base below 100% strength.
-    final hasOriginal = ref.watch(fileExistsProvider(widget.input)).value ?? false;
     final busy = s.saving;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(l10n.sizePx(s.result.width, s.result.height), textAlign: TextAlign.center),
-        Text(
-          resultInfo(l10n, s.result),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Text(l10n.strength),
-            Expanded(
-              child: Slider(
-                value: s.strength,
-                divisions: 20,
-                label: l10n.strengthValue((s.strength * 100).round()),
-                semanticFormatterCallback: (v) => l10n.strengthValue((v * 100).round()),
-                onChanged: hasOriginal && !busy ? ctl.setStrength : null,
-              ),
-            ),
-            SizedBox(
-              width: 48,
-              child: Text(l10n.strengthValue((s.strength * 100).round()), textAlign: TextAlign.end),
-            ),
-          ],
-        ),
-        if (!hasOriginal)
-          Text(
-            l10n.strengthNeedsOriginal,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        const SizedBox(height: 16),
-        if (busy) const LinearProgressIndicator(),
-        FilledButton.icon(
+        if (busy) ...[const LinearProgressIndicator(), const SizedBox(height: 8)],
+        FilledButton(
           onPressed: busy ? null : () => _save(() => ctl.saveToGallery(), l10n.savedToGallery),
-          icon: const Icon(Icons.save_alt),
-          label: Text(l10n.saveToGallery),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: busy ? null : () => _saveAs(s, ctl, l10n),
-          icon: const Icon(Icons.description_outlined),
-          label: Text(l10n.saveAsFile),
-        ),
-        TextButton(
-          onPressed: busy ? null : () => _saveAsPreset(ctl, l10n),
-          child: Text(l10n.presetSaveAs),
-        ),
-        TextButton(onPressed: busy ? null : ctl.reset, child: Text(l10n.tryAnotherScale)),
-        // FR-REP-001: tell the project about a bad result (15 §5).
-        TextButton.icon(
-          onPressed: busy ? null : () => showBadResultReport(context, s.result),
-          icon: const Icon(Icons.flag_outlined),
-          label: Text(l10n.reportBadAction),
+          child: Text(l10n.editorSave),
         ),
       ],
     );
   }
+
+  /// FR-ENH-005: the blend with the original, from the "…" menu.
+  Future<void> _strengthSheet(AppLocalizations l10n) async {
+    // The input is the blend base below 100% strength.
+    final hasOriginal = ref.read(fileExistsProvider(widget.input)).value ?? false;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Consumer(
+          builder: (context, ref, _) {
+            final s = ref.watch(enhanceProvider);
+            if (s is! Finished) return const SizedBox.shrink();
+            final ctl = ref.read(enhanceProvider.notifier);
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(l10n.strength),
+                      Expanded(
+                        child: Slider(
+                          value: s.strength,
+                          divisions: 20,
+                          label: l10n.strengthValue((s.strength * 100).round()),
+                          semanticFormatterCallback: (v) => l10n.strengthValue((v * 100).round()),
+                          onChanged: hasOriginal && !s.saving ? ctl.setStrength : null,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          l10n.strengthValue((s.strength * 100).round()),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!hasOriginal)
+                    Text(
+                      l10n.strengthNeedsOriginal,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// FR-CMP-007 (06 §1.1): size, model, processor and time on request.
+  Future<void> _details(Finished s, AppLocalizations l10n) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.resultDetails),
+      content: Text(
+        '${l10n.sizePx(s.result.width, s.result.height)}\n${resultInfo(l10n, s.result)}',
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close))],
+    ),
+  );
 
   Future<void> _saveAsPreset(EnhanceController ctl, AppLocalizations l10n) async {
     final recipe = ctl.recipe;
@@ -1041,5 +1169,70 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       return;
     }
     ctl.answer(picked);
+  }
+}
+
+/// A tool of the editor's bottom bar: an icon (or a short text such as "4×") over its label.
+class _Tool extends StatelessWidget {
+  const _Tool({
+    this.icon,
+    this.text,
+    required this.label,
+    this.selected = false,
+    this.busy = false,
+    required this.onTap,
+  });
+
+  final IconData? icon;
+  final String? text;
+  final String label;
+  final bool selected, busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = onTap == null
+        ? scheme.onSurface.withValues(alpha: 0.38)
+        : selected
+        ? scheme.primary
+        : scheme.onSurface;
+    final glyph = busy
+        ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+        : icon != null
+        ? Icon(icon, color: color)
+        : Text(
+            text ?? '',
+            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 16),
+          );
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 24, child: Center(child: glyph)),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

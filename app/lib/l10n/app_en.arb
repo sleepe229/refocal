@@ -68,7 +68,6 @@
   "scaleFast2": "Fast 2×",
   "scaleX1": "1×",
   "scaleX1Hint": "Same size, just cleaner.",
-  "editorTitle": "Enhance",
   "sizePx": "{width} × {height} px",
   "@sizePx": {
     "placeholders": {
@@ -152,7 +151,7 @@
     }
   },
   "saveAsTitle": "Save as",
-  "tryAnotherScale": "Try another scale",
+  "tryAnotherScale": "Change settings",
   "failCancelled": "Cancelled.",
   "failPaused": "Paused.",
   "failDiskFull": "Not enough storage on the phone.",
@@ -666,14 +665,6 @@
       }
     }
   },
-  "noteFacesFound": "Faces: {count}",
-  "@noteFacesFound": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "regionAll": "Whole photo",
   "regionFaces": "Only faces",
   "tierTitle": "Device class",
@@ -754,8 +745,8 @@
   },
   "modelsErrorNotAPack": "Not a Refocal model file.",
   "modelsErrorStorage": "The file could not be read",
-  "faceOfferTitle": "Face model for portraits",
-  "faceOfferBody": "Restores faces in old and small photos. Downloaded separately: about 177 MB, for non-commercial use.",
+  "faceOfferTitle": "Face model",
+  "faceOfferBody": "About 177 MB, for non-commercial use.",
   "faceOfferOpen": "Models",
   "faceOfferLater": "Not now",
   "facesTapHint": "Tap a face to leave it alone",
@@ -785,7 +776,6 @@
   },
   "fragmentEnhanceAll": "Enhance the whole photo",
   "fragmentAction": "Preview a part",
-  "fragmentHint": "Tap the photo to choose the part",
   "close": "Close",
   "resultSeconds": "{seconds} s",
   "@resultSeconds": {
@@ -838,5 +828,17 @@
   "srModel": "Model",
   "srModelCompact": "Standard",
   "srModelHq": "High quality",
-  "srModelAnime": "Anime and art"
+  "srModelAnime": "Anime and art",
+  "editorScale": "Scale",
+  "@editorScale": {"description": "Label of the scale tool in the editor's bottom bar (06 §3.2)."},
+  "editorAdjust": "Adjust",
+  "@editorAdjust": {"description": "The editor's tool that opens the fine settings panel, like Adjust in Apple's Photos (06 §3.2)."},
+  "editorDone": "Done",
+  "@editorDone": {"description": "Closes the editor's Adjust panel."},
+  "moreTooltip": "More",
+  "@moreTooltip": {"description": "Tooltip of the editor's \"…\" menu."},
+  "resultDetails": "Details",
+  "@resultDetails": {"description": "Menu item: size, model, processor and time of the result (FR-CMP-007, 06 §1.1)."},
+  "editorSave": "Save",
+  "@editorSave": {"description": "The result's main action: save to the gallery."}
 }

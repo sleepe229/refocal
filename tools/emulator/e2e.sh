@@ -169,7 +169,11 @@ if [[ -n "$SCALE" ]]; then
 else
   wait_text "denoise" 60 || { echo "FAIL: no Auto explanation"; exit 1; }  # "4×, ..., denoise medium"
   shot auto
-  # FR-ENH-015: a part of the photo first, in a sheet, then back to the editor.
+  tap_text "Adjust" 30
+  shot adjust
+  tap_text "Done" 10
+  # FR-ENH-015: a part of the photo first, in a sheet, then back to the editor ("…" menu).
+  tap_text "More" 30
   tap_text "Preview a part" 30
   wait_text "px in" 300 || { echo "FAIL: no fragment preview"; exit 1; }  # "Part 512 × 512 px in 1.2 s"
   shot fragment
@@ -200,7 +204,8 @@ case "$SCENARIO" in
     tap_text "Paused enhancement" 60
     ;;
 esac
-tap_text "Save to gallery" 600
+shot editor_running
+tap_text "Save" 600
 echo "  enhance took ~$((SECONDS - t0)) s"
 shot result
 sleep 5
@@ -211,6 +216,7 @@ if [[ ${HEIC:-0} = 1 ]]; then
   # FR-EXP-002: HeifWriter on the device, metadata from the core; the file is checked on the
   # host (tools/emulator/check_heic.py, HEIC_CHECK: --icc for a photo with a profile, --exif).
   echo "== HEIC (FR-EXP-002): Save as file -> HEIC"
+  tap_text "More" 30
   tap_text "Save as file" 30
   tap_text "HEIC" 30
   sleep 4
