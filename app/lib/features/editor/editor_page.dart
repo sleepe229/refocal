@@ -134,7 +134,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
     // 06 §1, §7: the photo on a dark canvas, the controls in a panel below it (Apple's Photos).
     final base = Theme.of(context);
-    final canvas = ThemeData(
+    final canvas = _canvas = ThemeData(
       colorScheme: ColorScheme.fromSeed(
         seedColor: base.colorScheme.primary,
         brightness: Brightness.dark,
@@ -286,7 +286,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
     if (!editable || a == null) return Center(child: image);
     final boxes = _faces && a.boxes.isNotEmpty;
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = _canvas.colorScheme;
     final crop = _fragmentPicked ? _fragmentCrop(a) : null;
     return Center(
       child: AspectRatio(
@@ -676,14 +676,14 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       padding: const EdgeInsets.only(top: 8),
       child: Semantics(
         liveRegion: true,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        child: Text(text, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
       ),
     );
   }
+
+  /// The editor's dark theme (set in build): the panels are built with this State's context,
+  /// which is above the Theme that applies it.
+  ThemeData _canvas = ThemeData(brightness: Brightness.dark);
 
   /// The fine settings panel is open (06 §3.2 "Настроить", like Adjust in Apple's Photos).
   bool _adjusting = false;
@@ -691,7 +691,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// Before Enhance (06 §3.2): what Auto chose in a line, the modes as a bar, Enhance. The fine
   /// settings open in place of the bar.
   Widget _controls(EnhanceController ctl, AppLocalizations l10n) {
-    final small = Theme.of(context).textTheme.bodySmall;
+    final small = _canvas.textTheme.bodySmall;
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
     final hint = _faces && (a?.boxes.isNotEmpty ?? false) ? l10n.facesTapHint : null;
     if (_adjusting) return _adjustPanel(l10n);
@@ -828,7 +828,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         ? Text(
             l10n.presetStrengthAfter(l10n.strengthValue((_strength * 100).round())),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: _canvas.textTheme.bodySmall,
           )
         : null;
     return Column(
@@ -836,9 +836,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text(l10n.editorAdjust, style: Theme.of(context).textTheme.titleMedium),
-            ),
+            Expanded(child: Text(l10n.editorAdjust, style: _canvas.textTheme.titleMedium)),
             TextButton(
               onPressed: () => setState(() => _adjusting = false),
               child: Text(l10n.editorDone),
@@ -933,11 +931,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         if (s.note != null) // A11Y-PRG-002: fallback and thermal notes are announced
           Semantics(
             liveRegion: true,
-            child: Text(
-              s.note!,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(s.note!, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
           ),
         const SizedBox(height: 16),
         Row(
@@ -955,11 +949,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          l10n.backgroundHint,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(l10n.backgroundHint, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
       ],
     );
   }
