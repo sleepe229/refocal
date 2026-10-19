@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.0-beta.1
+
+A simpler app: the photo first, the settings when you look for them.
+
+New:
+- **Editor**: the photo fills a dark screen. Below it, what Auto chose in one line, then
+  **Auto · Portrait · Old photo · Scale · Adjust** and **Enhance**. **Adjust** opens the other
+  presets, the model, denoise, faces and the old-photo tools without hiding the photo. If a
+  mode needs a model you do not have (Portrait needs the face model), the editor offers it
+  right there.
+- **Result**: the comparison fills the screen, with **Share** and **Save** below; save as
+  file, strength, save as preset, change settings, details (model, processor, time) and
+  "report a bad result" are in the **…** menu. Preview a part is in the editor's **…** menu.
+- **Share** sends the result to another app in your default format, with the same location
+  and AI-marker settings as a save. It is not saved to the gallery or the history.
+- **Home**: your latest results as a grid, what is unfinished, and **Choose a photo**. About
+  moved to Settings.
+- **Settings** in groups: saved photos, history, presets, storage (one row with its size),
+  language; the AI marker, models, device class and the introduction are under **Advanced**.
+- Shorter texts throughout; technical details only where you ask for them.
+
+Fixed:
+- Sharing the bug-report log: the share sheet could not read the file.
+- Security: a crafted HEIC file could make saving metadata write a file that no longer opens
+  (found by fuzzing).
+
 ## 0.6.0-beta.1
 
 First steps of "old photos" (1.1).

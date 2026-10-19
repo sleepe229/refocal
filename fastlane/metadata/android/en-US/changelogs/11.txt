@@ -1,0 +1,5 @@
+Beta 0.7.0-beta.1:
+• Simpler editor: the photo on a dark screen, Auto · Portrait · Old photo · Scale · Adjust, then Enhance
+• Share the result to another app; Save; the rest in the … menu
+• Home shows your latest results; settings in groups, the rest under Advanced
+• Fixes: sharing the log, HEIC metadata
