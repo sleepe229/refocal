@@ -149,6 +149,7 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
             ListTile(title: Text(l10n.settingsShowIntro), onTap: () => context.push('/onboarding')),
+            ListTile(title: Text(l10n.aboutTitle), onTap: () => context.push('/about')),
           ],
         ),
       ),

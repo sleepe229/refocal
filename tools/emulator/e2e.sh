@@ -234,6 +234,14 @@ if [[ ${HEIC:-0} = 1 ]]; then
 fi
 echo "== bug-report log (FR-SET-007, PRIV-LOG-001)"
 adb_ shell input keyevent KEYCODE_BACK
+sleep 2
+shot home
+tap_text "Settings" 30
+sleep 1
+shot settings
+# "About" is the last row of Settings (06 §1.1): scroll to it.
+adb_ shell input swipe 540 1800 540 300 300
+adb_ shell input swipe 540 1800 540 300 300
 tap_text "About" 30
 tap_text "Report a problem" 30
 sleep 2
@@ -245,6 +253,7 @@ if [[ -z "$SCALE" ]]; then
 fi
 if grep -qE "/data/|/storage/|content://" <<<"$log_ui"; then echo "FAIL: a path or URI in the log"; exit 1; fi
 echo "  log shows the job, no paths"
+adb_ shell input keyevent KEYCODE_BACK
 adb_ shell input keyevent KEYCODE_BACK
 adb_ shell input keyevent KEYCODE_BACK
 fi
@@ -259,7 +268,7 @@ mime=image/${EXT/jpg/jpeg}
 uri="content://media/external/images/media/$id"
 adb_ shell am start -a android.intent.action.SEND -t "$mime" -d "$uri" --grant-read-uri-permission \
   --eu android.intent.extra.STREAM "$uri" -n io.github.refocal.app/.MainActivity >/dev/null
-# The button, not the home screen's tagline that has the same word.
+# The editor's button: the shared photo opened it.
 NOTAP=1 tap_text "Enhance" 60 || { echo "FAIL: shared photo did not open the editor"; exit 1; }
 echo "  shared photo opened"
 adb_ shell input keyevent KEYCODE_BACK  # leave the editor of the shared photo
@@ -271,7 +280,7 @@ echo "  edited photo opened"
 adb_ shell input keyevent KEYCODE_BACK
 
 echo "== queue (FR-BATCH-001..008): multi-pick -> batch sheet -> autosave"
-wait_text "Process several photos" 30
+wait_text "Several photos" 30
 # Two fresh copies: the picker lists the newest first, and the gallery already holds the 4x
 # result of the flow above (20 MP, ~17 min at Fast 2x on the emulator's CPU).
 sleep 1
@@ -281,7 +290,7 @@ adb_ shell cp "/sdcard/Pictures/e2e_input.$EXT" "/sdcard/Pictures/e2e_q2.$EXT"
 adb_ shell content call --method scan_volume --uri content://media --arg external_primary >/dev/null
 before=$(adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name | grep -c Refocal_ || true)
-tap_text "Process several photos" 60
+tap_text "Several photos" 60
 sleep 3
 adb_ shell uiautomator dump /sdcard/ui.xml >/dev/null
 adb_ shell cat /sdcard/ui.xml | python3 -c '

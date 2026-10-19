@@ -1,16 +1,12 @@
 {
   "@@locale": "ru",
   "appTitle": "Refocal",
-  "homeTagline": "Верните фото резкость.",
-  "homePrivacy": "Всё работает на этом телефоне. Фото никуда не отправляются.",
   "homeModelMissing": "В этой сборке нет модели.",
   "homeChoosePhoto": "Выбрать фото",
   "homeNotFinished": "Не завершено",
-  "homeCore": "Ядро {version}",
   "homeCoreUnavailable": "Нативное ядро недоступно: {error}",
   "homeOpenFailed": "Не удалось открыть фото: {error}",
   "settingsTooltip": "Настройки",
-  "aboutTooltip": "О приложении",
   "deleteTooltip": "Удалить",
   "jobTitleFinished": "Улучшенное фото",
   "jobTitlePaused": "Улучшение на паузе",
@@ -166,7 +162,7 @@
   "errorStorage": "не удалось прочитать или записать файл",
   "errorSystem": "система отклонила запрос",
   "errorUnexpected": "непредвиденная ошибка",
-  "homeChooseSeveral": "Обработать несколько фото",
+  "homeChooseSeveral": "Несколько фото",
   "homeQueue": "Очередь ({count})",
   "pickPartial": "Не удалось открыть фото: {failed}. Причина: {reason}",
   "queueTitle": "Очередь",
@@ -354,5 +350,6 @@
   "editorDone": "Готово",
   "moreTooltip": "Ещё",
   "resultDetails": "Подробнее",
-  "editorSave": "Сохранить"
+  "editorSave": "Сохранить",
+  "homeSeeAll": "Все"
 }

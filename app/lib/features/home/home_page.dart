@@ -5,20 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/history.dart';
 import '../../bootstrap/job_store.dart';
 import '../../bootstrap/models.dart';
 import '../../bootstrap/processing.dart';
 import '../../bootstrap/queue.dart';
-import '../../bootstrap/settings.dart';
 import '../../bootstrap/tier.dart';
 import '../../l10n/app_localizations.dart';
 import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
 import '../editor/editor_page.dart';
+import '../history/history_page.dart';
 import '../queue/batch_sheet.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -157,52 +159,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.invalidate(jobListProvider);
   }
 
-  /// FR-ONB-003 (06 §3.1): after the introduction, an optional offer of the face model while
-  /// it is not installed; the Models screen downloads it on the user's action (ADR-0020).
-  Widget? _faceOffer(AppLocalizations l10n) {
-    final settings = ref.watch(settingsProvider).value;
-    final available = ref.watch(availableModelsProvider);
-    if (settings == null || settings.faceOfferDismissed || !settings.onboardingDone) return null;
-    if (!available.contains(bundledDetector) || available.contains(defaultFacePack)) return null;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.face_retouching_natural),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(l10n.faceOfferTitle, style: Theme.of(context).textTheme.titleMedium),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(l10n.faceOfferBody),
-            OverflowBar(
-              alignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => ref
-                      .read(settingsProvider.notifier)
-                      .change((s) => s.copyWith(faceOfferDismissed: true)),
-                  child: Text(l10n.faceOfferLater),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/models'),
-                  child: Text(l10n.faceOfferOpen),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// FR-MODEL-008: updates found by the opt-in check (FR-SET-005).
   Widget? _packUpdates(AppLocalizations l10n) {
     final n = ref.watch(packUpdatesProvider).value?.length ?? 0;
@@ -224,24 +180,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     final engine = ref.watch(startupProvider);
     final jobs = ref.watch(jobListProvider).value ?? const <JobEntry>[];
     final queued = ref.watch(queueItemsProvider).value?.length ?? 0;
+    final ready = engine.value?.modelReady ?? false;
+    final title = Theme.of(context).textTheme.titleMedium;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.appTitle),
         actions: [
           IconButton(
-            tooltip: l10n.historyTitle,
-            onPressed: () => context.push('/history'),
-            icon: const Icon(Icons.history),
-          ),
-          IconButton(
             tooltip: l10n.settingsTooltip,
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),
-          ),
-          IconButton(
-            tooltip: l10n.aboutTooltip,
-            onPressed: () => context.push('/about'),
-            icon: const Icon(Icons.info_outline),
           ),
         ],
       ),
@@ -253,66 +201,108 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Text(l10n.homeCoreUnavailable(errorReason(l10n, e))),
           ),
         ),
+        // 06 §3.1: what the user made and left, then the photo picker below.
         data: (e) => ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
-            const SizedBox(height: 24),
-            const Icon(Icons.auto_fix_high, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              l10n.homeTagline,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(l10n.homePrivacy, textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            ?_faceOffer(l10n),
             ?_packUpdates(l10n),
             if (!e.modelReady)
-              Text(
-                l10n.homeModelMissing,
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              )
-            else
-              Column(
-                children: [
-                  FilledButton.icon(
-                    onPressed: _picking ? null : () => _pick(several: false),
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text(l10n.homeChoosePhoto),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _picking ? null : () => _pick(several: true),
-                    icon: const Icon(Icons.burst_mode_outlined),
-                    label: Text(l10n.homeChooseSeveral),
-                  ),
-                  if (queued > 0) ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () => context.push('/queue'),
-                      icon: const Icon(Icons.queue_outlined),
-                      label: Text(l10n.homeQueue(queued)),
-                    ),
-                  ],
-                ],
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  l10n.homeModelMissing,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            if (queued > 0)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.queue_outlined),
+                title: Text(l10n.homeQueue(queued)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/queue'),
               ),
             if (jobs.isNotEmpty) ...[
-              const SizedBox(height: 32),
-              Text(l10n.homeNotFinished, style: Theme.of(context).textTheme.titleSmall),
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Text(l10n.homeNotFinished, style: title),
+              ),
               for (final j in jobs) _JobTile(job: j, onOpen: _openEditor, onDiscard: _discard),
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 24),
-            Text(
-              l10n.homeCore(e.native.version),
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
+            const _Recent(),
           ],
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: _picking || !ready ? null : () => _pick(several: false),
+                child: Text(l10n.homeChoosePhoto),
+              ),
+              TextButton(
+                onPressed: _picking || !ready ? null : () => _pick(several: true),
+                child: Text(l10n.homeChooseSeveral),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The latest saved results (06 §3.1), as a grid of their previews; all of them in History.
+class _Recent extends ConsumerWidget {
+  const _Recent();
+
+  static const _shown = 12;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final entries = ref.watch(historyProvider).value ?? const <HistoryEntry>[];
+    final store = ref.watch(historyStoreProvider).value;
+    if (entries.isEmpty || store == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(l10n.historyTitle, style: Theme.of(context).textTheme.titleMedium),
+            ),
+            TextButton(onPressed: () => context.push('/history'), child: Text(l10n.homeSeeAll)),
+          ],
+        ),
+        GridView.count(
+          crossAxisCount: 3,
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            for (final e in entries.take(_shown))
+              Semantics(
+                button: true,
+                label: formatDateTime(context, e.createdAt),
+                child: InkWell(
+                  onTap: () => context.push('/history/entry', extra: e.id),
+                  child: LayoutBuilder(
+                    builder: (context, c) =>
+                        HistoryPreview(file: File(store.absolute(e.previewPath)), size: c.maxWidth),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
