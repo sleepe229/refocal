@@ -1,19 +1,9 @@
 {
   "@@locale": "en",
   "appTitle": "Refocal",
-  "homeTagline": "Bring your photos back into focus.",
-  "homePrivacy": "Everything runs on this phone. Photos never leave it.",
   "homeModelMissing": "This build has no model.",
   "homeChoosePhoto": "Choose a photo",
   "homeNotFinished": "Not finished",
-  "homeCore": "Core {version}",
-  "@homeCore": {
-    "placeholders": {
-      "version": {
-        "type": "String"
-      }
-    }
-  },
   "homeCoreUnavailable": "Native core unavailable: {error}",
   "@homeCoreUnavailable": {
     "placeholders": {
@@ -31,7 +21,6 @@
     }
   },
   "settingsTooltip": "Settings",
-  "aboutTooltip": "About",
   "deleteTooltip": "Delete",
   "jobTitleFinished": "Enhanced photo",
   "jobTitlePaused": "Paused enhancement",
@@ -355,7 +344,7 @@
   "@errorUnexpected": {
     "description": "Reason inserted into an error message ({error})."
   },
-  "homeChooseSeveral": "Process several photos",
+  "homeChooseSeveral": "Several photos",
   "homeQueue": "Queue ({count})",
   "@homeQueue": {
     "placeholders": {
@@ -840,5 +829,7 @@
   "resultDetails": "Details",
   "@resultDetails": {"description": "Menu item: size, model, processor and time of the result (FR-CMP-007, 06 §1.1)."},
   "editorSave": "Save",
-  "@editorSave": {"description": "The result's main action: save to the gallery."}
+  "@editorSave": {"description": "The result's main action: save to the gallery."},
+  "homeSeeAll": "See all",
+  "@homeSeeAll": {"description": "Opens the whole history from the home screen's recent results."}
 }
