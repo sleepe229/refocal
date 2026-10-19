@@ -234,7 +234,11 @@ if [[ ${HEIC:-0} = 1 ]]; then
 fi
 echo "== bug-report log (FR-SET-007, PRIV-LOG-001)"
 adb_ shell input keyevent KEYCODE_BACK
+sleep 2
+shot home
 tap_text "Settings" 30
+sleep 1
+shot settings
 # "About" is the last row of Settings (06 §1.1): scroll to it.
 adb_ shell input swipe 540 1800 540 300 300
 adb_ shell input swipe 540 1800 540 300 300
