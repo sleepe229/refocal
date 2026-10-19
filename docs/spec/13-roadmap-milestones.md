@@ -215,7 +215,7 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 | Пункт | Состояние |
 |---|---|
 | Политика приватности (`PRIVACY.md`, 07 §7) и сайт на GitHub Pages (<https://sleepe229.github.io/refocal/>), ссылка из «О приложении» | ✅ #48 |
-| Фаззинг 24 ч (SEC-INP-001): `fuzz-ga.yml`, 5 шардов по 5.5 ч на цель | ✅ #49; ⏳ прогон на коммите релиза 1.0 |
+| Фаззинг 24 ч (SEC-INP-001): `fuzz-ga.yml`, 5 шардов на цель по 1 ч 22 мин × 4 воркера libFuzzer (`-fork`, 27.5 ч) | ✅ #49; ⏳ прогон на коммите релиза 1.0 |
 | Security review: [отчёт](../security/review-2026-10.md), 4 находки исправлены, проверка hardening в CI (SEC-INP-003) | ✅ #51 |
 | Must-FR: сверены с кодом, все реализованы (FR-SHARE-004 — через share-intent, без маршрута `/import`) | ✅ |
 | Воспроизводимая сборка F-Droid: релиз собирается по пути сервера F-Droid (OpenMP-строки ncnn) | ✅ #50; ⏳ MR fdroiddata!52962 на 0.5.0-beta.2 |

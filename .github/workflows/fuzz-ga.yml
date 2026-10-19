@@ -1,7 +1,8 @@
-# The GA fuzzing gate (SEC-INP-001, 10 §5: 24 h without findings before 1.0). A job runs at
-# most 6 h, so each target is fuzzed by 5 shards of 5 h 30 min with different seeds: 27.5 h of
-# fuzzing per target, about 6 h of wall time (20 jobs at once). The shards start from the nightly corpus; the
-# merge job folds what they found back into it (libFuzzer -merge=1) for the nightly runs.
+# The GA fuzzing gate (SEC-INP-001, 10 §5: 24 h without findings before 1.0). Each target is
+# fuzzed by 5 shards with different seeds, each with a libFuzzer worker on every one of the
+# runner's 4 cores (run.sh FORK) for 1 h 22 min: 27.5 h of fuzzing per target, about 1.5 h of
+# wall time (20 jobs at once). The shards start from the nightly corpus; the merge job folds
+# what they found back into it (libFuzzer -merge=1) for the nightly runs.
 # Run by hand before a 1.0 release; the result goes into the release checklist.
 name: fuzz-ga
 
@@ -14,7 +15,7 @@ permissions:
 jobs:
   fuzz:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 150  # 83 min of fuzzing, the build, fork mode's last job running over
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +33,7 @@ jobs:
         env:
           TARGETS: ${{ matrix.target }}
           SEED: ${{ matrix.shard }}
-        run: tools/fuzz/run.sh 19800
+        run: tools/fuzz/run.sh 4950
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
