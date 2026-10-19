@@ -57,39 +57,46 @@ void dilate(Mask8& m, int r) {
     }
 }
 
-// Upstream's blend weight of the photo (create_onnx_pipeline.py postprocess): the known mask
-// max-pooled 3x3 (the hole shrinks by a pixel), then a 5x5 Gaussian (sigma 1, reflect pad).
-// 255 keeps the photo, 0 takes the fill.
-std::vector<uint8_t> blend_weight(const Mask8& hole) {
+// Upstream's blend weight of the photo (create_onnx_pipeline.py postprocess) over [x0, x1) x
+// [y0, y1): the known mask max-pooled 3x3 (the hole shrinks by a pixel), then a 5x5 Gaussian
+// (sigma 1, reflect pad). 255 keeps the photo, 0 takes the fill. Per region, so a 200 MP photo
+// does not hold two float planes of itself.
+std::vector<uint8_t> blend_weight(const Mask8& hole, int x0, int y0, int x1, int y1) {
   const int w = hole.w, h = hole.h;
-  std::vector<float> known(size_t(w) * h);
-  for (int y = 0; y < h; ++y)
-    for (int x = 0; x < w; ++x) {
+  // The Gaussian reads two pixels around the region; reflect101 of those lands inside these.
+  const int kx0 = std::max(0, x0 - 2), kx1 = std::min(w, x1 + 2);
+  const int ky0 = std::max(0, y0 - 2), ky1 = std::min(h, y1 + 2);
+  const int kw = kx1 - kx0, rw = x1 - x0;
+  std::vector<float> known(size_t(kw) * (ky1 - ky0));
+  for (int y = ky0; y < ky1; ++y)
+    for (int x = kx0; x < kx1; ++x) {
       bool any = false;
       for (int dy = -1; dy <= 1 && !any; ++dy)
         for (int dx = -1; dx <= 1 && !any; ++dx) {
           const int xx = x + dx, yy = y + dy;
           any = xx >= 0 && yy >= 0 && xx < w && yy < h && !hole.at(xx, yy);
         }
-      known[size_t(y) * w + x] = any ? 1.f : 0.f;
+      known[size_t(y - ky0) * kw + (x - kx0)] = any ? 1.f : 0.f;
     }
   float k[5];
   float sum = 0;
   for (int i = 0; i < 5; ++i) sum += k[i] = std::exp(-float((i - 2) * (i - 2)) / 2.f);
   for (float& v : k) v /= sum;
-  std::vector<float> tmp(known.size());
-  for (int y = 0; y < h; ++y)
-    for (int x = 0; x < w; ++x) {
+  std::vector<float> tmp(size_t(rw) * (ky1 - ky0));
+  for (int y = ky0; y < ky1; ++y)
+    for (int x = x0; x < x1; ++x) {
       float v = 0;
-      for (int i = 0; i < 5; ++i) v += k[i] * known[size_t(y) * w + reflect101(x + i - 2, w)];
-      tmp[size_t(y) * w + x] = v;
+      for (int i = 0; i < 5; ++i)
+        v += k[i] * known[size_t(y - ky0) * kw + (reflect101(x + i - 2, w) - kx0)];
+      tmp[size_t(y - ky0) * rw + (x - x0)] = v;
     }
-  std::vector<uint8_t> out(known.size());
-  for (int y = 0; y < h; ++y)
-    for (int x = 0; x < w; ++x) {
+  std::vector<uint8_t> out(size_t(rw) * (y1 - y0));
+  for (int y = y0; y < y1; ++y)
+    for (int x = x0; x < x1; ++x) {
       float v = 0;
-      for (int i = 0; i < 5; ++i) v += k[i] * tmp[size_t(reflect101(y + i - 2, h)) * w + x];
-      out[size_t(y) * w + x] = uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f));
+      for (int i = 0; i < 5; ++i)
+        v += k[i] * tmp[size_t(reflect101(y + i - 2, h) - ky0) * rw + (x - x0)];
+      out[size_t(y - y0) * rw + (x - x0)] = uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f));
     }
   return out;
 }
@@ -177,14 +184,14 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
   if (mask.w != img.w || mask.h != img.h) fail(ENH_E_INVALID, "inpaint: mask size");
   Rgb8 out = img;
   if (!mask.count()) return out;
-  const std::vector<uint8_t> keep = blend_weight(mask);
   constexpr int S = kInpaintSize;
   const Geometry g = Geometry::make(img.w, img.h, S - 2 * kInpaintPad, kInpaintPad, 1, 1);
   const int P = g.pad;
 
-  // Tiles whose owned part has a pixel to change.
+  // Tiles whose owned part has a pixel to change, with the blend weight of that part.
   struct Tile {
     int x0, y0, ox0, ox1, oy0, oy1;
+    std::vector<uint8_t> keep;  // (ox1 - ox0) x (oy1 - oy0)
   };
   std::vector<Tile> tiles;
   for (int b = 0; b < g.bands(); ++b)
@@ -194,11 +201,11 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
              owned_start(g.xs, j, g.tw),
              j + 1 < g.tiles_per_band() ? owned_start(g.xs, j + 1, g.tw) : g.in_w,
              g.band_in_y0(b),
-             g.band_in_y1(b)};
-      bool need = false;
-      for (int y = t.oy0; y < t.oy1 && !need; ++y)
-        for (int x = t.ox0; x < t.ox1 && !need; ++x) need = keep[size_t(y) * img.w + x] < 255;
-      if (need) tiles.push_back(t);
+             g.band_in_y1(b),
+             {}};
+      t.keep = blend_weight(mask, t.ox0, t.oy0, t.ox1, t.oy1);
+      if (std::any_of(t.keep.begin(), t.keep.end(), [](uint8_t v) { return v < 255; }))
+        tiles.push_back(std::move(t));
     }
 
   std::vector<int> colidx(S);
@@ -232,7 +239,7 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
       uint8_t* dst = out.row(y);
       const uint8_t* src = img.row(y);
       for (int x = t.ox0; x < t.ox1; ++x) {
-        const int kw = keep[size_t(y) * img.w + x];
+        const int kw = t.keep[size_t(y - t.oy0) * (t.ox1 - t.ox0) + (x - t.ox0)];
         if (kw == 255) continue;
         const int xx = x - t.x0 + P;
         const float a = kw * (1.f / 255.f);
