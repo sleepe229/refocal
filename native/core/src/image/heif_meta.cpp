@@ -98,9 +98,10 @@ struct Writer {
     b.insert(b.end(), s.begin(), s.end());
     if (nul) b.push_back(0);
   }
-  // [type]: exactly four bytes, NULs included (types come from untrusted input).
+  // [type]: exactly four bytes, NULs included (types come from untrusted input); never "uuid",
+  // whose header this writer does not produce.
   size_t begin(const std::string& type) {
-    if (type.size() != 4) bad("box type");
+    if (type.size() != 4 || type == "uuid") bad("box type");
     const size_t at = b.size();
     u32(0);
     str(type, false);
@@ -255,6 +256,9 @@ void parse_iref(Model& m, const Box& b) {
   const uint8_t version = r.u8();
   r.u(3);
   for (const auto& k : boxes(m.data, b.body() + r.o, b.end())) {
+    // A reference type is a four-character code; a "uuid" box would be written back without
+    // its 16-byte usertype and break the file (fuzz-ga, heif shard 4).
+    if (k.type == "uuid") bad("uuid box in iref");
     Reader e{m.data + k.body(), k.size - k.header};
     Ref ref;
     ref.type = k.type;

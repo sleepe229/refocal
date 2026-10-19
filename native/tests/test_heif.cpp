@@ -115,6 +115,39 @@ TEST("moov, truncation and garbage are refused, never crash") {
   }
 }
 
+TEST("a uuid box in iref is refused (it would be written back without its usertype)") {
+  // fuzz-ga (heif shard 4): attaching kept the reference but dropped the 16-byte usertype, and
+  // the result no longer parsed. The dimg reference becomes a uuid box of the same content.
+  Bytes in = make_heif(kTile2, kTile3);
+  auto be32 = [&](size_t at) {
+    return uint32_t(in[at]) << 24 | uint32_t(in[at + 1]) << 16 | uint32_t(in[at + 2]) << 8 |
+           in[at + 3];
+  };
+  auto put32 = [&](size_t at, uint32_t v) {
+    for (int i = 0; i < 4; ++i) in[at + i] = uint8_t(v >> (24 - 8 * i));
+  };
+  auto find = [&](const char* t) {
+    return size_t(std::search(in.begin(), in.end(), t, t + 4) - in.begin()) - 4;
+  };
+  const size_t meta = find("meta"), iref = find("iref"), dimg = find("dimg");
+  const uint32_t size = be32(dimg);
+  Bytes uuid = {0, 0, 0, 0, 'u', 'u', 'i', 'd'};
+  uuid.insert(uuid.end(), 16, 0x42);
+  uuid.insert(uuid.end(), in.begin() + dimg + 8, in.begin() + dimg + size);
+  in.erase(in.begin() + dimg, in.begin() + dimg + size);
+  in.insert(in.begin() + dimg, uuid.begin(), uuid.end());
+  put32(dimg, size + 16);
+  put32(iref, be32(iref) + 16);
+  put32(meta, be32(meta) + 16);
+  bool refused = false;
+  try {
+    (void)heif_read_meta(in.data(), in.size());
+  } catch (const Error& e) {
+    refused = e.status() == ENH_E_INVALID;
+  }
+  CHECK(refused);
+}
+
 // [seed_dir]: also writes the synthetic file before and after attaching (fuzz seed corpus).
 int main(int argc, char** argv) {
   if (argc > 1) {
