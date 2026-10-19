@@ -214,9 +214,15 @@ adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
 echo "== share (06 §3.2): the system chooser opens with the result"
 tap_text "Share" 30
-sleep 4
-adb_ shell dumpsys activity activities | grep -q "ChooserActivity\|ResolverActivity" \
-  || { echo "FAIL: no share sheet"; exit 1; }
+# The result is encoded first (a 20 MP JPEG takes a while on the emulator's CPU).
+chooser=0
+for _ in $(seq 90); do
+  if adb_ shell dumpsys activity activities | grep -q "ChooserActivity\|ResolverActivity"; then
+    chooser=1; break
+  fi
+  sleep 2
+done
+[[ $chooser = 1 ]] || { echo "FAIL: no share sheet"; exit 1; }
 shot share
 adb_ shell input keyevent KEYCODE_BACK
 sleep 1
