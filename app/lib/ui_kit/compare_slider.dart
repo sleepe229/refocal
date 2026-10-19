@@ -78,32 +78,45 @@ class _CompareSliderState extends State<CompareSlider> {
     final l10n = AppLocalizations.of(context);
     String pct(double v) => l10n.comparePercentOriginal((v.clamp(0.0, 1.0) * 100).round());
     final pos = _original ? 1.0 : _pos;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _loupe(_sideBySide ? _pair(l10n) : _viewer(l10n, pct, pos)),
-        Row(
+    // In a bounded height (the editor's canvas) the photo fits the space above the controls;
+    // in a list it takes the width.
+    return LayoutBuilder(
+      builder: (context, c) {
+        final photo = _loupe(
+          _sideBySide ? _pair(l10n, c.hasBoundedHeight) : _viewer(l10n, pct, pos),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // FR-CMP-004: the border, or both side by side (zoomed together).
-            IconButton(
-              tooltip: _sideBySide ? l10n.compareBorder : l10n.compareSideBySide,
-              onPressed: () => setState(() => _sideBySide = !_sideBySide),
-              icon: Icon(_sideBySide ? Icons.compare : Icons.view_agenda_outlined),
-            ),
-            // Flexible: at 200% text the label wraps instead of overflowing (A11Y-GEN-004).
-            Expanded(
-              child: Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: _sideBySide
-                    ? null
-                    : TextButton.icon(
-                        onPressed: () => setState(() => _original = !_original),
-                        icon: Icon(_original ? Icons.auto_fix_high : Icons.image_outlined),
-                        label: Text(_original ? l10n.compareShowResult : l10n.compareShowOriginal),
-                      ),
-              ),
-            ),
+            if (c.hasBoundedHeight) Expanded(child: Center(child: photo)) else photo,
+            _controls(l10n),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _controls(AppLocalizations l10n) {
+    return Row(
+      children: [
+        // FR-CMP-004: the border, or both side by side (zoomed together).
+        IconButton(
+          tooltip: _sideBySide ? l10n.compareBorder : l10n.compareSideBySide,
+          onPressed: () => setState(() => _sideBySide = !_sideBySide),
+          icon: Icon(_sideBySide ? Icons.compare : Icons.view_agenda_outlined),
+        ),
+        // Flexible: at 200% text the label wraps instead of overflowing (A11Y-GEN-004).
+        Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: _sideBySide
+                ? null
+                : TextButton.icon(
+                    onPressed: () => setState(() => _original = !_original),
+                    icon: Icon(_original ? Icons.auto_fix_high : Icons.image_outlined),
+                    label: Text(_original ? l10n.compareShowResult : l10n.compareShowOriginal),
+                  ),
+          ),
         ),
       ],
     );
@@ -146,7 +159,7 @@ class _CompareSliderState extends State<CompareSlider> {
 
   /// FR-CMP-004: original and result next to each other (above each other on a phone), one
   /// zoom for both (06 §5: synchronous).
-  Widget _pair(AppLocalizations l10n) {
+  Widget _pair(AppLocalizations l10n, bool bounded) {
     final wide = MediaQuery.sizeOf(context).width >= 600;
     Widget panel(int source, String tag) => AspectRatio(
       aspectRatio: widget.aspectRatio,
@@ -196,10 +209,19 @@ class _CompareSliderState extends State<CompareSlider> {
       child: ExcludeSemantics(
         child: wide
             ? Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(child: before),
+                  Expanded(child: Center(child: before)),
                   const SizedBox(width: 4),
-                  Expanded(child: after),
+                  Expanded(child: Center(child: after)),
+                ],
+              )
+            : bounded
+            ? Column(
+                children: [
+                  Expanded(child: Center(child: before)),
+                  const SizedBox(height: 4),
+                  Expanded(child: Center(child: after)),
                 ],
               )
             : Column(children: [before, const SizedBox(height: 4), after]),
