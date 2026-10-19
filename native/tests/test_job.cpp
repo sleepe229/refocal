@@ -507,6 +507,12 @@ static void test_lowlight(Session& se) {
   Collector bad;
   q["job_id"] = "lb";
   CHECK(run_job(se, q, bad).status != ENH_OK);
+  // The id names a directory under models_dir: no way out of it, before any stage reads it.
+  for (const char* id : {"../models/light.same", "/tmp", ".hidden", "a/b"}) {
+    q["lowlight_model"] = id;
+    enh_job* j = nullptr;
+    CHECK(enh_job_create(se.s, q.dump().c_str(), &j) == ENH_E_INVALID && !j);
+  }
 }
 
 static void test_orientation(Session& se) {

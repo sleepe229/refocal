@@ -334,6 +334,65 @@ static void test_scratches() {
   GreyFill small;
   const Rgb8 t = inpaint(small, tiny, dot);
   CHECK(small.calls == 1 && small.bad_shape == 0 && t.row(2)[3 * 3] < 128 && t.row(2)[3 * 3] > 40);
+
+  // The blend weight is made per tile: it matches upstream's on the whole photo, holes at the
+  // photo's edges and across the tiles' seams included.
+  Rgb8 wide;
+  wide.w = 1100;
+  wide.h = 700;
+  wide.px.resize(size_t(wide.w) * wide.h * 3);
+  for (size_t i = 0; i < wide.px.size(); ++i) wide.px[i] = uint8_t(i * 7 % 251);
+  Mask8 holes;
+  holes.w = wide.w;
+  holes.h = wide.h;
+  holes.px.assign(size_t(wide.w) * wide.h, 0);
+  auto box = [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y)
+      for (int x = x0; x < x1; ++x) holes.px[size_t(y) * holes.w + x] = 255;
+  };
+  box(0, 0, 3, 700);                // left edge
+  box(1095, 0, 1100, 50);           // right edge
+  box(500, 698, 520, 700);          // bottom edge
+  for (int y = 0; y < 700; y += 7)  // small holes everywhere, so every seam has some
+    for (int x = (y / 7) % 5; x < 1100; x += 9)
+      box(x, y, std::min(x + 4, 1100), std::min(y + 4, 700));
+  std::vector<float> known(holes.px.size()), tmp(holes.px.size());
+  for (int y = 0; y < holes.h; ++y)
+    for (int x = 0; x < holes.w; ++x) {
+      bool any = false;
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+          const int xx = x + dx, yy = y + dy;
+          any |= xx >= 0 && yy >= 0 && xx < holes.w && yy < holes.h && !holes.at(xx, yy);
+        }
+      known[size_t(y) * holes.w + x] = any ? 1.f : 0.f;
+    }
+  float k[5], ksum = 0;
+  for (int i = 0; i < 5; ++i) ksum += k[i] = std::exp(-float((i - 2) * (i - 2)) / 2.f);
+  for (float& v : k) v /= ksum;
+  for (int y = 0; y < holes.h; ++y)
+    for (int x = 0; x < holes.w; ++x) {
+      float v = 0;
+      for (int i = 0; i < 5; ++i)
+        v += k[i] * known[size_t(y) * holes.w + reflect101(x + i - 2, holes.w)];
+      tmp[size_t(y) * holes.w + x] = v;
+    }
+  GreyFill seams;
+  const Rgb8 got = inpaint(seams, wide, holes);
+  int mismatches = 0;
+  for (int y = 0; y < holes.h; ++y)
+    for (int x = 0; x < holes.w; ++x) {
+      float v = 0;
+      for (int i = 0; i < 5; ++i)
+        v += k[i] * tmp[size_t(reflect101(y + i - 2, holes.h)) * holes.w + x];
+      const float a = std::lround(std::clamp(v, 0.f, 1.f) * 255.f) * (1.f / 255.f);
+      for (int c = 0; c < 3; ++c) {
+        const int src = wide.row(y)[x * 3 + c];
+        const int want = a == 1.f ? src : int(std::lround(src * a + 127.5f * (1 - a)));
+        mismatches += got.row(y)[x * 3 + c] != want;
+      }
+    }
+  CHECK(mismatches == 0 && seams.bad_input == 0);
 }
 
 // Low light: RGB -> HVI -> RGB is the identity (to a level), and so is the stage with a network

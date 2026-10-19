@@ -95,6 +95,13 @@ JobRequest parse_job_request(const std::string& text) {
   }
   static const std::regex id_re("[A-Za-z0-9_-]{1,64}");
   if (!std::regex_match(r.job_id, id_re)) fail(ENH_E_INVALID, "bad job_id");
+  // Model ids name directories under models_dir; stages read their model.json by the id.
+  static const std::regex model_re("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
+  for (const std::string* id : {&r.sr_model, &r.face_model, &r.det_model, &r.jpeg_model,
+                                &r.scratch_model, &r.lowlight_model, &r.inpaint_model}) {
+    if (!id->empty() && (!std::regex_match(*id, model_re) || id->find("..") != std::string::npos))
+      fail(ENH_E_INVALID, "bad model id");
+  }
   if (r.input.empty()) fail(ENH_E_INVALID, "empty input");
   if (r.scale != 1 && r.scale != 2 && r.scale != 4 && r.scale != 8)
     fail(ENH_E_INVALID, "scale must be 1, 2, 4 or 8");
@@ -505,43 +512,6 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
 
 }  // namespace
 
-// S9: FBCNN restore graph, 1x, before faces and SR. A model that fails on every backend leaves
-// the image as it is, with a FALLBACK event (ADR-0016), as for faces.
-Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
-  const float qf = req.jpeg_qf >= 0 ? float(req.jpeg_qf) : jpeg_qf_of_quality(jpeg_quality);
-  sink.emit(ENH_EV_STAGE, kStageJpeg, 0, 0, {{"stage", "jpeg_clean"}, {"qf", qf}});
-  const ModelInfo m = resolve_model(s->models_dir, req.jpeg_model);
-  Ladder lad = backend_ladder(*s, req, req.jpeg_model);
-  if (lad.rungs.back().kind == BackendKind::cpu)
-    lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
-  // Tiles multiple of 8 (three stride-2 levels); 256 like SR on T1/T2 (S2/S3).
-  constexpr int kTile = 256;
-  for (size_t rung = 0; rung < lad.rungs.size(); ++rung) {
-    enh_status st = ENH_OK;
-    try {
-      auto be = make_ncnn_backend(lad.rungs[rung]);
-      be->load(m);
-      return jpeg_clean(*be, img, qf, kTile, m.pad, [&](int done, int total) {
-        sink.progress(kStageJpeg, done, total, -1, done == total);
-        return !stop();
-      });
-    } catch (const Error& e) {
-      if (e.status() == ENH_E_CANCELLED && stop()) throw Stopped{};
-      if (e.status() == ENH_E_MODEL || !recoverable(e.status())) throw;
-      st = e.status();
-    } catch (const std::bad_alloc&) {
-      st = ENH_E_OOM;
-    }
-    const bool last = rung + 1 >= lad.rungs.size();
-    nlohmann::json p = {{"kind", last ? "jpeg" : "backend"},
-                        {"from", backend_kind_name(lad.rungs[rung])},
-                        {"reason", fallback_reason(st)}};
-    p["to"] = last ? "skipped" : backend_kind_name(lad.rungs[rung + 1]);
-    sink.emit(ENH_EV_FALLBACK, kStageJpeg, 0, 0, p);
-  }
-  return img;
-}
-
 template <class F>
 bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage, const char* kind,
                         F&& f) {
@@ -571,6 +541,25 @@ bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage,
     sink.emit(ENH_EV_FALLBACK, stage, 0, 0, p);
   }
   return false;
+}
+
+// S9: FBCNN restore graph, 1x, before faces and SR. A model that fails on every backend leaves
+// the image as it is, with a FALLBACK event of kind "jpeg" (ADR-0016), as for faces.
+Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
+  const float qf = req.jpeg_qf >= 0 ? float(req.jpeg_qf) : jpeg_qf_of_quality(jpeg_quality);
+  sink.emit(ENH_EV_STAGE, kStageJpeg, 0, 0, {{"stage", "jpeg_clean"}, {"qf", qf}});
+  const int pad = resolve_model(s->models_dir, req.jpeg_model).pad;
+  // Tiles multiple of 8 (three stride-2 levels); 256 like SR on T1/T2 (S2/S3).
+  constexpr int kTile = 256;
+  Rgb8 out;
+  if (!on_ladder(req, req.jpeg_model, kStageJpeg, "jpeg", [&](InferenceBackend& be) {
+        out = jpeg_clean(be, img, qf, kTile, pad, [&](int done, int total) {
+          sink.progress(kStageJpeg, done, total, -1, done == total);
+          return !stop();
+        });
+      }))
+    return img;
+  return out;
 }
 
 // S9: HVI-CIDNet once on a downscale (pipeline/lowlight). Failing on every backend leaves the
