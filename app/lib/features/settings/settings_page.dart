@@ -62,8 +62,7 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 if (s.format.hasQuality)
                   ListTile(
-                    title: Text(l10n.settingsQuality),
-                    trailing: Text('${s.quality}'),
+                    title: Text('${l10n.settingsQuality}: ${s.quality}'),
                     subtitle: Slider(
                       value: s.quality.toDouble(),
                       min: ExportFormat.minQuality.toDouble(),
