@@ -13,6 +13,7 @@
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -131,7 +132,7 @@ class NcnnBackend final : public InferenceBackend {
       check_extract(ex.extract(name, m), m);
       for (int c = 0; c < m.c; ++c) {
         const float* ch = m.channel(c);
-        for (size_t i = 0; i < size_t(m.w) * m.h; ++i)
+        for (size_t i = 0; i < sz(m.w) * sz(m.h); ++i)
           if (!std::isfinite(ch[i])) fail(ENH_E_NUMERIC, "non-finite model output");
       }
       outs.push_back(m);
@@ -161,7 +162,7 @@ class NcnnBackend final : public InferenceBackend {
 #endif
     for (int c = 0; c < out.c; ++c) {
       const float* ch = out.channel(c);
-      for (size_t i = 0; i < size_t(out.w) * out.h; ++i)
+      for (size_t i = 0; i < sz(out.w) * sz(out.h); ++i)
         if (!std::isfinite(ch[i])) fail(ENH_E_NUMERIC, "non-finite model output");
     }
   }

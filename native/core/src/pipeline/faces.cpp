@@ -12,6 +12,7 @@
 #include "image/ops.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -88,7 +89,8 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
   const int strides[3] = {8, 16, 32};
   for (int k = 0; k < 3; ++k) {
     const int st = strides[k], cols = kYunetSide / st, n = cols * cols;
-    const ncnn::Mat &cls = out[k], &obj = out[3 + k], &box = out[6 + k], &kps = out[9 + k];
+    const ncnn::Mat &cls = out[sz(k)], &obj = out[sz(3 + k)], &box = out[sz(6 + k)],
+                    &kps = out[sz(9 + k)];
     if (int(cls.total()) != n || int(obj.total()) != n || int(box.total()) != 4 * n ||
         int(kps.total()) != 10 * n) {
       fail(ENH_E_MODEL, "face detector: unexpected output shape");
@@ -99,8 +101,8 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
       if (score < min_score) continue;
       const int r = i / cols, c = i % cols;
       const float* b = pb + 4 * i;
-      const float cx = (c + b[0]) * st, cy = (r + b[1]) * st;
-      const float w = std::exp(b[2]) * st, h = std::exp(b[3]) * st;
+      const float cx = (float(c) + b[0]) * float(st), cy = (float(r) + b[1]) * float(st);
+      const float w = std::exp(b[2]) * float(st), h = std::exp(b[3]) * float(st);
       Face f;
       f.score = score;
       f.x = float((cx - w / 2) / s);
@@ -108,8 +110,8 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
       f.w = float(w / s);
       f.h = float(h / s);
       for (int j = 0; j < 5; ++j) {
-        f.lm[2 * j] = float((pk[10 * i + 2 * j] + c) * st / s);
-        f.lm[2 * j + 1] = float((pk[10 * i + 2 * j + 1] + r) * st / s);
+        f.lm[2 * j] = float((pk[10 * i + 2 * j] + float(c)) * float(st) / s);
+        f.lm[2 * j + 1] = float((pk[10 * i + 2 * j + 1] + float(r)) * float(st) / s);
       }
       faces.push_back(f);
     }
@@ -149,16 +151,18 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
       // The tile of the upscale, sampled bilinearly from the photo (pixel centres aligned).
       tile.w = std::min(T, uw - tx);
       tile.h = std::min(T, uh - ty);
-      tile.px.resize(size_t(tile.w) * tile.h * 3);
+      tile.px.resize(sz(tile.w) * sz(tile.h) * 3);
       for (int y = 0; y < tile.h; ++y) {
-        const float fy = std::clamp((ty + y + 0.5f) / f - 0.5f, 0.f, float(img.h - 1));
+        const float fy =
+            std::clamp((float(ty + y) + 0.5f) / float(f) - 0.5f, 0.f, float(img.h - 1));
         const int y0 = int(fy), y1 = std::min(y0 + 1, img.h - 1);
-        const float ay = fy - y0;
+        const float ay = fy - float(y0);
         uint8_t* d = tile.row(y);
         for (int x = 0; x < tile.w; ++x) {
-          const float fx = std::clamp((tx + x + 0.5f) / f - 0.5f, 0.f, float(img.w - 1));
+          const float fx =
+              std::clamp((float(tx + x) + 0.5f) / float(f) - 0.5f, 0.f, float(img.w - 1));
           const int x0 = int(fx), x1 = std::min(x0 + 1, img.w - 1);
-          const float ax = fx - x0;
+          const float ax = fx - float(x0);
           for (int c = 0; c < 3; ++c) {
             const float top = img.row(y0)[x0 * 3 + c] * (1 - ax) + img.row(y0)[x1 * 3 + c] * ax;
             const float bot = img.row(y1)[x0 * 3 + c] * (1 - ax) + img.row(y1)[x1 * 3 + c] * ax;
@@ -167,13 +171,13 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
         }
       }
       for (Face fc : detect_faces(yunet, tile, min_score)) {
-        fc.x = (fc.x + tx) / f;
-        fc.y = (fc.y + ty) / f;
-        fc.w /= f;
-        fc.h /= f;
+        fc.x = (fc.x + float(tx)) / float(f);
+        fc.y = (fc.y + float(ty)) / float(f);
+        fc.w /= float(f);
+        fc.h /= float(f);
         for (int j = 0; j < 5; ++j) {
-          fc.lm[2 * j] = (fc.lm[2 * j] + tx) / f;
-          fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + ty) / f;
+          fc.lm[2 * j] = (fc.lm[2 * j] + float(tx)) / float(f);
+          fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + float(ty)) / float(f);
         }
         if (std::min(fc.w, fc.h) >= kMinSmallFacePx) all.push_back(fc);
       }
@@ -256,7 +260,7 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
   Rgb8 out;
   out.w = w;
   out.h = h;
-  out.px.resize(size_t(w) * h * 3);
+  out.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y) {
     uint8_t* o = out.row(y);
     for (int x = 0; x < w; ++x) {
@@ -366,7 +370,7 @@ ncnn::Mat codebook_lookup(const ncnn::Mat& logits, const std::vector<float>& cod
     const float* r = rows + size_t(t) * kCodebookSize;
     const int best = int(std::max_element(r, r + kCodebookSize) - r);  // first of ties
     const float* code = codebook.data() + size_t(best) * kCodeDim;
-    for (int c = 0; c < kCodeDim; ++c) feat.channel(c)[t] = code[c];
+    for (int c = 0; c < kCodeDim; ++c) feat.channel(c)[sz(t)] = code[c];
   }
   return feat;
 }
@@ -499,7 +503,7 @@ void paste_faces(uint8_t* band, int w, int y, int rows, const std::vector<Restor
     if (f.strength <= 0) continue;
     const int ya = std::max(y, f.y0), yb = std::min(y + rows, f.y1), xb = std::min(w, f.x1);
     for (int oy = ya; oy < yb; ++oy) {
-      uint8_t* row = band + size_t(oy - y) * w * 3;
+      uint8_t* row = band + sz(oy - y) * sz(w) * 3;
       for (int ox = f.x0; ox < xb; ++ox) {
         double fx, fy;
         f.to_face.apply(ox + 0.5, oy + 0.5, &fx, &fy);

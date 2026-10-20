@@ -20,6 +20,7 @@
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 
@@ -59,9 +60,9 @@ void read_result_rows(const enh_viewer& v, int y, int n, int x, int w, uint8_t* 
       if (!f) fail(ENH_E_IO, "cannot read the result");
       open_band = b;
     }
-    const int64_t off = (int64_t(row - v.band_y0[size_t(b)]) * v.w + x) * 3;
+    const int64_t off = (int64_t(row - v.band_y0[sz(b)]) * v.w + x) * 3;
     if (fseeko(f, off_t(off), SEEK_SET) != 0 ||
-        std::fread(dst + size_t(r) * w * 3, 1, size_t(w) * 3, f) != size_t(w) * 3) {
+        std::fread(dst + sz(r) * sz(w) * 3, 1, sz(w) * 3, f) != sz(w) * 3) {
       close();
       fail(ENH_E_IO, "cannot read the result");
     }
@@ -71,8 +72,8 @@ void read_result_rows(const enh_viewer& v, int y, int n, int x, int w, uint8_t* 
 
 void render_result(const enh_viewer& v, int x, int y, int w, int h, int f, uint8_t* rgba) {
   const int ow = (w + f - 1) / f, oh = (h + f - 1) / f;
-  std::vector<uint8_t> row(size_t(w) * 3);  // one row at a time: f can be large
-  std::vector<uint64_t> acc(size_t(ow) * 3);
+  std::vector<uint8_t> row(sz(w) * 3);  // one row at a time: f can be large
+  std::vector<uint64_t> acc(sz(ow) * 3);
   for (int oy = 0; oy < oh; ++oy) {
     const int y0 = y + oy * f, n = std::min(f, y + h - y0);
     std::fill(acc.begin(), acc.end(), 0);
@@ -80,13 +81,13 @@ void render_result(const enh_viewer& v, int x, int y, int w, int h, int f, uint8
       read_result_rows(v, y0 + r, 1, x, w, row.data());
       const uint8_t* p = row.data();
       for (int c = 0; c < w; ++c)
-        for (int k = 0; k < 3; ++k) acc[size_t(c / f) * 3 + k] += p[c * 3 + k];
+        for (int k = 0; k < 3; ++k) acc[sz(c / f) * 3 + sz(k)] += p[c * 3 + k];
     }
-    uint8_t* out = rgba + size_t(oy) * ow * 4;
+    uint8_t* out = rgba + sz(oy) * sz(ow) * 4;
     for (int ox = 0; ox < ow; ++ox) {
       const uint64_t cnt = uint64_t(n) * uint64_t(std::min(f, w - ox * f));
       for (int k = 0; k < 3; ++k)
-        out[ox * 4 + k] = uint8_t((acc[size_t(ox) * 3 + k] + cnt / 2) / cnt);
+        out[ox * 4 + k] = uint8_t((acc[sz(ox) * 3 + sz(k)] + cnt / 2) / cnt);
       out[ox * 4 + 3] = 255;
     }
   }
@@ -105,7 +106,7 @@ void render_original(const enh_viewer& v, int x, int y, int w, int h, int f, uin
     const double a0 = cy + (y + oy * f) * sy, a1 = cy + std::min(y + h, y + (oy + 1) * f) * sy;
     for (int ox = 0; ox < ow; ++ox) {
       const double b0 = cx + (x + ox * f) * sx, b1 = cx + std::min(x + w, x + (ox + 1) * f) * sx;
-      uint8_t* out = rgba + (size_t(oy) * ow + ox) * 4;
+      uint8_t* out = rgba + (sz(oy) * sz(ow) + sz(ox)) * 4;
       out[3] = 255;
       if (a1 - a0 >= 1 && b1 - b0 >= 1) {
         const int r0 = int(a0), r1 = std::min(in.h, int(std::ceil(a1)));

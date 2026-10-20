@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -15,7 +16,7 @@ std::vector<int> tile_origins(int n, int t) {
   return o;
 }
 
-int owned_start(const std::vector<int>& o, int i, int t) { return i == 0 ? 0 : o[i - 1] + t; }
+int owned_start(const std::vector<int>& o, int i, int t) { return i == 0 ? 0 : o[sz(i - 1)] + t; }
 
 int reflect101(int i, int n) {
   if (n == 1) return 0;

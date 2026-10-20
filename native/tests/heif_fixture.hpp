@@ -34,7 +34,7 @@ inline Bytes box(const std::string& type, const Bytes& body) {
 }
 inline Bytes full(const std::string& type, int version, uint32_t flags, const Bytes& body) {
   W w;
-  w.u(version, 1);
+  w.u(uint64_t(version), 1);
   w.u(flags, 3);
   w.raw(body);
   return box(type, w.b);

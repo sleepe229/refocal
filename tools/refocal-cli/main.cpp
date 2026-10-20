@@ -87,7 +87,7 @@ void on_event(int64_t, int32_t type, int32_t, int64_t done, int64_t total, char*
     case ENH_EV_PROGRESS:
       if (!g_sink.json_out)
         std::fprintf(stderr, "\r%lld/%lld tiles, eta %.1f s   ", (long long)done, (long long)total,
-                     j.value("eta_ms", int64_t(-1)) / 1000.0);
+                     double(j.value("eta_ms", int64_t(-1))) / 1000.0);
       break;
     case ENH_EV_FALLBACK:
       std::fprintf(stderr, "\nfallback %s -> %s (%s)\n", j.value("from", "").c_str(),

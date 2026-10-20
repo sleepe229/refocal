@@ -32,6 +32,7 @@
 #include "pipeline/look.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 using json = nlohmann::json;
@@ -118,14 +119,14 @@ static Rgb8 texture(int w, int h) {
   Rgb8 img;
   img.w = w;
   img.h = h;
-  img.px.resize(size_t(w) * h * 3);
+  img.px.resize(sz(w) * sz(h) * 3);
   uint32_t r = 12345;
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
       r = r * 1103515245u + 12345u;
       uint8_t* p = img.row(y) + x * 3;
       p[0] = uint8_t((x * 3 + y) & 0xFF);
-      p[1] = uint8_t((y * 2 + (r >> 24) % 16) & 0xFF);
+      p[1] = uint8_t((uint32_t(y) * 2 + (r >> 24) % 16) & 0xFF);
       p[2] = uint8_t(((x / 8 + y / 8) % 2) * 200 + 20);
     }
   return img;
@@ -156,7 +157,7 @@ static Rgb8 nearest_up(const Rgb8& in, int f) {
   Rgb8 o;
   o.w = in.w * f;
   o.h = in.h * f;
-  o.px.resize(size_t(o.w) * o.h * 3);
+  o.px.resize(sz(o.w) * sz(o.h) * 3);
   for (int y = 0; y < o.h; ++y)
     for (int x = 0; x < o.w; ++x) std::memcpy(o.row(y) + x * 3, in.row(y / f) + (x / f) * 3, 3);
   return o;
@@ -168,13 +169,13 @@ static Rgb8 read_output(const std::string& job_dir) {
   Rgb8 o;
   o.w = r["width"];
   o.h = r["height"];
-  o.px.reserve(size_t(o.w) * o.h * 3);
+  o.px.reserve(sz(o.w) * sz(o.h) * 3);
   int b = 0;
   for (int rows : r["band_rows"].get<std::vector<int>>()) {
     char name[32];
     std::snprintf(name, sizeof name, "bands/%04d.raw", b++);
     auto d = fs::read_all(fs::join(job_dir, name));
-    CHECK(d.size() == size_t(rows) * o.w * 3);
+    CHECK(d.size() == sz(rows) * sz(o.w) * 3);
     o.px.insert(o.px.end(), d.begin(), d.end());
   }
   return o;
@@ -292,14 +293,14 @@ static void test_viewer(Session& se) {
   if (!v) return;
   auto render = [&](int source, int x, int y, int w, int h, int f) {
     const int ow = (w + f - 1) / f, oh = (h + f - 1) / f;
-    std::vector<uint8_t> rgba(size_t(ow) * oh * 4);
+    std::vector<uint8_t> rgba(sz(ow) * sz(oh) * 4);
     const enh_status st =
         enh_viewer_render(v, source, x, y, w, h, f, rgba.data(), int64_t(rgba.size()));
     CHECK(st == ENH_OK);
     return rgba;
   };
   auto rgb_at = [](const Rgb8& im, int x, int y, int k) {
-    return im.px[(size_t(y) * im.w + x) * 3 + k];
+    return im.px[index2d(x, y, im.w) * 3 + sz(k)];
   };
   // factor 1: the result's pixels, across bands (rows 100..299 of 404)
   {
@@ -308,7 +309,7 @@ static void test_viewer(Session& se) {
     for (int y = 0; y < 200; ++y)
       for (int x = 0; x < 200; ++x)
         for (int k = 0; k < 3; ++k)
-          same &= t[(size_t(y) * 200 + x) * 4 + k] == rgb_at(out, 37 + x, 100 + y, k);
+          same &= t[index2d(x, y, 200) * 4 + sz(k)] == rgb_at(out, 37 + x, 100 + y, k);
     CHECK(same && t[3] == 255);
   }
   // factor 4 over the whole image: result and original both give the input back
@@ -318,7 +319,7 @@ static void test_viewer(Session& se) {
     for (int y = 0; y < 101; ++y)
       for (int x = 0; x < 150; ++x)
         for (int k = 0; k < 3; ++k)
-          same &= t[(size_t(y) * 150 + x) * 4 + k] == rgb_at(src, x, y, k);
+          same &= t[index2d(x, y, 150) * 4 + sz(k)] == rgb_at(src, x, y, k);
     CHECK(same);
   }
   // an edge tile that does not divide: ceil size, partial means
@@ -368,7 +369,7 @@ static void test_crop(Session& se) {
     CHECK(enh_viewer_render(v, 1, 0, 0, 256, 192, 4, t.data(), int64_t(t.size())) == ENH_OK);
     bool same = true;
     for (size_t i = 0; i < size_t(64) * 48; ++i)
-      for (int k = 0; k < 3; ++k) same &= t[i * 4 + k] == part.px[i * 3 + k];
+      for (size_t k = 0; k < 3; ++k) same &= t[i * 4 + k] == part.px[i * 3 + k];
     CHECK(same);
     enh_viewer_close(v);
   }
@@ -377,6 +378,11 @@ static void test_crop(Session& se) {
   q["job_id"] = "crop_out";
   q["crop"] = {100, 60, 64, 48};
   CHECK(run_job(se, q, c2).status == ENH_E_INVALID);
+  // x + w past INT_MAX: refused, not wrapped around into the photo (UB before; ASan/UBSan).
+  Collector c3;
+  q["job_id"] = "crop_overflow";
+  q["crop"] = {2147483647 - 10, 0, 64, 48};
+  CHECK(run_job(se, q, c3).status == ENH_E_INVALID);
   enh_job* j = nullptr;
   for (const char* bad : {"[0,0,8,64]", "[0,0,64,4096]", "[-1,0,64,64]", "[0,0,64]"}) {
     q["job_id"] = "crop_bad";
@@ -530,7 +536,7 @@ static void test_orientation(Session& se) {
 static double psnr(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
   double se = 0;
   for (size_t i = 0; i < a.size(); ++i) se += double(a[i] - b[i]) * (a[i] - b[i]);
-  return se == 0 ? 99 : 10 * std::log10(255.0 * 255.0 * a.size() / se);
+  return se == 0 ? 99 : 10 * std::log10(255.0 * 255.0 * double(a.size()) / se);
 }
 
 static void test_export(Session& se) {
@@ -655,7 +661,7 @@ static void test_look_export(Session& se) {
   // The export is the matrix applied to the result, rounded.
   const json pastel = {{"format", "png"}, {"look", {{"id", "pastel"}, {"amount", 0.8}}}};
   Rgb8 want = sr;
-  apply_look(look_matrix("pastel", 0.8f), want.px.data(), size_t(want.w) * want.h);
+  apply_look(look_matrix("pastel", 0.8f), want.px.data(), sz(want.w) * sz(want.h));
   const Rgb8 got = exported(pastel, "l-pastel.png");
   CHECK(got.px == want.px && got.px != sr.px);
   // The ABI hands out the same matrix.
@@ -673,7 +679,7 @@ static void test_look_export(Session& se) {
   half["strength"] = 0.5;
   const Rgb8 h = exported(half, "l-half.png");
   Rgb8 lzl = lz;
-  apply_look(look_matrix("pastel", 0.8f), lzl.px.data(), size_t(lz.w) * lz.h);
+  apply_look(look_matrix("pastel", 0.8f), lzl.px.data(), sz(lz.w) * sz(lz.h));
   bool lerp_ok = h.px.size() == sr.px.size();
   for (size_t i = 0; lerp_ok && i < sr.px.size(); ++i)
     lerp_ok = std::abs(2 * h.px[i] - lzl.px[i] - want.px[i]) <= 3;
@@ -693,14 +699,14 @@ static void test_look_export(Session& se) {
   Rgb8 lw = sr;
   LeakOverlay(sr.w, sr.h).blend_rows(0, sr.h, lw.px.data());
   CHECK(l.px == lw.px);
-  std::vector<uint8_t> grid(size_t(ENH_LOOK_LEAKS_SIDE) * ENH_LOOK_LEAKS_SIDE * 4);
+  std::vector<uint8_t> grid(sz(ENH_LOOK_LEAKS_SIDE) * ENH_LOOK_LEAKS_SIDE * 4);
   int32_t gw = 0, gh = 0;
   CHECK(enh_look_leaks(sr.w, sr.h, grid.data(), int64_t(grid.size()), &gw, &gh) == ENH_OK);
   CHECK(gw == 256 && gh == 172);  // 300 x 202
   const Rgb8 lg = leak_grid(sr.w, sr.h);
   bool grid_same = lg.w == gw && lg.h == gh;
-  for (size_t i = 0; grid_same && i < size_t(gw) * gh; ++i)
-    grid_same = std::equal(lg.px.begin() + i * 3, lg.px.begin() + i * 3 + 3, &grid[i * 4]) &&
+  for (size_t i = 0; grid_same && i < sz(gw) * sz(gh); ++i)
+    grid_same = std::equal(lg.px.data() + i * 3, lg.px.data() + i * 3 + 3, &grid[i * 4]) &&
                 grid[i * 4 + 3] == 255;
   CHECK(grid_same);
   CHECK(enh_look_leaks(sr.w, sr.h, grid.data(), 16, &gw, &gh) == ENH_E_INVALID);
@@ -760,8 +766,8 @@ static void test_lanczos() {
 static void test_png_input(Session& se) {
   const int w = 90, h = 70;
   Rgb8 src = texture(w, h);
-  std::vector<uint8_t> rgba(size_t(w) * h * 4);
-  for (int i = 0; i < w * h; ++i) {
+  std::vector<uint8_t> rgba(sz(w) * sz(h) * 4);
+  for (size_t i = 0; i < sz(w) * sz(h); ++i) {
     std::memcpy(&rgba[i * 4], &src.px[i * 3], 3);
     rgba[i * 4 + 3] = 255;
   }
@@ -819,14 +825,14 @@ static void test_png_input(Session& se) {
     ImageInfo info;
     SourceMeta meta;
     decode_image(dst, &info, &meta);
-    CHECK(info.alpha && meta.alpha.size() == size_t(w) * h && meta.alpha[0] == 0 &&
+    CHECK(info.alpha && meta.alpha.size() == sz(w) * sz(h) && meta.alpha[0] == 0 &&
           meta.alpha[1] == 255);
   }
   CHECK(!export_to(R"({"format":"jpeg"})", "alpha.jpg").second);
 
   // 4x: the alpha is scaled with the image (a transparent 8x8 block stays transparent inside).
   for (int y = 20; y < 28; ++y)
-    for (int x = 30; x < 38; ++x) rgba[(size_t(y) * w + x) * 4 + 3] = 0;
+    for (int x = 30; x < 38; ++x) rgba[index2d(x, y, w) * 4 + 3] = 0;
   CHECK(png_image_write_to_file(&im, in.c_str(), 0, rgba.data(), 0, nullptr));
   Collector c4;
   CHECK(run_job(se, req("png4", in, "nearest4"), c4).status == ENH_OK);
@@ -835,10 +841,10 @@ static void test_png_input(Session& se) {
   ImageInfo i4;
   SourceMeta m4;
   decode_image(dst4, &i4, &m4);
-  CHECK(i4.w == w * 4 && m4.alpha.size() == size_t(w) * h * 16);
-  if (m4.alpha.size() == size_t(w) * h * 16) {
-    CHECK(m4.alpha[size_t(4 * 24) * w * 4 + 4 * 34] == 0);    // inside the block
-    CHECK(m4.alpha[size_t(4 * 50) * w * 4 + 4 * 70] == 255);  // far from it
+  CHECK(i4.w == w * 4 && m4.alpha.size() == sz(w) * sz(h) * 16);
+  if (m4.alpha.size() == sz(w) * sz(h) * 16) {
+    CHECK(m4.alpha[sz(4 * 24) * sz(w) * 4 + 4 * 34] == 0);    // inside the block
+    CHECK(m4.alpha[sz(4 * 50) * sz(w) * 4 + 4 * 70] == 255);  // far from it
   }
 }
 
@@ -849,7 +855,7 @@ static std::vector<uint8_t> icc_profile() {
   std::vector<uint8_t> p(kSize, 0);
   auto put = [&](size_t at, const char* s) { std::memcpy(&p[at], s, 4); };
   auto be32 = [&](size_t at, uint32_t v) {
-    for (int i = 0; i < 4; ++i) p[at + i] = uint8_t(v >> (24 - 8 * i));
+    for (size_t i = 0; i < 4; ++i) p[at + i] = uint8_t(v >> (24 - 8 * i));
   };
   be32(0, kSize);
   p[8] = 2;  // version 2.1

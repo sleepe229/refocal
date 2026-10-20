@@ -71,7 +71,7 @@ std::vector<uint8_t> base64_decode(const std::string& s) {
   for (size_t i = 0; i < s.size(); i += 4) {
     int v[4];
     int pad = 0;
-    for (int k = 0; k < 4; ++k) {
+    for (size_t k = 0; k < 4; ++k) {
       const char c = s[i + k];
       if (c == '=' && i + 4 == s.size() && k >= 2) {
         v[k] = 0;
@@ -80,7 +80,8 @@ std::vector<uint8_t> base64_decode(const std::string& s) {
         fail(ENH_E_INVALID, "bad base64");
       }
     }
-    const uint32_t x = uint32_t(v[0]) << 18 | uint32_t(v[1]) << 12 | uint32_t(v[2]) << 6 | v[3];
+    const uint32_t x =
+        uint32_t(v[0]) << 18 | uint32_t(v[1]) << 12 | uint32_t(v[2]) << 6 | uint32_t(v[3]);
     out.push_back(uint8_t(x >> 16));
     if (pad < 2) out.push_back(uint8_t(x >> 8));
     if (pad < 1) out.push_back(uint8_t(x));

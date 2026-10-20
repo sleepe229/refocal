@@ -25,6 +25,7 @@
 #include "util/fs.hpp"
 #include "util/integrity.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 #include "util/zip.hpp"
 
 #ifndef ENH_VERSION_STRING
@@ -244,7 +245,7 @@ enh_status enh_look_leaks(int32_t w, int32_t h, uint8_t* rgba, int64_t rgba_size
   try {
     const enh::Rgb8 g = enh::leak_grid(w, h);
     if (rgba_size < int64_t(g.w) * g.h * 4) return ENH_E_INVALID;
-    for (size_t i = 0, n = size_t(g.w) * g.h; i < n; ++i) {
+    for (size_t i = 0, n = enh::sz(g.w) * enh::sz(g.h); i < n; ++i) {
       std::memcpy(rgba + i * 4, g.px.data() + i * 3, 3);
       rgba[i * 4 + 3] = 255;
     }

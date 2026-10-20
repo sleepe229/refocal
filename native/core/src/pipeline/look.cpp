@@ -6,6 +6,7 @@
 
 #include "enh.h"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -74,9 +75,9 @@ LookMatrix look_matrix(const std::string& id, float amount) {
   for (int r = 0; r < 3; ++r) {
     for (int c = 0; c < 3; ++c) {
       const float id_rc = r == c ? 1.f : 0.f;
-      m[size_t(r) * 5 + c] = id_rc + amount * (a[r][c] - id_rc);
+      m[sz(r) * 5 + sz(c)] = id_rc + amount * (a[r][c] - id_rc);
     }
-    m[size_t(r) * 5 + 4] = amount * b[r] * 255;
+    m[sz(r) * 5 + 4] = amount * b[r] * 255;
   }
   m[18] = 1;  // alpha unchanged
   return m;
@@ -100,19 +101,20 @@ Rgb8 leak_grid(int w, int h) {
   const double longer = std::max(w, h);
   g.w = std::max(1, int(std::lround(kLeaksSide * w / longer)));
   g.h = std::max(1, int(std::lround(kLeaksSide * h / longer)));
-  g.px.resize(size_t(g.w) * g.h * 3);
+  g.px.resize(sz(g.w) * sz(g.h) * 3);
   // Distances in units of the longer side, so the glows stay round on any aspect.
-  const float ax = float(g.w) / std::max(g.w, g.h), ay = float(g.h) / std::max(g.w, g.h);
+  const float longer_g = float(std::max(g.w, g.h));
+  const float ax = float(g.w) / longer_g, ay = float(g.h) / longer_g;
   for (int y = 0; y < g.h; ++y) {
     for (int x = 0; x < g.w; ++x) {
-      const float u = (x + 0.5f) / g.w, v = (y + 0.5f) / g.h;
+      const float u = (float(x) + 0.5f) / float(g.w), v = (float(y) + 0.5f) / float(g.h);
       float keep[3] = {1, 1, 1};  // screen of all glows: 1 - prod(1 - glow)
       for (const auto& gl : kGlows) {
         const float dx = (u - gl.cx) * ax, dy = (v - gl.cy) * ay;
         const float k = gl.a * std::exp(-(dx * dx + dy * dy) / (2 * gl.r * gl.r));
         for (int c = 0; c < 3; ++c) keep[c] *= 1 - k * gl.rgb[c] / 255;
       }
-      uint8_t* o = g.row(y) + size_t(x) * 3;
+      uint8_t* o = g.row(y) + sz(x) * 3;
       for (int c = 0; c < 3; ++c) o[c] = uint8_t(std::lround((1 - keep[c]) * 255));
     }
   }
@@ -120,25 +122,27 @@ Rgb8 leak_grid(int w, int h) {
 }
 
 LeakOverlay::LeakOverlay(int w, int h) : w_(w), h_(h), grid_(leak_grid(w, h)) {
-  x0_.resize(size_t(w));
-  fx_.resize(size_t(w));
+  x0_.resize(sz(w));
+  fx_.resize(sz(w));
   for (int x = 0; x < w; ++x) {
-    const float sx = std::clamp((x + 0.5f) * grid_.w / w - 0.5f, 0.f, float(grid_.w - 1));
-    x0_[size_t(x)] = std::min(int(sx), grid_.w - 1);
-    fx_[size_t(x)] = sx - x0_[size_t(x)];
+    const float sx =
+        std::clamp((float(x) + 0.5f) * float(grid_.w) / float(w) - 0.5f, 0.f, float(grid_.w - 1));
+    x0_[sz(x)] = std::min(int(sx), grid_.w - 1);
+    fx_[sz(x)] = sx - float(x0_[sz(x)]);
   }
 }
 
 void LeakOverlay::blend_rows(int y0, int rows, uint8_t* rgb) {
   for (int r = 0; r < rows; ++r) {
-    const float sy = std::clamp((y0 + r + 0.5f) * grid_.h / h_ - 0.5f, 0.f, float(grid_.h - 1));
+    const float sy = std::clamp((float(y0 + r) + 0.5f) * float(grid_.h) / float(h_) - 0.5f, 0.f,
+                                float(grid_.h - 1));
     const int gy0 = std::min(int(sy), grid_.h - 1), gy1 = std::min(gy0 + 1, grid_.h - 1);
-    const float fy = sy - gy0;
+    const float fy = sy - float(gy0);
     const uint8_t *a = grid_.row(gy0), *b = grid_.row(gy1);
-    uint8_t* out = rgb + size_t(r) * w_ * 3;
+    uint8_t* out = rgb + sz(r) * sz(w_) * 3;
     for (int x = 0; x < w_; ++x) {
-      const int gx0 = x0_[size_t(x)], gx1 = std::min(gx0 + 1, grid_.w - 1);
-      const float fx = fx_[size_t(x)];
+      const int gx0 = x0_[sz(x)], gx1 = std::min(gx0 + 1, grid_.w - 1);
+      const float fx = fx_[sz(x)];
       for (int c = 0; c < 3; ++c) {
         const float top = a[gx0 * 3 + c] + fx * (a[gx1 * 3 + c] - a[gx0 * 3 + c]);
         const float bot = b[gx0 * 3 + c] + fx * (b[gx1 * 3 + c] - b[gx0 * 3 + c]);

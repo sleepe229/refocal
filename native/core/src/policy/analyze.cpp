@@ -11,24 +11,25 @@
 #include "job/session.hpp"
 #include "pipeline/faces.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
 double estimate_noise(const Rgb8& img) {
   if (img.w < 3 || img.h < 3) return 0;
-  std::vector<float> y(size_t(img.w) * img.h);
+  std::vector<float> y(sz(img.w) * sz(img.h));
   for (int r = 0; r < img.h; ++r) {
     const uint8_t* p = img.row(r);
     for (int c = 0; c < img.w; ++c, p += 3) {
-      y[size_t(r) * img.w + c] = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+      y[sz(r) * sz(img.w) + sz(c)] = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
     }
   }
   // M = [1 -2 1; -2 4 -2; 1 -2 1]: zero on locally linear image content.
   double sum = 0;
   for (int r = 1; r + 1 < img.h; ++r) {
-    const float* a = &y[size_t(r - 1) * img.w];
-    const float* b = &y[size_t(r) * img.w];
-    const float* d = &y[size_t(r + 1) * img.w];
+    const float* a = &y[sz(r - 1) * sz(img.w)];
+    const float* b = &y[sz(r) * sz(img.w)];
+    const float* d = &y[sz(r + 1) * sz(img.w)];
     for (int c = 1; c + 1 < img.w; ++c) {
       const double v = a[c - 1] - 2 * a[c] + a[c + 1] - 2 * (b[c - 1] - 2 * b[c] + b[c + 1]) +
                        d[c - 1] - 2 * d[c] + d[c + 1];

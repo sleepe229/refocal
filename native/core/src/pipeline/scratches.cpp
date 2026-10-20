@@ -9,6 +9,7 @@
 #include "image/ops.hpp"
 #include "pipeline/geometry.hpp"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -19,15 +20,17 @@ Rgb8 resize_bilinear(const Rgb8& src, int w, int h) {
   Rgb8 out;
   out.w = w;
   out.h = h;
-  out.px.resize(size_t(w) * h * 3);
+  out.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y) {
-    const float fy = std::clamp((y + 0.5f) * src.h / h - 0.5f, 0.f, float(src.h - 1));
+    const float fy =
+        std::clamp((float(y) + 0.5f) * float(src.h) / float(h) - 0.5f, 0.f, float(src.h - 1));
     const int y0 = int(fy), y1 = std::min(y0 + 1, src.h - 1);
-    const float ay = fy - y0;
+    const float ay = fy - float(y0);
     for (int x = 0; x < w; ++x) {
-      const float fx = std::clamp((x + 0.5f) * src.w / w - 0.5f, 0.f, float(src.w - 1));
+      const float fx =
+          std::clamp((float(x) + 0.5f) * float(src.w) / float(w) - 0.5f, 0.f, float(src.w - 1));
       const int x0 = int(fx), x1 = std::min(x0 + 1, src.w - 1);
-      const float ax = fx - x0;
+      const float ax = fx - float(x0);
       for (int c = 0; c < 3; ++c) {
         const float top = src.row(y0)[x0 * 3 + c] * (1 - ax) + src.row(y0)[x1 * 3 + c] * ax;
         const float bot = src.row(y1)[x0 * 3 + c] * (1 - ax) + src.row(y1)[x1 * 3 + c] * ax;
@@ -46,14 +49,14 @@ void dilate(Mask8& m, int r) {
     for (int x = 0; x < m.w; ++x) {
       uint8_t v = 0;
       for (int k = std::max(0, x - r); k <= std::min(m.w - 1, x + r) && !v; ++k) v = m.at(k, y);
-      tmp[size_t(y) * m.w + x] = v;
+      tmp[index2d(x, y, m.w)] = v;
     }
   for (int y = 0; y < m.h; ++y)
     for (int x = 0; x < m.w; ++x) {
       uint8_t v = 0;
       for (int k = std::max(0, y - r); k <= std::min(m.h - 1, y + r) && !v; ++k)
-        v = tmp[size_t(k) * m.w + x];
-      m.px[size_t(y) * m.w + x] = v;
+        v = tmp[index2d(x, k, m.w)];
+      m.px[index2d(x, y, m.w)] = v;
     }
 }
 
@@ -67,7 +70,7 @@ std::vector<uint8_t> blend_weight(const Mask8& hole, int x0, int y0, int x1, int
   const int kx0 = std::max(0, x0 - 2), kx1 = std::min(w, x1 + 2);
   const int ky0 = std::max(0, y0 - 2), ky1 = std::min(h, y1 + 2);
   const int kw = kx1 - kx0, rw = x1 - x0;
-  std::vector<float> known(size_t(kw) * (ky1 - ky0));
+  std::vector<float> known(sz(kw) * sz(ky1 - ky0));
   for (int y = ky0; y < ky1; ++y)
     for (int x = kx0; x < kx1; ++x) {
       bool any = false;
@@ -76,27 +79,27 @@ std::vector<uint8_t> blend_weight(const Mask8& hole, int x0, int y0, int x1, int
           const int xx = x + dx, yy = y + dy;
           any = xx >= 0 && yy >= 0 && xx < w && yy < h && !hole.at(xx, yy);
         }
-      known[size_t(y - ky0) * kw + (x - kx0)] = any ? 1.f : 0.f;
+      known[index2d(x - kx0, y - ky0, kw)] = any ? 1.f : 0.f;
     }
   float k[5];
   float sum = 0;
   for (int i = 0; i < 5; ++i) sum += k[i] = std::exp(-float((i - 2) * (i - 2)) / 2.f);
   for (float& v : k) v /= sum;
-  std::vector<float> tmp(size_t(rw) * (ky1 - ky0));
+  std::vector<float> tmp(sz(rw) * sz(ky1 - ky0));
   for (int y = ky0; y < ky1; ++y)
     for (int x = x0; x < x1; ++x) {
       float v = 0;
       for (int i = 0; i < 5; ++i)
-        v += k[i] * known[size_t(y - ky0) * kw + (reflect101(x + i - 2, w) - kx0)];
-      tmp[size_t(y - ky0) * rw + (x - x0)] = v;
+        v += k[i] * known[index2d(reflect101(x + i - 2, w) - kx0, y - ky0, kw)];
+      tmp[index2d(x - x0, y - ky0, rw)] = v;
     }
-  std::vector<uint8_t> out(size_t(rw) * (y1 - y0));
+  std::vector<uint8_t> out(sz(rw) * sz(y1 - y0));
   for (int y = y0; y < y1; ++y)
     for (int x = x0; x < x1; ++x) {
       float v = 0;
       for (int i = 0; i < 5; ++i)
-        v += k[i] * tmp[size_t(reflect101(y + i - 2, h) - ky0) * rw + (x - x0)];
-      out[size_t(y - y0) * rw + (x - x0)] = uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f));
+        v += k[i] * tmp[index2d(x - x0, reflect101(y + i - 2, h) - ky0, rw)];
+      out[index2d(x - x0, y - y0, rw)] = uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f));
     }
   return out;
 }
@@ -111,11 +114,11 @@ void refine_mask(Mask8& m, const Rgb8& img) {
   const int r = std::max(4, std::min(img.w, img.h) * 5 / (2 * kScratchShortSide));
   const int step = std::max(1, r / 3);  // at most 7 x 7 samples
   constexpr int kOutlier = 16;          // grey levels: above film grain
-  std::vector<uint8_t> grey(size_t(img.w) * img.h);
+  std::vector<uint8_t> grey(sz(img.w) * sz(img.h));
   for (int y = 0; y < img.h; ++y)
     for (int x = 0; x < img.w; ++x) {
       const uint8_t* p = img.row(y) + x * 3;
-      grey[size_t(y) * img.w + x] =
+      grey[index2d(x, y, img.w)] =
           uint8_t((p[0] * 19595 + p[1] * 38470 + p[2] * 7471 + 0x8000) >> 16);
     }
   std::vector<uint8_t> keep(m.px.size(), 0), s;
@@ -126,10 +129,11 @@ void refine_mask(Mask8& m, const Rgb8& img) {
       s.clear();
       for (int dy = -r; dy <= r; dy += step)
         for (int dx = -r; dx <= r; dx += step)
-          s.push_back(grey[size_t(reflect101(y + dy, m.h)) * m.w + reflect101(x + dx, m.w)]);
-      std::nth_element(s.begin(), s.begin() + s.size() / 2, s.end());
-      const int v = grey[size_t(y) * m.w + x];
-      if (std::abs(v - s[s.size() / 2]) > kOutlier) keep[size_t(y) * m.w + x] = 255;
+          s.push_back(grey[index2d(reflect101(x + dx, m.w), reflect101(y + dy, m.h), m.w)]);
+      const auto mid = s.begin() + std::ptrdiff_t(s.size() / 2);
+      std::nth_element(s.begin(), mid, s.end());
+      const int v = grey[index2d(x, y, m.w)];
+      if (std::abs(v - s[s.size() / 2]) > kOutlier) keep[index2d(x, y, m.w)] = 255;
     }
   m.px.swap(keep);
   dilate(m, 1 + std::min(m.w, m.h) / 1500);
@@ -168,11 +172,11 @@ Mask8 detect_scratches(InferenceBackend& be, const Rgb8& img, float threshold, i
   Mask8 m;
   m.w = img.w;
   m.h = img.h;
-  m.px.resize(size_t(img.w) * img.h);
+  m.px.resize(sz(img.w) * sz(img.h));
   for (int y = 0; y < img.h; ++y) {
     const float* r = out.channel(0).row(int(int64_t(y) * nh / img.h));
     for (int x = 0; x < img.w; ++x)
-      m.px[size_t(y) * img.w + x] = r[int64_t(x) * nw / img.w] >= threshold ? 255 : 0;
+      m.px[index2d(x, y, img.w)] = r[int64_t(x) * nw / img.w] >= threshold ? 255 : 0;
   }
   dilate(m, grow);
   refine_mask(m, img);
@@ -196,8 +200,8 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
   std::vector<Tile> tiles;
   for (int b = 0; b < g.bands(); ++b)
     for (int j = 0; j < g.tiles_per_band(); ++j) {
-      Tile t{g.xs[size_t(j)],
-             g.ys[size_t(b)],
+      Tile t{g.xs[sz(j)],
+             g.ys[sz(b)],
              owned_start(g.xs, j, g.tw),
              j + 1 < g.tiles_per_band() ? owned_start(g.xs, j + 1, g.tw) : g.in_w,
              g.band_in_y0(b),
@@ -213,7 +217,7 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
   for (const Tile& t : tiles) {
     // [known - 0.5, image * known], the image in [-1, 1] (upstream preprocess).
     ncnn::Mat in(S, S, 4);
-    for (int xx = 0; xx < S; ++xx) colidx[size_t(xx)] = reflect101(t.x0 - P + xx, img.w);
+    for (int xx = 0; xx < S; ++xx) colidx[sz(xx)] = reflect101(t.x0 - P + xx, img.w);
     for (int yy = 0; yy < S; ++yy) {
       const int sy = reflect101(t.y0 - P + yy, img.h);
       const uint8_t* row = img.row(sy);
@@ -222,7 +226,7 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
       float* gr = in.channel(2).row(yy);
       float* bl = in.channel(3).row(yy);
       for (int xx = 0; xx < S; ++xx) {
-        const int sx = colidx[size_t(xx)];
+        const int sx = colidx[sz(xx)];
         const float k = mask.at(sx, sy) ? 0.f : 1.f;
         const uint8_t* p = row + sx * 3;
         m[xx] = k - 0.5f;
@@ -239,10 +243,10 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
       uint8_t* dst = out.row(y);
       const uint8_t* src = img.row(y);
       for (int x = t.ox0; x < t.ox1; ++x) {
-        const int kw = t.keep[size_t(y - t.oy0) * (t.ox1 - t.ox0) + (x - t.ox0)];
+        const int kw = t.keep[index2d(x - t.ox0, y - t.oy0, t.ox1 - t.ox0)];
         if (kw == 255) continue;
         const int xx = x - t.x0 + P;
-        const float a = kw * (1.f / 255.f);
+        const float a = float(kw) * (1.f / 255.f);
         for (int c = 0; c < 3; ++c) {
           const float fill = std::clamp(o.channel(c).row(yy)[xx] * 0.5f + 0.5f, 0.f, 1.f) * 255.f;
           dst[x * 3 + c] = uint8_t(std::lround(src[x * 3 + c] * a + fill * (1 - a)));

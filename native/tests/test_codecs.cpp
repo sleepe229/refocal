@@ -18,6 +18,7 @@
 #include "image/metaio.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 static int fails = 0;
 #define CHECK(c)                                                        \
@@ -65,9 +66,7 @@ struct TiffBuilder {
 
   Bytes build() const {
     Bytes out = le ? Bytes{'I', 'I', 42, 0} : Bytes{'M', 'M', 0, 42};
-    auto put = [&](size_t pos, const Bytes& b) {
-      std::copy(b.begin(), b.end(), out.begin() + pos);
-    };
+    auto put = [&](size_t pos, const Bytes& b) { std::copy(b.begin(), b.end(), out.data() + pos); };
     Bytes off = u32(8);
     out.insert(out.end(), off.begin(), off.end());
     std::vector<size_t> ifd_pos(ifds.size());
@@ -102,8 +101,8 @@ struct TiffBuilder {
       out.insert(out.end(), 4, 0);
       out.insert(out.end(), data.begin(), data.end());
     }
-    for (auto [pos, sub] : fix) put(pos, u32(uint32_t(ifd_pos[sub])));
-    if (next_of_ifd0 >= 0) put(next_pos, u32(uint32_t(ifd_pos[next_of_ifd0])));
+    for (auto [pos, sub] : fix) put(pos, u32(uint32_t(ifd_pos[sz(sub)])));
+    if (next_of_ifd0 >= 0) put(next_pos, u32(uint32_t(ifd_pos[sz(next_of_ifd0)])));
     return out;
   }
 };
@@ -356,8 +355,8 @@ static Bytes extend_webp(const Bytes& simple, int w, int h, bool alpha, const By
 
 static void test_webp(const std::string& dir) {
   const int w = 6, h = 4;
-  Bytes rgba(size_t(w) * h * 4);
-  for (int i = 0; i < w * h; ++i) {
+  Bytes rgba(sz(w) * sz(h) * 4);
+  for (size_t i = 0; i < sz(w) * sz(h); ++i) {
     rgba[i * 4] = uint8_t(i * 10);
     rgba[i * 4 + 1] = uint8_t(255 - i * 10);
     rgba[i * 4 + 2] = 77;
@@ -378,8 +377,8 @@ static void test_webp(const std::string& dir) {
     CHECK(i.format == "webp" && i.alpha && !i.animated && img.w == w && img.h == h);
     CHECK(img.px[0] == 255 && img.px[1] == 255 && img.px[2] == 255);  // transparent -> white
     bool exact = true;
-    for (int k = 1; k < w * h; ++k)
-      for (int c = 0; c < 3; ++c) exact = exact && img.px[k * 3 + c] == rgba[k * 4 + c];
+    for (size_t k = 1; k < sz(w) * sz(h); ++k)
+      for (size_t c = 0; c < 3; ++c) exact = exact && img.px[k * 3 + c] == rgba[k * 4 + c];
     CHECK(exact);  // lossless
   }
   {
@@ -484,7 +483,7 @@ static void test_jpeg_quality(const std::string& dir) {
   Rgb8 img;
   img.w = 64;
   img.h = 48;
-  img.px.resize(size_t(img.w) * img.h * 3);
+  img.px.resize(sz(img.w) * sz(img.h) * 3);
   for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 37 % 251);
   for (int q : {10, 30, 50, 75, 92, 100}) {
     const std::string p = dir + "/q" + std::to_string(q) + ".jpg";

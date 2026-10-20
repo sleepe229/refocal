@@ -23,6 +23,7 @@
 #include "pipeline/faces.hpp"
 #include "policy/analyze.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 
@@ -32,7 +33,7 @@ static Rgb8 gradient(int w, int h) {
   Rgb8 m;
   m.w = w;
   m.h = h;
-  m.px.resize(size_t(w) * h * 3);
+  m.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
       uint8_t* p = m.row(y) + 3 * x;
@@ -87,8 +88,8 @@ TEST("paste: strength 0 changes nothing; the crop centre takes the restored face
   align.ty = -50;
   Rgb8 face;
   face.w = face.h = kFaceSide;
-  face.px.assign(size_t(kFaceSide) * kFaceSide * 3, 200);
-  std::vector<uint8_t> band(size_t(ow) * oh * 3, 10);
+  face.px.assign(sz(kFaceSide) * kFaceSide * 3, 200);
+  std::vector<uint8_t> band(sz(ow) * sz(oh) * 3, 10);
   const auto before = band;
   paste_faces(band.data(), ow, 0, oh, {prepare_paste(align, face, scale, 0.f, ow, oh)});
   CHECK(band == before);
@@ -98,14 +99,15 @@ TEST("paste: strength 0 changes nothing; the crop centre takes the restored face
   std::vector<uint8_t> whole = band, split = band;
   paste_faces(whole.data(), ow, 0, oh, {r});
   paste_faces(split.data(), ow, 0, 400, {r});
-  paste_faces(split.data() + size_t(400) * ow * 3, ow, 400, oh - 400, {r});
+  paste_faces(split.data() + size_t(400) * sz(ow) * 3, ow, 400, oh - 400, {r});
   CHECK(whole == split);
-  const uint8_t* centre = whole.data() + (size_t(356) * ow + 456) * 3;  // (100+128)*2, (50+128)*2
+  const uint8_t* centre =
+      whole.data() + (size_t(356) * sz(ow) + 456) * 3;  // (100+128)*2, (50+128)*2
   CHECK(centre[0] == 200 && centre[1] == 200);
-  const uint8_t* outside = whole.data() + (size_t(50) * ow + 50) * 3;
+  const uint8_t* outside = whole.data() + (size_t(50) * sz(ow) + 50) * 3;
   CHECK(outside[0] == 10);
   // The feathered edge blends in between.
-  const uint8_t* edge = whole.data() + (size_t(356) * ow + 205 + 2 * 40) * 3;
+  const uint8_t* edge = whole.data() + (size_t(356) * sz(ow) + 205 + 2 * 40) * 3;
   CHECK(edge[0] > 10 && edge[0] < 200);
 }
 
@@ -154,7 +156,7 @@ TEST("colour match: the restored face takes the original's mean Lab colour (FR-F
   CHECK(match_face_color(same, aligned) < 1e-9);
   size_t diff = 0;
   for (size_t i = 0; i < same.px.size(); ++i)
-    diff = std::max<size_t>(diff, std::abs(same.px[i] - aligned.px[i]));
+    diff = std::max<size_t>(diff, size_t(std::abs(same.px[i] - aligned.px[i])));
   CHECK(diff <= 1);
 }
 
@@ -172,10 +174,11 @@ TEST("YuNet decoding: grid cells, strides, NMS, threshold, back to image coordin
   }
   // Reorder to cls_8..32, obj_8..32, bbox_8..32, kps_8..32.
   std::vector<ncnn::Mat> ordered(12);
-  for (int k = 0; k < 3; ++k)
-    for (int part = 0; part < 4; ++part) ordered[part * 3 + k] = y.outs[k * 4 + part];
+  for (size_t k = 0; k < 3; ++k)
+    for (size_t part = 0; part < 4; ++part) ordered[part * 3 + k] = y.outs[k * 4 + part];
   y.outs = ordered;
-  auto set = [&](int k, int cell, float score, float dx, float dy, float lw, float lh, float kp) {
+  auto set = [&](size_t k, int cell, float score, float dx, float dy, float lw, float lh,
+                 float kp) {
     y.outs[k].row(cell)[0] = score;
     y.outs[3 + k].row(cell)[0] = score;
     float* b = y.outs[6 + k].row(cell);
@@ -265,7 +268,7 @@ TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
       double worst = 0;
       if (best) {
         for (int i = 0; i < 10; ++i)
-          worst = std::max(worst, double(std::abs(best->lm[i] - float(r[4 + i]))));
+          worst = std::max(worst, double(std::abs(best->lm[i] - float(r[sz(4 + i)]))));
       }
       const bool close = best_iou > 0.85 && worst < 0.04 * rw;
       strict += close ? 1 : 0;
@@ -277,7 +280,7 @@ TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
                       best->h, best->score);
           for (int i = 0; i < 10; ++i) std::printf(" %.1f", best->lm[i]);
           std::printf("\n      opencv");
-          for (int i = 0; i < 14; ++i) std::printf(" %.1f", float(r[i]));
+          for (size_t i = 0; i < 14; ++i) std::printf(" %.1f", float(r[i]));
           std::printf("\n");
         }
       }
@@ -304,7 +307,7 @@ TEST("noise estimate (Immerkaer) recovers the sigma of added Gaussian noise") {
     Rgb8 img;
     img.w = 600;
     img.h = 400;
-    img.px.resize(size_t(img.w) * img.h * 3);
+    img.px.resize(sz(img.w) * sz(img.h) * 3);
     for (int y = 0; y < img.h; ++y)
       for (int x = 0; x < img.w; ++x) {
         const double base = 60 + 0.15 * x + 0.1 * y;
@@ -386,9 +389,9 @@ TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") 
   auto to_rgb = [](const std::vector<float>& planes) {
     Rgb8 im;
     im.w = im.h = kFaceSide;
-    im.px.resize(size_t(kFaceSide) * kFaceSide * 3);
-    for (int c = 0; c < 3; ++c)
-      for (size_t i = 0; i < size_t(kFaceSide) * kFaceSide; ++i)
+    im.px.resize(sz(kFaceSide) * kFaceSide * 3);
+    for (size_t c = 0; c < 3; ++c)
+      for (size_t i = 0; i < sz(kFaceSide) * kFaceSide; ++i)
         im.px[i * 3 + c] = uint8_t(
             std::clamp((planes[c * kFaceSide * kFaceSide + i] + 1.f) * 127.5f + 0.5f, 0.f, 255.f));
     return im;
@@ -404,7 +407,7 @@ TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") 
   double se = 0;
   for (size_t i = 0; i < out.px.size(); ++i)
     se += double(out.px[i] - want.px[i]) * (out.px[i] - want.px[i]);
-  const double psnr = 10 * std::log10(255.0 * 255.0 * out.px.size() / std::max(se, 1e-9));
+  const double psnr = 10 * std::log10(255.0 * 255.0 * double(out.px.size()) / std::max(se, 1e-9));
   std::printf("  CodeFormer w 0.7 vs PyTorch fp32: %.1f dB\n", psnr);
   CHECK(psnr >= 35);
   // Fidelity reaches the graph: w 0 and w 1 give different faces.

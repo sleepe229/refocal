@@ -15,6 +15,7 @@
 #include "image/metaio.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -93,14 +94,14 @@ Rgb8 webp_decode(const std::string& path, SourceMeta* meta) {
     }
     img.w = int(ai.canvas_width);
     img.h = int(ai.canvas_height);
-    const size_t n = size_t(img.w) * img.h;
+    const size_t n = sz(img.w) * sz(img.h);
     img.px.assign(frame, frame + n * 4);
     WebPAnimDecoderDelete(dec);
     rgba_to_rgb_on_white(img.px, n, false, meta ? &meta->alpha : nullptr);
   } else {
     img.w = f.width;
     img.h = f.height;
-    const size_t n = size_t(img.w) * img.h;
+    const size_t n = sz(img.w) * sz(img.h);
     if (f.has_alpha) {
       img.px.resize(n * 4);
       if (!WebPDecodeRGBAInto(data.data(), data.size(), img.px.data(), img.px.size(), img.w * 4)) {
@@ -151,7 +152,7 @@ WebpWriter::WebpWriter(const std::string& path, int w, int h, int quality, bool 
   m.lossless = lossless;
   if (meta) m.meta = *meta;
   m.alpha = alpha;
-  m.rgb.resize(size_t(w) * h * (alpha ? 4 : 3));
+  m.rgb.resize(sz(w) * sz(h) * (alpha ? 4 : 3));
 }
 
 WebpWriter::~WebpWriter() = default;
@@ -161,10 +162,10 @@ void WebpWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) 
   if (rows > m.h - m.y) fail(ENH_E_INTERNAL, "WebP: too many rows");
   if (m.alpha != (alpha != nullptr)) fail(ENH_E_INTERNAL, "WebP: alpha rows expected or not");
   if (!m.alpha) {
-    std::memcpy(m.rgb.data() + size_t(m.y) * m.w * 3, rgb, size_t(rows) * m.w * 3);
+    std::memcpy(m.rgb.data() + sz(m.y) * sz(m.w) * 3, rgb, sz(rows) * sz(m.w) * 3);
   } else {
-    uint8_t* d = m.rgb.data() + size_t(m.y) * m.w * 4;
-    for (size_t i = 0; i < size_t(rows) * m.w; ++i, d += 4) {
+    uint8_t* d = m.rgb.data() + sz(m.y) * sz(m.w) * 4;
+    for (size_t i = 0; i < sz(rows) * sz(m.w); ++i, d += 4) {
       d[0] = rgb[i * 3];
       d[1] = rgb[i * 3 + 1];
       d[2] = rgb[i * 3 + 2];

@@ -40,9 +40,9 @@ GateMetrics compare_tiles(const ncnn::Mat& out, const ncnn::Mat& ref) {
       m.max_abs = std::max(m.max_abs, d);
     }
   }
-  double mse = n ? se / n : 1e9;
+  double mse = n ? se / double(n) : 1e9;
   m.psnr = mse <= 0 ? 99.0 : std::min(99.0, 10.0 * std::log10(255.0 * 255.0 / mse));
-  m.bad_frac = n ? double(bad) / n : 1.0;
+  m.bad_frac = n ? double(bad) / double(n) : 1.0;
   m.pass = m.nonfinite == 0 && m.psnr >= 35.0 && m.bad_frac <= 1e-3;
   return m;
 }

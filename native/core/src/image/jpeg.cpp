@@ -13,6 +13,7 @@
 
 #include "image/metaio.hpp"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -137,7 +138,7 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   jpeg_start_decompress(&d->cinfo);
   img->w = int(d->cinfo.output_width);
   img->h = int(d->cinfo.output_height);
-  img->px.resize(size_t(img->w) * img->h * 3);
+  img->px.resize(sz(img->w) * sz(img->h) * 3);
   while (d->cinfo.output_scanline < d->cinfo.output_height) {
     JSAMPROW row = img->row(int(d->cinfo.output_scanline));
     jpeg_read_scanlines(&d->cinfo, &row, 1);
@@ -219,7 +220,7 @@ void JpegWriter::write_rows(const uint8_t* rgb, int rows) {
   Impl& m = *impl_;
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   for (int i = 0; i < rows; ++i) {
-    JSAMPROW r = const_cast<uint8_t*>(rgb + size_t(i) * m.w * 3);
+    JSAMPROW r = const_cast<uint8_t*>(rgb + sz(i) * sz(m.w) * 3);
     jpeg_write_scanlines(&m.cinfo, &r, 1);
   }
 }

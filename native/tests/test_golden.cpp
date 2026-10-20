@@ -24,6 +24,7 @@
 #include "mini_test.hpp"
 #include "pipeline/lowlight.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 
@@ -47,7 +48,7 @@ double psnr(const ncnn::Mat& out, const std::vector<float>& ref) {
   double se = 0;
   for (int c = 0; c < 3; ++c) {
     const float* o = out.channel(c);
-    const float* r = ref.data() + size_t(c) * n;
+    const float* r = ref.data() + sz(c) * sz(n);
     for (int i = 0; i < n; ++i) {
       const double d = std::fmin(std::fmax(o[i], 0.f), 1.f) - r[i];
       se += d * d;
@@ -64,7 +65,7 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
   be->load(m);
   ncnn::Mat x(size, size, 3);
   for (int c = 0; c < 3; ++c) {
-    std::copy_n(in.data() + size_t(c) * size * size, size * size,
+    std::copy_n(in.data() + sz(c) * sz(size) * sz(size), size * size,
                 static_cast<float*>(x.channel(c)));
   }
   ncnn::Mat y;
@@ -82,7 +83,7 @@ void rrdb(const std::string& root, const std::string& id) {
   const std::string dir = fs::join(root, id);
   const int out = kRrdbIn * kScale;
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
-  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * out * out);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * sz(out) * out);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
     std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
@@ -109,7 +110,7 @@ void fbcnn(const std::string& root) {
   be->load(m);
   ncnn::Mat x(kN, kN, 3), q(1, 1, 1);
   for (int c = 0; c < 3; ++c)
-    std::copy_n(in.data() + size_t(c) * kN * kN, kN * kN, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * kN * kN, kN * kN, static_cast<float*>(x.channel(c)));
   q[0] = 0.7f;
   const auto y = be->run_inputs({x, q}, {"out0"});
   CHECK(y.size() == 1 && y[0].w == kN && y[0].h == kN && y[0].c == 3);
@@ -134,7 +135,7 @@ void lowlight(const std::string& root) {
   }
   const auto meta = nlohmann::json::parse(fs::read_text(fs::join(dir, "model.json")));
   const float k = meta["density_k"].get<float>();
-  const size_t px = size_t(kN) * kN;
+  const size_t px = sz(kN) * kN;
   double worst = 0;
   for (size_t i = 0; i < px; ++i) {
     const Hvi c = hvi_of_rgb(rgb[i], rgb[px + i], rgb[2 * px + i], k);
@@ -148,7 +149,7 @@ void lowlight(const std::string& root) {
   be->load(m);
   ncnn::Mat x(kN, kN, 3);
   for (int c = 0; c < 3; ++c)
-    std::copy_n(in.data() + size_t(c) * px, px, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * sz(px), px, static_cast<float*>(x.channel(c)));
   const auto ys = be->run_inputs({x}, {"out0"});
   CHECK(ys.size() == 1);
   if (ys.size() != 1) return;
@@ -159,7 +160,7 @@ void lowlight(const std::string& root) {
   double se = 0;
   for (int c = 0; c < 3; ++c)
     for (size_t i = 0; i < px; ++i) {
-      const double d = static_cast<const float*>(y.channel(c))[i] - ref[size_t(c) * px + i];
+      const double d = static_cast<const float*>(y.channel(c))[i] - ref[sz(c) * px + i];
       se += d * d;
     }
   const double db = se == 0 ? 99 : 10 * std::log10(4.0 * 3 * px / se);
@@ -173,7 +174,7 @@ double psnr_c(const ncnn::Mat& out, const std::vector<float>& ref, int c, float 
   double se = 0;
   for (int k = 0; k < c; ++k) {
     const float* o = out.channel(k);
-    const float* r = ref.data() + size_t(k) * n;
+    const float* r = ref.data() + sz(k) * sz(n);
     for (int i = 0; i < n; ++i) {
       const double d = std::fmin(std::fmax(o[i] * a + b, 0.f), 1.f) - (r[i] * a + b);
       se += d * d;
@@ -190,9 +191,9 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   const std::string dir = fs::join(root, id);
   const std::string shape = "x" + std::to_string(h) + "x" + std::to_string(w) + ".f32";
   const auto in =
-      read_f32(fs::join(dir, "golden_in_" + std::to_string(cin) + shape), size_t(cin) * h * w);
-  const auto ref =
-      read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape), size_t(cout) * h * w);
+      read_f32(fs::join(dir, "golden_in_" + std::to_string(cin) + shape), sz(cin) * sz(h) * sz(w));
+  const auto ref = read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape),
+                            sz(cout) * sz(h) * sz(w));
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
     std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
@@ -203,7 +204,8 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   be->load(m);
   ncnn::Mat x(w, h, cin);
   for (int c = 0; c < cin; ++c)
-    std::copy_n(in.data() + size_t(c) * h * w, size_t(h) * w, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * sz(h) * sz(w), sz(h) * sz(w),
+                static_cast<float*>(x.channel(c)));
   ncnn::Mat y;
   be->run(x, y);
   CHECK(y.w == w && y.h == h && y.c == cout);
@@ -290,12 +292,12 @@ int main(int argc, char** argv) {
     Rgb8 img;
     img.w = 320;
     img.h = 240;
-    img.px.resize(size_t(img.w) * img.h * 3);
+    img.px.resize(sz(img.w) * sz(img.h) * 3);
     for (int y = 0; y < img.h; ++y)
       for (int x = 0; x < img.w; ++x)
         for (int c = 0; c < 3; ++c)
-          img.px[(size_t(y) * img.w + x) * 3 + c] = uint8_t(
-              std::lround(255 * in[size_t(c) * kIn * kIn + size_t(y % kIn) * kIn + x % kIn]));
+          img.px[index2d(x, y, img.w) * 3 + sz(c)] =
+              uint8_t(std::lround(255 * in[sz(c) * kIn * kIn + index2d(x % kIn, y % kIn, kIn)]));
     const std::string input = fs::join(work, "in.jpg");
     jpeg_encode(input, img, 90);
     enh_session_config dc{};

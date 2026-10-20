@@ -189,7 +189,7 @@ jobs:
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
-          -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }}
+          -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }} -DENH_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           -DENH_NCNN_RUNTIME_CPU=OFF
           -DCMAKE_BUILD_TYPE=RelWithDebInfo

@@ -12,6 +12,7 @@
 
 #include "backend/backend.hpp"
 #include "image/image.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -25,7 +26,7 @@ inline constexpr int kInpaintPad = 64;
 struct Mask8 {
   int w = 0, h = 0;
   std::vector<uint8_t> px;
-  uint8_t at(int x, int y) const { return px[size_t(y) * w + x]; }
+  uint8_t at(int x, int y) const { return px[sz(y) * sz(w) + sz(x)]; }
   size_t count() const;
 };
 
