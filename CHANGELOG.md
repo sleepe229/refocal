@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.8.1-beta.1
+
+Simpler for the first time: fewer decisions, nothing promised that is not there, no work lost
+by a slip.
+
+New:
+- **Hold to see the original**: a finger held on the result shows the original until it is
+  lifted, as the introduction says. The loupe that used this gesture is gone; pinch to zoom
+  to real pixels.
+- **Models where you want them**: a mode, preset or switch whose model is missing (Portrait,
+  Old photo, Anime, faces, JPEG cleanup, brighten, scratches, "Process again" in History)
+  offers it right there: one question with the size, the licence text for a non-commercial
+  model, then the download runs in the background with a ring around the mode's icon or a bar
+  under the switch, and the mode turns on when it is in. No trip to Settings → Models.
+- **Editor**: Auto · Portrait · Old photo · Adjust. The scale moved under Adjust, with the
+  size of the result for each choice. Enhance no longer waits for Auto: tap it at once.
+- **Result**: Share, Filter, Strength and Change as labelled buttons above Save.
+- **Safer**: Back and Cancel during processing ask first; Back during the enhancement pauses it
+  (continue from the home screen). Deleting an unfinished photo can be undone.
+- **Errors** offer Try again, Change settings and Report a problem.
+- Preview a part: the frame appears from the … menu, a tap moves it, Preview runs it (a tap on
+  the photo no longer drops a frame by surprise).
+- An empty home screen says what to do. No face model names, no notes about the processor or
+  tile size; "Saved to the gallery".
+
 ## 0.8.0-beta.1
 
 A filter for the result.

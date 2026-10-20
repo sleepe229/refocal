@@ -1,0 +1,5 @@
+Beta 0.8.1-beta.1:
+• Hold the result to see the original
+• A mode that needs a model downloads it right there, with progress on its icon
+• Auto · Portrait · Old photo · Adjust; the scale is under Adjust
+• Share · Filter · Strength · Change above Save; Back and Cancel ask first
