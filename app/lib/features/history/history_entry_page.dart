@@ -70,6 +70,7 @@ class HistoryEntryPage extends ConsumerWidget {
         const SizedBox(height: 8),
         row(l10n.historyScale, scaleLabel(l10n, r.scale, fast2: r.fast2)),
         row(l10n.strength, l10n.strengthValue((r.strength * 100).round())),
+        if (r.look != null) row(l10n.lookTitle, lookLabel(l10n, r.look)),
         row(
           l10n.settingsFormat,
           out.quality == null

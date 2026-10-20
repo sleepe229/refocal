@@ -41,6 +41,27 @@ void main() {
     expect(find.byWidgetPredicate((w) => w is Image && w.image == before), findsNWidgets(2));
   });
 
+  testWidgets('a look filters the blend, the original stays as it is (FR-LOOK-*)', (tester) async {
+    final before = MemoryImage(_png1x1), after = MemoryImage(Uint8List.fromList(_png1x1));
+    const look = ColorFilter.mode(Color(0x80FF0000), BlendMode.srcOver);
+    await tester.pumpWidget(
+      app(CompareSlider(before: before, after: after, aspectRatio: 1, strength: 0.4, look: look)),
+    );
+    final filtered = find.byType(ColorFiltered);
+    expect(tester.widget<ColorFiltered>(filtered).colorFilter, look);
+    // Under the filter: the blend (the original at 1 - strength and the result over it).
+    expect(find.descendant(of: filtered, matching: find.byType(Opacity)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: filtered,
+        matching: find.byWidgetPredicate((w) => w is Image && w.image == before),
+      ),
+      findsOneWidget,
+    );
+    // The slider's original (left of the border) is not filtered.
+    expect(find.byWidgetPredicate((w) => w is Image && w.image == before), findsNWidgets(2));
+  });
+
   testWidgets('zoom: tiles only past the preview, of the visible part (FR-CMP-005)', (
     tester,
   ) async {

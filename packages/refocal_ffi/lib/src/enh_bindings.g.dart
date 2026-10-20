@@ -327,6 +327,57 @@ class EnhBindings {
   late final _enh_log_write = _enh_log_writePtr
       .asFunction<void Function(int, ffi.Pointer<ffi.Char>)>();
 
+  int enh_look_leaks(
+    int w,
+    int h,
+    ffi.Pointer<ffi.Uint8> rgba,
+    int rgba_size,
+    ffi.Pointer<ffi.Int32> gw,
+    ffi.Pointer<ffi.Int32> gh,
+  ) {
+    return _enh_look_leaks(w, h, rgba, rgba_size, gw, gh);
+  }
+
+  late final _enh_look_leaksPtr =
+      _lookup<
+        ffi.NativeFunction<
+          enh_status Function(
+            ffi.Int32,
+            ffi.Int32,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Int64,
+            ffi.Pointer<ffi.Int32>,
+            ffi.Pointer<ffi.Int32>,
+          )
+        >
+      >('enh_look_leaks');
+  late final _enh_look_leaks = _enh_look_leaksPtr
+      .asFunction<
+        int Function(
+          int,
+          int,
+          ffi.Pointer<ffi.Uint8>,
+          int,
+          ffi.Pointer<ffi.Int32>,
+          ffi.Pointer<ffi.Int32>,
+        )
+      >();
+
+  int enh_look_matrix(ffi.Pointer<ffi.Char> id, double amount, ffi.Pointer<ffi.Float> out20) {
+    return _enh_look_matrix(id, amount, out20);
+  }
+
+  late final _enh_look_matrixPtr =
+      _lookup<
+        ffi.NativeFunction<
+          enh_status Function(ffi.Pointer<ffi.Char>, ffi.Float, ffi.Pointer<ffi.Float>)
+        >
+      >('enh_look_matrix');
+  late final _enh_look_matrix = _enh_look_matrixPtr
+      .asFunction<int Function(ffi.Pointer<ffi.Char>, double, ffi.Pointer<ffi.Float>)>(
+        isLeaf: true,
+      );
+
   int enh_rfpack_extract(
     ffi.Pointer<ffi.Char> rfpack_path,
     ffi.Pointer<ffi.Char> entry,
@@ -537,7 +588,7 @@ class EnhBindings {
       >();
 }
 
-const int ENH_ABI_VERSION = 5;
+const int ENH_ABI_VERSION = 6;
 
 const int ENH_E_BACKEND = 4;
 
@@ -572,6 +623,8 @@ const int ENH_LOG_ERROR = 3;
 const int ENH_LOG_INFO = 1;
 
 const int ENH_LOG_WARN = 2;
+
+const int ENH_LOOK_LEAKS_SIDE = 256;
 
 const int ENH_OK = 0;
 

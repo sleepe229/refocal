@@ -1,3 +1,5 @@
+import 'look.dart';
+
 /// Output formats of the native export (FR-EXP-001, FR-EXP-002). HEIC is encoded by the platform
 /// and offered only where it can be (`heicSupported`, Q-12).
 enum ExportFormat {
@@ -74,8 +76,9 @@ class Recipe {
     this.scratchModel,
     this.inpaintModel,
     this.lowlightModel,
+    Look? look,
     this.output,
-  }) {
+  }) : look = look != null && look.active ? look : null {
     if (lowlightModel?.isEmpty == true) throw ArgumentError('empty low-light model');
     if ((scratchModel == null) != (inpaintModel == null) ||
         scratchModel?.isEmpty == true ||
@@ -118,8 +121,8 @@ class Recipe {
   /// an older app refuses schema 2 rather than dropping the faces. 3: JPEG cleanup (jpegModel,
   /// jpegQf), written only when it is on, so other recipes stay readable by older apps. 4:
   /// scratch removal (scratchModel, inpaintModel), likewise only when it is on. 5: low light
-  /// (lowlightModel), likewise.
-  static const schemaVersion = 5;
+  /// (lowlightModel), likewise. 6: a look (FR-LOOK-*), likewise only when it changes the pixels.
+  static const schemaVersion = 6;
 
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
@@ -174,6 +177,9 @@ class Recipe {
   /// S9: the low-light pack brightening the photo before SR; null: off.
   final String? lowlightModel;
 
+  /// FR-LOOK-*: the look applied at export; null: none (a look that changes nothing is dropped).
+  final Look? look;
+
   /// What was saved; null in presets, where the format is chosen when saving (06 §3.4).
   final OutputSpec? output;
 
@@ -187,6 +193,7 @@ class Recipe {
     double? Function()? jpegQf,
     (String, String)? Function()? scratches,
     String? Function()? lowlightModel,
+    Look? Function()? look,
     OutputSpec? Function()? output,
   }) => Recipe(
     scale: scale,
@@ -203,11 +210,14 @@ class Recipe {
     scratchModel: scratches != null ? scratches()?.$1 : scratchModel,
     inpaintModel: scratches != null ? scratches()?.$2 : inpaintModel,
     lowlightModel: lowlightModel != null ? lowlightModel() : this.lowlightModel,
+    look: look != null ? look() : this.look,
     output: output != null ? output() : this.output,
   );
 
   Map<String, Object?> toJson() => {
-    'schema': lowlightModel != null
+    'schema': look != null
+        ? 6
+        : lowlightModel != null
         ? 5
         : scratchModel != null
         ? 4
@@ -225,6 +235,7 @@ class Recipe {
     if (jpegModel case final m?) ...{'jpeg_model': m, 'jpeg_qf': ?jpegQf},
     if (scratchModel case final m?) ...{'scratch_model': m, 'inpaint_model': inpaintModel},
     'lowlight_model': ?lowlightModel,
+    'look': ?look?.toJson(),
     if (output case final o?) 'output': {'format': o.format.name, 'quality': ?o.quality},
   };
 
@@ -275,6 +286,11 @@ class Recipe {
         final String m when schema >= 5 && m.isNotEmpty => m,
         final other => throw FormatException('bad lowlight_model', other),
       };
+      final look = switch (j['look']) {
+        null => null,
+        final Object l when schema >= 6 => Look.fromJson(l),
+        final other => throw FormatException('bad look', other),
+      };
       if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
           case final why?) {
         throw FormatException(why, j);
@@ -297,6 +313,7 @@ class Recipe {
         scratchModel: scratchModel,
         inpaintModel: inpaintModel,
         lowlightModel: lowlightModel,
+        look: look,
         output: switch (j['output']) {
           null => null,
           {'format': final String name} && final Map<String, Object?> o => _output(
@@ -334,6 +351,7 @@ class Recipe {
       other.scratchModel == scratchModel &&
       other.inpaintModel == inpaintModel &&
       other.lowlightModel == lowlightModel &&
+      other.look == look &&
       other.output == output;
 
   @override
@@ -351,6 +369,7 @@ class Recipe {
     scratchModel,
     inpaintModel,
     lowlightModel,
+    look,
     output,
   );
 }

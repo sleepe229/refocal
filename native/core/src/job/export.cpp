@@ -7,7 +7,11 @@
 // than in the SR stage so changing it needs no reprocessing. Below 1 the input must still exist;
 // it is decoded whole (as in the job).
 //
+// Look (FR-LOOK-*, ADR-0012 amendment 0.8): after the strength blend, the look's colour matrix and
+// its leaks (pipeline/look.hpp), so the thumbnail and every format carry it.
+//
 // output_json: {"format":"jpeg","quality":92,"lossless":false,"strength":1.0,
+//               "look":{"id":"none","amount":1.0,"leaks":false},
 //               "metadata":{"exif":true,"gps":false,"ai_marker":true,"creator_tool":"Refocal x"},
 //               "thumbnail":{"path":"/abs/thumb.jpg","max_side":512,"quality":80}}
 // (all optional; the values shown are the defaults, no thumbnail by default). format: jpeg |
@@ -40,6 +44,7 @@
 #include "job/job.hpp"
 #include "job/session.hpp"
 #include "pipeline/bandstore.hpp"
+#include "pipeline/look.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
@@ -72,6 +77,15 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     if (quality < 1 || quality > 100) fail(ENH_E_INVALID, "bad quality");
     if (lossless && format != "webp") fail(ENH_E_INVALID, "lossless is for webp");
     if (!(strength >= 0 && strength <= 1)) fail(ENH_E_INVALID, "strength must be 0..1");
+    Look look;
+    if (opt.contains("look")) {
+      const auto& l = opt["look"];
+      if (!l.is_object()) fail(ENH_E_INVALID, "bad look");
+      look.id = l.value("id", look.id);
+      look.amount = l.value("amount", look.amount);
+      look.leaks = l.value("leaks", look.leaks);
+    }
+    const LookMatrix look_m = look_matrix(look.id, look.amount);  // validates both
 
     const int w = res.at("width").get<int>(), h = res.at("height").get<int>();
     const auto rows = res.at("band_rows").get<std::vector<int>>();
@@ -158,6 +172,10 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
     }
     written["alpha"] = alpha_up != nullptr;
 
+    const bool look_color = look.id != "none" && look.amount > 0;
+    std::unique_ptr<LeakOverlay> leaks;
+    if (look.leaks) leaks = std::make_unique<LeakOverlay>(w, h);
+
     PreviewAccumulator thumb;
     if (thumb_max) thumb.init(w, h, thumb_max);
 
@@ -173,6 +191,8 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
           base->rows(y, rows[b], lo.data());
           blend(lo.data(), buf.data(), n, float(strength), buf.data());
         }
+        if (look_color) apply_look(look_m, buf.data(), size_t(rows[b]) * w);
+        if (leaks) leaks->blend_rows(y, rows[b], buf.data());
         if constexpr (std::is_same_v<std::decay_t<decltype(writer)>, JpegWriter> ||
                       std::is_same_v<std::decay_t<decltype(writer)>, RgbaWriter>) {
           writer.write_rows(buf.data(), rows[b]);  // no alpha
@@ -220,6 +240,7 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
                           {"height", h},
                           {"bytes", fs::file_size(dst_path)},
                           {"strength", strength},
+                          {"look", look.active()},
                           {"metadata", written}};
       if (thumb_max) r["thumbnail"] = {{"path", thumb_path}, {"width", tn.w}, {"height", tn.h}};
       std::string d = dump_json(r);

@@ -21,6 +21,13 @@ JobResult _result({String model = 'sr.general-x4v3', String backend = 'cpu:4', i
 void main() {
   final ru = lookupAppLocalizations(const Locale('ru'));
 
+  test('look labels (FR-LOOK-*)', () {
+    expect(lookLabel(ru, null), 'Нет');
+    expect(lookLabel(ru, Look(LookId.pastel, amount: 0.8)), 'Пастель 80%');
+    expect(lookLabel(ru, Look(LookId.none, leaks: true)), 'Блики');
+    expect(lookLabel(ru, Look(LookId.pastel, leaks: true)), 'Пастель 100%, блики');
+  });
+
   test('what made the result (FR-CMP-007)', () {
     expect(
       resultInfo(ru, _result()),

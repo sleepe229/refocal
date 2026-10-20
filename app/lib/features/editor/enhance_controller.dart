@@ -61,22 +61,33 @@ class Paused extends EnhanceState {
 }
 
 class Finished extends EnhanceState {
-  const Finished(this.result, {this.strength = 1, this.saved = false, this.saving = false});
+  const Finished(
+    this.result, {
+    this.strength = 1,
+    this.look,
+    this.saved = false,
+    this.saving = false,
+  });
   final JobResult result;
 
   /// FR-ENH-005: blend with the original, applied at export (ADR-0012 amendment).
   final double strength;
 
+  /// FR-LOOK-*: applied at export after the strength blend; null: none.
+  final Look? look;
+
   /// Exported at least once: the job is deleted when the editor closes (ADR-0010).
   final bool saved;
   final bool saving;
 
-  Finished copyWith({double? strength, bool? saved, bool? saving}) => Finished(
-    result,
-    strength: strength ?? this.strength,
-    saved: saved ?? this.saved,
-    saving: saving ?? this.saving,
-  );
+  Finished copyWith({double? strength, Look? Function()? look, bool? saved, bool? saving}) =>
+      Finished(
+        result,
+        strength: strength ?? this.strength,
+        look: look != null ? look() : this.look,
+        saved: saved ?? this.saved,
+        saving: saving ?? this.saving,
+      );
 }
 
 class Failed extends EnhanceState {
@@ -98,6 +109,9 @@ class EnhanceController extends Notifier<EnhanceState> {
 
   /// Strength the result starts with (a preset's, FR-PRE-002; else 100%).
   double _strength = 1;
+
+  /// The look the result starts with (a preset's; else none).
+  Look? _look;
 
   @override
   EnhanceState build() {
@@ -127,11 +141,12 @@ class EnhanceController extends Notifier<EnhanceState> {
     }());
   }
 
-  /// Runs [recipe] on [input]; the result starts at the recipe's strength (a preset's or a
+  /// Runs [recipe] on [input]; the result starts at the recipe's strength and look (a preset's or a
   /// history entry's, FR-PRE-002, FR-HIST-003). [facesOff]: faces of this photo not to restore
   /// (FR-FACE-007).
   Future<void> start(String input, Recipe recipe, {List<FaceBox> facesOff = const []}) async {
     _strength = recipe.strength;
+    _look = recipe.look;
     final request = JobRequest.of(recipe, input, facesOff: facesOff);
     AppLog.info(
       'job ${request.id}: ${request.srModel} scale ${request.scale}${request.fast2 ? ' fast' : ''}',
@@ -145,13 +160,18 @@ class EnhanceController extends Notifier<EnhanceState> {
     return _run(input, (e) => e.session.resume(jobDir));
   }
 
-  /// Shows a job that finished earlier but was not saved.
-  Future<void> open(String jobDir, String input) async {
+  /// Shows a job that finished earlier but was not saved, at [recipe]'s strength and look (the
+  /// queue's preset).
+  Future<void> open(String jobDir, String input, {Recipe? recipe}) async {
     _jobs = await ref.read(jobStoreProvider.future);
     _input = input;
     try {
       final raw = await File('$jobDir/result.json').readAsString();
-      state = Finished(JobResult.fromJson(_decode(raw)));
+      state = Finished(
+        JobResult.fromJson(_decode(raw)),
+        strength: recipe?.strength ?? 1,
+        look: recipe?.look,
+      );
     } on FileSystemException catch (e) {
       AppLog.warn('open result: ${e.message}');
       state = const Failed(EnhStatus.io, null);
@@ -235,7 +255,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         'job done: ${result.width}x${result.height}, backend ${result.backend}, '
         'fallbacks ${result.fallbacks}, timings ${result.raw['timings_ms']}',
       );
-      state = Finished(result, strength: _strength);
+      state = Finished(result, strength: _strength, look: _look);
       await fg.release(this, l10n.notifReady);
     } on JobFailure catch (f) {
       AppLog.info(
@@ -285,13 +305,20 @@ class EnhanceController extends Notifier<EnhanceState> {
     if (s is Finished) state = s.copyWith(strength: v.clamp(0.0, 1.0));
   }
 
+  /// FR-LOOK-*: no reprocessing, the export applies it.
+  void setLook(Look? look) {
+    final s = state;
+    if (s is Finished) state = s.copyWith(look: () => look != null && look.active ? look : null);
+  }
+
   /// The parameters of the shown result, for "Save as preset" (FR-PRE-002).
   Recipe? get recipe => switch (state) {
-    Finished(:final result, :final strength) => Recipe(
+    Finished(:final result, :final strength, :final look) => Recipe(
       scale: result.scale,
       fast2: result.fast2,
       srModel: result.model,
       strength: strength,
+      look: look,
     ),
     _ => null,
   };
@@ -313,6 +340,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         s.result,
         output: OutputSpec(saver.settings.format, quality: saver.settings.quality),
         strength: s.strength,
+        look: s.look,
         title: title,
       );
     } finally {
@@ -338,6 +366,7 @@ class EnhanceController extends Notifier<EnhanceState> {
         input: input,
         output: OutputSpec(format, quality: saver.settings.quality),
         strength: s.strength,
+        look: s.look,
         to: to,
       );
     } on HistoryNotRecorded catch (e) {
@@ -352,6 +381,7 @@ class EnhanceController extends Notifier<EnhanceState> {
   Future<void> reset() async {
     final s = state;
     _strength = 1;
+    _look = null;
     state = const Idle();
     if (s is Finished && s.saved) {
       try {

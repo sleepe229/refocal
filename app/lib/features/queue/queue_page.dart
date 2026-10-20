@@ -48,6 +48,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         '$supportDir/${item.inputPath}',
         jobDir: '$jobsDir/${item.jobId}',
         finished: true,
+        recipe: item.recipe,
       ),
     );
     await _run((s) => s.refresh(item), 'queue refresh'); // saved from the editor

@@ -92,6 +92,38 @@ class RefocalNative {
     }
   }
 
+  /// The colour matrix of [id] at [amount] (FR-LOOK-*) in the layout of Flutter's
+  /// `ColorFilter.matrix`: the export applies exactly this, so the editor previews with it.
+  List<double> lookMatrix(LookId id, double amount) {
+    final n = id.name.toNativeUtf8();
+    final m = calloc<Float>(20);
+    try {
+      _check(_b.enh_look_matrix(n.cast(), amount, m), 'look_matrix');
+      return List<double>.unmodifiable(m.asTypedList(20));
+    } finally {
+      malloc.free(n);
+      calloc.free(m);
+    }
+  }
+
+  /// The light leaks of a [width] x [height] result (FR-LOOK-003): a small opaque RGBA8 image
+  /// the export stretches over the result (bilinear) and blends with "screen".
+  ({int width, int height, Uint8List rgba}) lookLeaks(int width, int height) {
+    const cap = ENH_LOOK_LEAKS_SIDE * ENH_LOOK_LEAKS_SIDE * 4;
+    final buf = calloc<Uint8>(cap);
+    final gw = calloc<Int32>(), gh = calloc<Int32>();
+    try {
+      _check(_b.enh_look_leaks(width, height, buf, cap, gw, gh), 'look_leaks');
+      final n = gw.value * gh.value * 4;
+      return (width: gw.value, height: gh.value, rgba: Uint8List.fromList(buf.asTypedList(n)));
+    } finally {
+      calloc
+        ..free(buf)
+        ..free(gw)
+        ..free(gh);
+    }
+  }
+
   /// Starts the rotating log file shared by the core and the app (FR-SET-007, PRIV-LOG-002):
   /// [path] and `$path.1`, each at most [maxBytes].
   void openLog(String path, {int maxBytes = 2 << 20}) {
@@ -291,7 +323,7 @@ class RefocalSession {
   /// platform encoder, with the thumbnail) and heic, which adds the metadata to the platform's
   /// file [heifInput]. [quality]: JPEG and lossy WebP; [lossless]: WebP only.
   /// [strength] 0..1 blends the result with a Lanczos upscale of the input (FR-ENH-005); below 1
-  /// the input file must still exist.
+  /// the input file must still exist. [look] is applied after it (FR-LOOK-*).
   /// Metadata (ADR-0018): the source EXIF is carried without GPS unless [keepGps] and without
   /// it at all unless [exif]; [aiMarker] writes the XMP DigitalSourceType marker.
   /// [thumbnail]: also writes a JPEG of the exported pixels there, <= [thumbnailMaxSide] px and
@@ -303,6 +335,7 @@ class RefocalSession {
     int quality = 92,
     bool lossless = false,
     double strength = 1,
+    Look? look,
     bool exif = true,
     bool keepGps = false,
     bool aiMarker = true,
@@ -320,6 +353,7 @@ class RefocalSession {
         'quality': quality,
         'lossless': lossless,
         'strength': strength,
+        'look': ?look?.toJson(),
         'metadata': {'exif': exif, 'gps': keepGps, 'ai_marker': aiMarker},
         if (thumbnail != null) 'thumbnail': {'path': thumbnail, 'max_side': thumbnailMaxSide},
         'heif_input': ?heifInput,

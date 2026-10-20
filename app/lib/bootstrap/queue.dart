@@ -53,6 +53,7 @@ class EngineQueueRunner implements QueueJobRunner {
         input: input,
         output: output,
         strength: item.recipe.strength,
+        look: item.recipe.look,
         to: Destination.gallery,
       );
     } on HistoryNotRecorded catch (e) {

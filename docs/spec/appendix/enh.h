@@ -32,7 +32,7 @@ extern "C" {
 #pragma GCC visibility push(default) /* the core is built with -fvisibility=hidden */
 #endif
 
-#define ENH_ABI_VERSION 5
+#define ENH_ABI_VERSION 6
 
 typedef struct enh_session enh_session;
 typedef struct enh_job enh_job;
@@ -186,6 +186,21 @@ void enh_job_destroy(enh_job* j);
 /* ---- export ---- */
 enh_status enh_export(enh_session* s, const char* job_dir, const char* output_json,
                       const char* dst_path, char** out_json);
+
+/* ---- looks (FR-LOOK-001..004, ADR-0012 amendment 0.8) ----
+ * enh_export's "look" ({"id":"pastel","amount":0.8,"leaks":true}) is applied after the strength
+ * blend. The editor previews it with the same data: */
+/* The colour matrix of the look [id] (none | pastel) at [amount] 0..1 into out20, as Flutter's ColorFilter.matrix takes it: 4 x 5 row-major over RGBA
+ * 0..255, the fifth column an offset in 0..255. The export rounds its result to 8 bits.
+ * ENH_E_INVALID: unknown id, amount outside 0..1. */
+enh_status enh_look_matrix(const char* id, float amount, float* out20);
+/* The light leaks of a w x h result: a small RGBA8 image (alpha 255), its longer side
+ * ENH_LOOK_LEAKS_SIDE, that the export stretches over the result (bilinear, texel centres) and
+ * blends with "screen". Its size goes to *gw x *gh; [rgba] holds rgba_size bytes, at least
+ * ENH_LOOK_LEAKS_SIDE^2 * 4 is always enough. */
+#define ENH_LOOK_LEAKS_SIDE 256
+enh_status enh_look_leaks(int32_t w, int32_t h, uint8_t* rgba, int64_t rgba_size, int32_t* gw,
+                          int32_t* gh);
 
 /* ---- integrity ---- */
 enh_status enh_verify_file(const char* path, const char* sha256_hex);

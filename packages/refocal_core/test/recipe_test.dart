@@ -111,6 +111,28 @@ void main() {
     expect(JobRequest.fromJson({...q.toJson(), 'lowlight_model': ''}).lowlightModel, isNull);
   });
 
+  test('a look round-trips as schema 6; one that changes nothing is dropped (FR-LOOK-*)', () {
+    final look = Look(LookId.pastel, amount: 0.8, leaks: true);
+    final r = Recipe(scale: 2, srModel: 'm', look: look);
+    expect(r.toJson()['schema'], 6);
+    expect(r.toJson()['look'], {'id': 'pastel', 'amount': 0.8, 'leaks': true});
+    expect(Recipe.fromJson(roundTrip(r)), r);
+    expect(r.copyWith(look: () => null).toJson()['schema'], 2);
+    expect(Recipe(scale: 2, srModel: 'm', look: Look(LookId.none)).look, isNull);
+    expect(Recipe(scale: 2, srModel: 'm', look: Look(LookId.pastel, amount: 0)).look, isNull);
+    expect(Recipe(scale: 2, srModel: 'm', look: Look(LookId.none, leaks: true)).look, isNotNull);
+    expect(() => Look(LookId.pastel, amount: 1.5), throwsArgumentError);
+    expect(() => Recipe.fromJson({...r.toJson(), 'schema': 5}), throwsFormatException);
+    for (final bad in [
+      'pastel',
+      {'id': 'vivid', 'amount': 1, 'leaks': false},
+      {'id': 'pastel', 'amount': 2, 'leaks': false},
+      {'id': 'pastel', 'amount': 1},
+    ]) {
+      expect(() => Recipe.fromJson({...r.toJson(), 'look': bad}), throwsFormatException);
+    }
+  });
+
   test('anything else is a FormatException', () {
     final good = Recipe(scale: 4, srModel: 'm').toJson();
     for (final bad in <Map<String, Object?>>[

@@ -16,7 +16,10 @@ abstract interface class CompareTiles {
 /// a double tap toggles 1:1 and fit. The previews are the base; past their resolution the
 /// visible part is drawn from [tiles] (256 px, rendered on demand, a small LRU cache), so a
 /// 48 MP result stays sharp without holding it in memory. [strength] < 1 previews the export
-/// blend (FR-ENH-005): the result over the original at that opacity, the core's lerp.
+/// blend (FR-ENH-005): the result over the original at that opacity, the core's lerp. [look]
+/// and [leaks] preview the export's look (FR-LOOK-*) over that blend: the core's colour matrix
+/// (affine, so filtering the blend equals the core's look of the blend) and its leak image,
+/// stretched and blended with "screen" as the core does. The original stays as it is.
 ///
 /// Accessibility (A11Y-CMP-001, FR-CMP-003, A11Y-GEN-007): the border is adjustable by the
 /// screen reader in 10% steps, a "Show original" toggle is the alternative to the gesture,
@@ -29,6 +32,8 @@ class CompareSlider extends StatefulWidget {
     required this.after,
     required this.aspectRatio,
     this.strength = 1,
+    this.look,
+    this.leaks,
     this.resultLabel,
     this.tiles,
     this.resultWidth,
@@ -38,6 +43,8 @@ class CompareSlider extends StatefulWidget {
 
   final ImageProvider before, after;
   final double aspectRatio, strength;
+  final ColorFilter? look;
+  final ui.Image? leaks;
   final String? resultLabel;
 
   /// Without tiles (or the result's size) the viewer zooms the previews only.
@@ -186,12 +193,14 @@ class _CompareSliderState extends State<CompareSlider> {
                     size: size,
                     child: source == 1
                         ? layer(1, widget.before)
-                        : Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (widget.strength < 1) layer(1, widget.before),
-                              Opacity(opacity: widget.strength, child: layer(0, widget.after)),
-                            ],
+                        : _withLook(
+                            Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (widget.strength < 1) layer(1, widget.before),
+                                Opacity(opacity: widget.strength, child: layer(0, widget.after)),
+                              ],
+                            ),
                           ),
                   ),
                 ),
@@ -226,6 +235,19 @@ class _CompareSliderState extends State<CompareSlider> {
               )
             : Column(children: [before, const SizedBox(height: 4), after]),
       ),
+    );
+  }
+
+  /// The result as exported: [CompareSlider.look] over the strength blend, then the leaks.
+  Widget _withLook(Widget result) {
+    final look = widget.look, leaks = widget.leaks;
+    if (look == null && leaks == null) return result;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (look != null) ColorFiltered(colorFilter: look, child: result) else result,
+        if (leaks != null) CustomPaint(painter: _LeaksPainter(leaks)),
+      ],
     );
   }
 
@@ -287,12 +309,14 @@ class _CompareSliderState extends State<CompareSlider> {
                         maxScale: maxScale,
                         child: SizedBox.fromSize(
                           size: size,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (widget.strength < 1) layer(1, widget.before),
-                              Opacity(opacity: widget.strength, child: layer(0, widget.after)),
-                            ],
+                          child: _withLook(
+                            Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (widget.strength < 1) layer(1, widget.before),
+                                Opacity(opacity: widget.strength, child: layer(0, widget.after)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -548,4 +572,26 @@ class _Tag extends StatelessWidget {
       child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
     ),
   );
+}
+
+/// The core's leak image stretched over the result (bilinear) and blended with "screen".
+class _LeaksPainter extends CustomPainter {
+  const _LeaksPainter(this.image);
+  final ui.Image image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    canvas.drawImageRect(
+      image,
+      src,
+      Offset.zero & size,
+      Paint()
+        ..blendMode = BlendMode.screen
+        ..filterQuality = FilterQuality.low,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_LeaksPainter old) => old.image != image;
 }
