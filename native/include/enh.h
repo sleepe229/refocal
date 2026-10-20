@@ -38,7 +38,6 @@ typedef struct enh_session enh_session;
 typedef struct enh_job enh_job;
 
 typedef int32_t enh_status;
-/* NOLINTNEXTLINE(performance-enum-size): C ABI, int-sized by definition */
 enum {
   ENH_OK = 0,
   ENH_E_CANCELLED = 1,
@@ -56,7 +55,6 @@ enum {
   ENH_E_INTERNAL = 99
 };
 
-/* NOLINTNEXTLINE(performance-enum-size): C ABI, int-sized by definition */
 typedef enum {
   ENH_BACKEND_AUTO = 0,
   ENH_BACKEND_NCNN_VULKAN = 1,
@@ -81,7 +79,6 @@ typedef struct {
   const char* previous_exit;
 } enh_session_config;
 
-/* NOLINTNEXTLINE(performance-enum-size): C ABI, int-sized by definition */
 typedef enum {
   ENH_EV_STAGE = 1,    /* payload: {"stage":"restore_faces"} */
   ENH_EV_PROGRESS = 2, /* done/total in tiles; payload: {"eta_ms":1234} */
@@ -124,7 +121,6 @@ void enh_free(void* p);
  * The core and the app write one log: logcat/stderr, and a file once enh_log_open() was called.
  * Photo paths and URIs are replaced by "<path>" / "<uri>" before a line is written anywhere.
  * The file rotates to "<path>.1" when it would exceed max_bytes (each file <= max_bytes). */
-/* NOLINTNEXTLINE(performance-enum-size): C ABI, int-sized by definition */
 enum { ENH_LOG_DEBUG = 0, ENH_LOG_INFO = 1, ENH_LOG_WARN = 2, ENH_LOG_ERROR = 3 };
 enh_status enh_log_open(const char* path, int64_t max_bytes);
 void enh_log_write(int32_t level, const char* message); /* below the minimum level: dropped */

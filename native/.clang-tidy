@@ -23,4 +23,7 @@ Checks: >
   cppcoreguidelines-slicing,
   cppcoreguidelines-special-member-functions,
   cppcoreguidelines-virtual-class-destructor
-HeaderFilterRegex: '.*/native/(core/src|include|tests)/.*'
+# include/enh.h is not filtered in: it is the C ABI, a byte-for-byte copy of
+# docs/spec/appendix/enh.h (checked in CI), declarations only; its C enums are int-sized by
+# definition.
+HeaderFilterRegex: '.*/native/(core/src|tests)/.*'
