@@ -107,13 +107,9 @@ class ModelsPage extends ConsumerWidget {
           .pickFile('${manager.tmpDir}/import', _maxRfpackBytes);
       if (path == null) return;
       final p = await manager.openOffline(path);
-      if (p.pack.license.requiresAcceptance && !await manager.repo.hasConsent(p.pack)) {
-        if (!context.mounted) return;
-        final title = p.pack.titleFor(lang);
-        if (await acceptLicense(context, l10n, title, p.licenseText) != true) return;
-        await manager.repo.recordConsent(p.pack);
-        AppLog.info('consent: ${p.pack.id} ${p.pack.license.spdx}');
-      }
+      if (!context.mounted) return;
+      final title = p.pack.titleFor(lang);
+      if (!await consentTo(context, manager, p.pack, title, () async => p.licenseText)) return;
       await ref.read(modelsProvider.notifier).installOffline(p);
       messenger.showSnackBar(SnackBar(content: Text(l10n.modelsImported(p.pack.titleFor(lang)))));
     } on ModelError catch (e) {
@@ -158,8 +154,27 @@ String modelErrorText(AppLocalizations l10n, ModelError e) => switch (e.kind) {
   ModelErrorKind.notAPack => l10n.modelsErrorNotAPack,
 };
 
+/// ADR-0022: a restricted pack's licence [text] is accepted once (again when the text
+/// changes); true when [pack] may be installed.
+Future<bool> consentTo(
+  BuildContext context,
+  ModelManager manager,
+  PackInfo pack,
+  String title,
+  Future<String> Function() text,
+) async {
+  if (!pack.license.requiresAcceptance || await manager.repo.hasConsent(pack)) return true;
+  final body = await text();
+  if (!context.mounted) return false;
+  final l10n = AppLocalizations.of(context);
+  if (await _acceptLicense(context, l10n, title, body) != true) return false;
+  await manager.repo.recordConsent(pack);
+  AppLog.info('consent: ${pack.id} ${pack.license.spdx}');
+  return true;
+}
+
 /// The license text before a restricted pack is installed (ADR-0022); true when accepted.
-Future<bool?> acceptLicense(
+Future<bool?> _acceptLicense(
   BuildContext context,
   AppLocalizations l10n,
   String title,
@@ -251,13 +266,9 @@ class _PackTile extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final manager = await ref.read(modelManagerProvider.future);
     try {
-      if (pack.license.requiresAcceptance && !await manager.repo.hasConsent(pack)) {
-        final text = await manager.licenseText(pack);
-        if (!context.mounted) return;
-        if (await acceptLicense(context, l10n, pack.titleFor(lang), text) != true) return;
-        await manager.repo.recordConsent(pack);
-        AppLog.info('consent: ${pack.id} ${pack.license.spdx}');
-      }
+      if (!context.mounted) return;
+      final title = pack.titleFor(lang);
+      if (!await consentTo(context, manager, pack, title, () => manager.licenseText(pack))) return;
       await ref.read(modelsProvider.notifier).install(pack);
     } on ModelError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(modelErrorText(l10n, e))));

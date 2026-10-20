@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
+import '../models/pack_offer.dart';
 import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
 import 'fragment_preview.dart';
@@ -95,11 +96,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         _size = ui.Size(desc.width.toDouble(), desc.height.toDouble());
         _choice ??= mp >= 8 ? ScaleChoice.fast2 : ScaleChoice.x4; // ADR-0014
       });
+      _startIfWaiting();
       desc.dispose();
       buf.dispose();
     } on Object {
       // Flutter cannot decode every input the core can (e.g. AVIF on older Android).
       if (mounted) setState(() => _choice ??= ScaleChoice.fast2);
+      _startIfWaiting();
     }
   }
 
@@ -111,6 +114,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       if (next.hasError) {
         AppLog.warn('analyze: ${next.error}');
         setState(() => _autoFirst = false); // the size-based default stays
+        _startIfWaiting();
       }
       return;
     }
@@ -123,7 +127,20 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         _autoFirst = false;
         _apply(p.decision.recipe);
       });
+      _startIfWaiting();
     }
+  }
+
+  /// Enhance was tapped while Auto still looked at the photo (06 §3.2: the button does not
+  /// wait for it); it starts once Auto has chosen.
+  bool _waiting = false;
+
+  void _startIfWaiting() {
+    if (!_waiting || !mounted) return;
+    final r = _recipe;
+    if (r == null && (_autoFirst || _choice == null)) return; // still deciding
+    setState(() => _waiting = false);
+    if (r != null) _enhance(ref.read(enhanceProvider.notifier), r, AppLocalizations.of(context));
   }
 
   @override
@@ -150,6 +167,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
     return PopScope(
       canPop: state is! Running,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && state is Running) _stop(state, ctl, l10n, leave: true);
+      },
       child: Theme(
         data: canvas,
         child: Builder(
@@ -180,7 +200,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                           resultWidth: result.width,
                           resultHeight: result.height,
                         ),
-                        _ => _preview(original, state is Idle || state is AskUser, l10n),
+                        _ => _preview(original, state is Idle || state is AskUser),
                       },
                     ),
                   ),
@@ -218,15 +238,18 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         final a = ref.watch(photoAnalysisProvider(widget.input)).value;
         items.add((
           l10n.fragmentAction,
-          r != null && a != null ? () => _previewFragment(ctl, r, l10n) : null,
+          r != null && a != null
+              ? () => setState(() {
+                  _adjusting = false;
+                  _picking = true;
+                })
+              : null,
         ));
       case Finished(saving: final busy):
         if (!busy) {
           items.addAll([
             (l10n.saveAsFile, () => _saveAs(state, ctl, l10n)),
-            (l10n.strength, () => _strengthSheet(l10n)),
             (l10n.presetSaveAs, () => _saveAsPreset(ctl, l10n)),
-            (l10n.tryAnotherScale, ctl.reset),
             (l10n.resultDetails, () => _details(state, l10n)),
             // FR-REP-001: tell the project about a bad result (15 §5).
             (l10n.reportBadAction, () => showBadResultReport(context, state.result)),
@@ -288,8 +311,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   final _facesOff = <FaceBox>{};
 
   /// The photo; before Enhance with face restoration on, a box over each face it would
-  /// restore: a tap turns that face off or on again (FR-FACE-007).
-  Widget _preview(ImageProvider original, bool editable, AppLocalizations l10n) {
+  /// restore: a tap turns that face off or on again (FR-FACE-007). While the part for the
+  /// fragment preview is picked, its frame, moved by a tap (FR-ENH-015).
+  Widget _preview(ImageProvider original, bool editable) {
     final image = Image(
       image: original,
       fit: BoxFit.contain,
@@ -298,9 +322,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
     if (!editable || a == null) return Center(child: image);
-    final boxes = _faces && a.boxes.isNotEmpty;
+    final l10n = AppLocalizations.of(context);
+    final boxes = _faces && a.boxes.isNotEmpty && !_picking;
     final scheme = _canvas.colorScheme;
-    final crop = _fragmentPicked ? _fragmentCrop(a) : null;
+    final crop = _picking ? _fragmentCrop(a) : null;
     return Center(
       child: AspectRatio(
         aspectRatio: a.width / a.height,
@@ -312,13 +337,14 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               children: [
                 // A tap chooses the part for the fragment preview (FR-ENH-015).
                 GestureDetector(
-                  onTapUp: (d) => setState(() {
-                    _fragmentPicked = true;
-                    _fragmentCentre = Offset(
-                      d.localPosition.dx / c.maxWidth,
-                      d.localPosition.dy / c.maxHeight,
-                    );
-                  }),
+                  onTapUp: _picking
+                      ? (d) => setState(
+                          () => _fragmentCentre = Offset(
+                            d.localPosition.dx / c.maxWidth,
+                            d.localPosition.dy / c.maxHeight,
+                          ),
+                        )
+                      : null,
                   child: image,
                 ),
                 if (crop != null)
@@ -353,9 +379,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 
   /// FR-ENH-015: the part of the photo the fragment preview runs on (the centre of the image
-  /// until a tap picks another).
+  /// until a tap picks another), while it is picked ("…" → Preview a part).
   Offset _fragmentCentre = const Offset(0.5, 0.5);
-  bool _fragmentPicked = false;
+  bool _picking = false;
 
   ({int x, int y, int w, int h}) _fragmentCrop(PhotoAnalysis a) => FragmentPreview.cropFor(
     _recipe ?? Recipe(scale: 4, srModel: bundledSrModel),
@@ -376,7 +402,38 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       crop: _fragmentCrop(a),
       facesOff: r.faceModel == null ? const [] : _facesOff.toList(),
     );
-    if (all && mounted) await _enhance(ctl, r, l10n);
+    if (!mounted) return;
+    setState(() => _picking = false);
+    if (all) await _enhance(ctl, r, l10n);
+  }
+
+  /// The part is picked on the photo; Preview runs it, Cancel goes back to the modes.
+  Widget _pickControls(EnhanceController ctl, AppLocalizations l10n) {
+    final r = _recipe;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l10n.fragmentPickHint, textAlign: TextAlign.center),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _picking = false),
+                child: Text(l10n.cancel),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                onPressed: r == null ? null : () => _previewFragment(ctl, r, l10n),
+                child: Text(l10n.fragmentShow),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _faceBox(int i, FaceBox b, ColorScheme scheme, AppLocalizations l10n) {
@@ -444,100 +501,91 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     return canRun(r, ref.read(availableModelsProvider)) ? r : null;
   }
 
-  /// S9: a switch once the JPEG cleanup pack is installed.
-  Widget _jpegControl(AppLocalizations l10n) {
-    if (!ref.watch(availableModelsProvider).contains(jpegPack)) return const SizedBox.shrink();
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      secondary: const Icon(Icons.blur_off),
-      title: Text(l10n.jpegClean),
-      subtitle: Text(l10n.jpegCleanHint),
-      value: _jpeg,
-      onChanged: (v) => setState(() => _jpeg = v),
-    );
-  }
+  /// Modes and switches (by label) whose models are being fetched, with the packs asked for.
+  final _fetching = <String, List<String>>{};
 
-  /// S9: a switch once the low-light pack is installed.
-  Widget _lowLightControl(AppLocalizations l10n) {
-    if (!ref.watch(availableModelsProvider).contains(lowlightPack)) {
-      return const SizedBox.shrink();
+  /// Offers [packs] for what [label] names (06 §3.3); true once they are installed. The tool
+  /// or switch shows the download meanwhile, and the editor stays usable.
+  Future<bool> _fetch(String label, List<String> packs) async {
+    setState(() => _fetching[label] = packs);
+    try {
+      return await offerPacks(context, ref, packs, title: label);
+    } finally {
+      if (mounted) setState(() => _fetching.remove(label));
     }
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      secondary: const Icon(Icons.wb_sunny_outlined),
-      title: Text(l10n.lowLight),
-      subtitle: Text(l10n.lowLightHint),
-      value: _lowLight,
-      onChanged: (v) => setState(() => _lowLight = v),
-    );
   }
 
-  /// S9: a switch once both scratch packs are installed.
-  Widget _scratchesControl(AppLocalizations l10n) {
+  /// The download under [label]: null when there is none, else its fraction, or a progress
+  /// without a value while it starts.
+  ({double? value})? _download(String label) {
+    final packs = _fetching[label];
+    return packs == null ? null : (value: packsProgress(ref, packs));
+  }
+
+  /// A stage's switch (S9, faces). With its [packs] installed it turns the stage on or off;
+  /// else turning it on offers them and turns the stage on once they are in, the download
+  /// shown under it. Hidden when the device is too slow for them.
+  Widget _stageSwitch({
+    required IconData icon,
+    required String title,
+    required String hint,
+    required List<String> packs,
+    required bool value,
+    required void Function(bool) onChanged,
+  }) {
+    if (!packs.every((p) => packFitsDevice(ref, p))) return const SizedBox.shrink();
     final available = ref.watch(availableModelsProvider);
-    if (!available.contains(scratchPack) || !available.contains(inpaintPack)) {
-      return const SizedBox.shrink();
-    }
+    final missing = [
+      for (final p in packs)
+        if (!available.contains(p)) p,
+    ];
+    final download = _download(title);
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      secondary: const Icon(Icons.auto_fix_high),
-      title: Text(l10n.scratches),
-      subtitle: Text(l10n.scratchesHint),
-      value: _scratches,
-      onChanged: (v) => setState(() => _scratches = v),
+      secondary: Icon(icon),
+      title: Text(title),
+      subtitle: download == null
+          ? Text(hint)
+          : Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(value: download.value),
+            ),
+      value: value && missing.isEmpty,
+      onChanged: download != null
+          ? null
+          : (v) async {
+              if (!v || missing.isEmpty) return setState(() => onChanged(v));
+              if (await _fetch(title, missing) && mounted) setState(() => onChanged(true));
+            },
     );
   }
 
-  /// Faces (FR-FACE-002..004): a switch and the strength once the face pack is installed; else
-  /// what is needed and the way to the Models screen (FR-FACE-003).
+  /// Faces (FR-FACE-002..005): the switch (FR-FACE-003: it offers the face model when there is
+  /// none), the region, the strength and CodeFormer's likeness. CodeFormer is used when
+  /// installed: the user fetched it for that control; the model names stay out of sight (§1.1).
   Widget _facesControls(AppLocalizations l10n) {
     final available = ref.watch(availableModelsProvider);
     if (!available.contains(bundledDetector)) return const SizedBox.shrink();
-    final packs = [
+    final installed = [
       for (final p in facePacks)
         if (available.contains(p)) p,
     ];
-    if (packs.isEmpty) {
-      return ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.face_retouching_natural),
-        title: Text(l10n.faces),
-        subtitle: Text(l10n.facesNeedPack),
-        trailing: TextButton(
-          onPressed: () => context.push('/models'),
-          child: Text(l10n.facesGetPack),
-        ),
-      );
-    }
+    final on = _faces && installed.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.face_retouching_natural),
-          title: Text(l10n.faces),
-          subtitle: Text(l10n.facesHint),
+        _stageSwitch(
+          icon: Icons.face_retouching_natural,
+          title: l10n.faces,
+          hint: l10n.facesHint,
+          packs: [installed.lastOrNull ?? defaultFacePack],
           value: _faces,
-          onChanged: (v) => setState(() {
+          onChanged: (v) {
             _faces = v;
-            if (!packs.contains(_faceModel)) _faceModel = packs.first;
-          }),
+            if (v) _faceModel = installed.lastOrNull ?? defaultFacePack;
+          },
         ),
-        if (_faces && packs.length > 1)
-          SegmentedButton<String>(
-            segments: [
-              for (final p in packs)
-                ButtonSegment(
-                  value: p,
-                  label: Text(
-                    p == codeformerPack ? l10n.faceModelCodeFormer : l10n.faceModelGfpgan,
-                  ),
-                ),
-            ],
-            selected: {_faceModel},
-            onSelectionChanged: (s) => setState(() => _faceModel = s.first),
-          ),
-        if (_faces)
+        if (on)
           SegmentedButton<bool>(
             segments: [
               ButtonSegment(value: false, label: Text(l10n.regionAll)),
@@ -546,7 +594,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             selected: {_facesOnly},
             onSelectionChanged: (s) => setState(() => _facesOnly = s.first),
           ),
-        if (_faces)
+        if (on)
           Row(
             children: [
               Text(l10n.facesStrength),
@@ -562,7 +610,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             ],
           ),
         // FR-FACE-005: CodeFormer's w — towards the photo (likeness) or the model (detail).
-        if (_faces && _faceModel == codeformerPack)
+        if (on && _faceModel == codeformerPack)
           Row(
             children: [
               Text(l10n.faceFidelityDetail),
@@ -582,6 +630,34 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       ],
     );
   }
+
+  /// S9: removing JPEG artifacts, brightening, removing scratches.
+  List<Widget> _stageSwitches(AppLocalizations l10n) => [
+    _stageSwitch(
+      icon: Icons.blur_off,
+      title: l10n.jpegClean,
+      hint: l10n.jpegCleanHint,
+      packs: const [jpegPack],
+      value: _jpeg,
+      onChanged: (v) => _jpeg = v,
+    ),
+    _stageSwitch(
+      icon: Icons.wb_sunny_outlined,
+      title: l10n.lowLight,
+      hint: l10n.lowLightHint,
+      packs: const [lowlightPack],
+      value: _lowLight,
+      onChanged: (v) => _lowLight = v,
+    ),
+    _stageSwitch(
+      icon: Icons.auto_fix_high,
+      title: l10n.scratches,
+      hint: l10n.scratchesHint,
+      packs: const [scratchPack, inpaintPack],
+      value: _scratches,
+      onChanged: (v) => _scratches = v,
+    ),
+  ];
 
   /// ADR-0022: before faces are restored the first time (by the switch, a preset or Auto),
   /// what face restoration does.
@@ -703,12 +779,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   bool _adjusting = false;
 
   /// Before Enhance (06 §3.2): what Auto chose in a line, the modes as a bar, Enhance. The fine
-  /// settings open in place of the bar.
+  /// settings open in place of the bar, as does picking the part for the fragment preview.
   Widget _controls(EnhanceController ctl, AppLocalizations l10n) {
+    if (_picking) return _pickControls(ctl, l10n);
+    if (_adjusting) return _adjustPanel(l10n);
     final small = _canvas.textTheme.bodySmall;
     final a = ref.watch(photoAnalysisProvider(widget.input)).value;
     final hint = _faces && (a?.boxes.isNotEmpty ?? false) ? l10n.facesTapHint : null;
-    if (_adjusting) return _adjustPanel(l10n);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -718,27 +795,44 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         _modeBar(l10n),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: switch (_recipe) {
-            final r? => () => _enhance(ctl, r, l10n),
-            null => null,
-          },
-          child: Text(l10n.enhance),
+          onPressed: _waiting
+              ? null
+              : switch (_recipe) {
+                  final r? => () => _enhance(ctl, r, l10n),
+                  null when _autoFirst || _choice == null => () => setState(() => _waiting = true),
+                  null => null,
+                },
+          child: _waiting
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.enhance),
         ),
       ],
     );
   }
 
-  /// Auto, Portrait, Old photo, the scale and Adjust (06 §3.2).
+  /// Auto, Portrait, Old photo and Adjust (06 §3.2). A mode whose model is missing offers it
+  /// and shows the download around its icon.
   Widget _modeBar(AppLocalizations l10n) {
     final auto = ref.watch(autoProvider(widget.input));
     final p = auto.value;
-    Widget preset(BuiltinPreset b, IconData icon) => _Tool(
-      icon: icon,
-      label: builtinPresetLabel(l10n, b),
-      selected: _matches(b.recipe),
-      onTap: () => _choose(b.recipe, l10n),
-    );
-    final choice = _choice;
+    Widget preset(BuiltinPreset b, IconData icon) {
+      final label = builtinPresetLabel(l10n, b);
+      final download = _download(label);
+      return _Tool(
+        icon: icon,
+        label: label,
+        selected: _matches(b.recipe),
+        download: download,
+        onTap: download != null ? () {} : () => _choose(b.recipe, label),
+      );
+    }
+
+    final faces =
+        ref.watch(availableModelsProvider).contains(bundledDetector) &&
+        packFitsDevice(ref, defaultFacePack);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -748,17 +842,17 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             label: l10n.autoChip,
             busy: auto.isLoading,
             selected: p != null && _matches(p.decision.recipe),
-            onTap: p == null ? null : () => setState(() => _apply(p.decision.recipe)),
+            onTap: p == null
+                ? null
+                : () => setState(() {
+                    _wanted = null;
+                    _apply(p.decision.recipe);
+                  }),
           ),
-        if (ref.watch(availableModelsProvider).contains(bundledDetector)) ...[
+        if (faces) ...[
           preset(BuiltinPreset.portrait, Icons.face_outlined),
           preset(BuiltinPreset.oldPhoto, Icons.filter_b_and_w_outlined),
         ],
-        _Tool(
-          text: choice == null ? '' : scaleLabel(l10n, choice.scale, fast2: choice.fastPath),
-          label: l10n.editorScale,
-          onTap: () => _scaleSheet(l10n),
-        ),
         _Tool(
           icon: Icons.tune,
           label: l10n.editorAdjust,
@@ -768,47 +862,32 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// A preset or a mode; one that needs a model the device does not have offers the Models
-  /// screen (FR-ONB-003: the face model when it is first wanted).
-  Future<void> _choose(Recipe r, AppLocalizations l10n) async {
+  /// The last preset or mode chosen: one whose models arrive later is applied only if the user
+  /// has not chosen another meanwhile.
+  Recipe? _wanted;
+
+  /// A preset or a mode, [label] its name; one that needs models the device does not have
+  /// offers them right here (FR-ONB-003, 06 §3.3) and is applied once they are in.
+  Future<void> _choose(Recipe r, String label) async {
+    _wanted = r;
     final available = ref.read(availableModelsProvider);
-    if (canRun(r, available)) {
-      setState(() => _apply(r));
+    final missing = missingPacks(r, available);
+    if (missing.isEmpty) {
+      if (canRun(r, available)) setState(() => _apply(r));
       return;
     }
-    final face = r.faceModel != null && !available.contains(r.faceModel);
-    final open = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                face ? l10n.faceOfferTitle : l10n.presetModelMissing,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (face) ...[const SizedBox(height: 8), Text(l10n.faceOfferBody)],
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(l10n.faceOfferOpen),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(l10n.faceOfferLater),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (open == true && mounted) await context.push('/models');
+    if (await _fetch(label, missing) && mounted && _wanted == r) setState(() => _apply(r));
   }
 
-  /// The scales this photo can take (ADR-0014; 8x on T2 for a small input).
+  /// The result's size at [c] (null while the photo's size is not known).
+  String? _resultSize(AppLocalizations l10n, ScaleChoice c) {
+    final size = _size;
+    if (size == null) return null;
+    return l10n.sizePx((size.width * c.scale).round(), (size.height * c.scale).round());
+  }
+
+  /// The scales this photo can take (ADR-0014; 8x on T2 for a small input), each with the
+  /// size it gives.
   Future<void> _scaleSheet(AppLocalizations l10n) async {
     final picked = await showModalBottomSheet<ScaleChoice>(
       context: context,
@@ -824,7 +903,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                   RadioListTile<ScaleChoice>(
                     value: c,
                     title: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
-                    subtitle: c == ScaleChoice.x1 ? Text(l10n.scaleX1Hint) : null,
+                    subtitle: switch ([
+                      ?_resultSize(l10n, c),
+                      if (c == ScaleChoice.x1) l10n.scaleX1Hint,
+                    ]) {
+                      [] => null,
+                      final lines => Text(lines.join('\n')),
+                    },
                   ),
             ],
           ),
@@ -834,8 +919,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     if (picked != null && mounted) setState(() => _choice = picked);
   }
 
-  /// "Настроить" (06 §3.2): the other presets, the model, denoise, faces and the S9 stages, in
-  /// place of the mode bar; the photo stays in view.
+  /// "Настроить" (06 §3.2): the other presets, the scale, the model, denoise, faces and the S9
+  /// stages, in place of the mode bar; the photo stays in view.
   Widget _adjustPanel(AppLocalizations l10n) {
     final user = ref.watch(presetsProvider).value ?? const <Preset>[];
     final strength = _strength != 1
@@ -852,6 +937,22 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             style: _canvas.textTheme.bodySmall,
           )
         : null;
+    Widget chip(String label, Recipe r) {
+      final download = _download(label);
+      return ChoiceChip(
+        avatar: download == null
+            ? null
+            : SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, value: download.value),
+              ),
+        label: Text(label),
+        selected: _matches(r),
+        onSelected: download != null ? null : (_) => _choose(r, label),
+      );
+    }
+
+    final choice = _choice;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -874,25 +975,30 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 runSpacing: 4,
                 children: [
                   for (final b in [BuiltinPreset.fast, BuiltinPreset.quality, BuiltinPreset.anime])
-                    ChoiceChip(
-                      label: Text(builtinPresetLabel(l10n, b)),
-                      selected: _matches(b.recipe),
-                      onSelected: (_) => _choose(b.recipe, l10n),
-                    ),
-                  for (final p in user)
-                    ChoiceChip(
-                      label: Text(p.name),
-                      selected: _matches(p.recipe),
-                      onSelected: (_) => _choose(p.recipe, l10n),
-                    ),
+                    if (missingPacks(b.recipe, const {}).every((p) => packFitsDevice(ref, p)))
+                      chip(builtinPresetLabel(l10n, b), b.recipe),
+                  for (final p in user) chip(p.name, p.recipe),
                 ],
               ),
+              if (choice != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.photo_size_select_large),
+                  title: Text(l10n.editorScale),
+                  subtitle: switch (_resultSize(l10n, choice)) {
+                    final s? => Text(s),
+                    null => null,
+                  },
+                  trailing: Text(
+                    scaleLabel(l10n, choice.scale, fast2: choice.fastPath),
+                    style: _canvas.textTheme.titleMedium,
+                  ),
+                  onTap: () => _scaleSheet(l10n),
+                ),
               ?_srModel(l10n),
               ?_denoise(l10n),
               _facesControls(l10n),
-              _jpegControl(l10n),
-              _lowLightControl(l10n),
-              _scratchesControl(l10n),
+              ..._stageSwitches(l10n),
               ?strength,
               ?look,
             ],
@@ -966,7 +1072,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: OutlinedButton(onPressed: ctl.cancel, child: Text(l10n.cancel)),
+              child: OutlinedButton(
+                onPressed: () => _stop(s, ctl, l10n, leave: false),
+                child: Text(l10n.cancel),
+              ),
             ),
           ],
         ),
@@ -974,6 +1083,34 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         Text(l10n.backgroundHint, textAlign: TextAlign.center, style: _canvas.textTheme.bodySmall),
       ],
     );
+  }
+
+  /// 06 §1 (8): stopping is never a slip. Cancel asks first; Back asks too and leaves, the job
+  /// paused when it can continue later (the upscale), else cancelled.
+  Future<void> _stop(
+    Running s,
+    EnhanceController ctl,
+    AppLocalizations l10n, {
+    required bool leave,
+  }) async {
+    final pause = leave && s.stage == JobStage.upscale;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.stopTitle),
+        content: Text(pause ? l10n.stopBodyResumable : l10n.stopBodyLost),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.stopKeep)),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.stopConfirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await ctl.stop(pause: pause);
+    if (leave && mounted) Navigator.of(context).pop();
   }
 
   Widget _paused(Paused s, EnhanceController ctl, AppLocalizations l10n) {
@@ -1000,39 +1137,46 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// The result (06 §3.2): the comparison above, Save here, the rest in the "…" menu.
+  /// The result (06 §3.2): the comparison above; Share, Filter, Strength and Change as
+  /// labelled tools, Save under them; the rest in the "…" menu.
   Widget _finished(Finished s, EnhanceController ctl, AppLocalizations l10n) {
     final busy = s.saving;
+    VoidCallback? unlessBusy(VoidCallback f) => busy ? null : f;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (busy) ...[const LinearProgressIndicator(), const SizedBox(height: 8)],
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconButton.filledTonal(
-              tooltip: l10n.share,
-              onPressed: busy ? null : () => _share(ctl, l10n),
-              icon: const Icon(Icons.share_outlined),
+            _Tool(
+              icon: Icons.share_outlined,
+              label: l10n.share,
+              onTap: unlessBusy(() => _share(ctl, l10n)),
             ),
-            const SizedBox(width: 8),
             // FR-LOOK-001: the look, applied when saving.
-            IconButton.filledTonal(
-              tooltip: l10n.lookTitle,
-              isSelected: s.look != null,
-              onPressed: busy ? null : () => _lookSheet(l10n),
-              icon: const Icon(Icons.photo_filter_outlined),
-              selectedIcon: const Icon(Icons.photo_filter),
+            _Tool(
+              icon: s.look != null ? Icons.photo_filter : Icons.photo_filter_outlined,
+              label: l10n.lookTitle,
+              selected: s.look != null,
+              onTap: unlessBusy(() => _lookSheet(l10n)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: busy
-                    ? null
-                    : () => _save(() => ctl.saveToGallery(), l10n.savedToGallery),
-                child: Text(l10n.editorSave),
-              ),
+            // FR-ENH-005: "too much" is the most common complaint; its fix is on view.
+            _Tool(
+              icon: Icons.opacity,
+              label: s.strength < 1
+                  ? '${l10n.strength} ${l10n.strengthValue((s.strength * 100).round())}'
+                  : l10n.strength,
+              selected: s.strength < 1,
+              onTap: unlessBusy(() => _strengthSheet(l10n)),
             ),
+            _Tool(icon: Icons.tune, label: l10n.editorRedo, onTap: unlessBusy(ctl.reset)),
           ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: unlessBusy(() => _save(() => ctl.saveToGallery(), l10n.savedToGallery)),
+          child: Text(l10n.editorSave),
         ),
       ],
     );
@@ -1240,14 +1384,27 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     await _save(() => ctl.saveToFile(format), l10n.savedToFile);
   }
 
+  /// 06 §3.5: what happened in one phrase, then what can be done: try again, or another
+  /// scale when the photo is too large for this one; a file that does not open goes back.
   Widget _failed(Failed s, EnhanceController ctl, AppLocalizations l10n) {
     final text = statusText(l10n, s.status);
+    final r = _recipe;
+    final (String, VoidCallback?) main = switch (s.status) {
+      EnhStatus.oom || EnhStatus.limit => (l10n.tryAnotherScale, ctl.reset),
+      EnhStatus.invalid || EnhStatus.diskFull => (l10n.back, ctl.reset),
+      _ => (l10n.retry, r == null ? null : () => _enhance(ctl, r, l10n)),
+    };
+    final retry = main.$1 == l10n.retry;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Semantics(liveRegion: true, child: Text(text, textAlign: TextAlign.center)),
         const SizedBox(height: 12),
-        FilledButton(onPressed: ctl.reset, child: Text(l10n.back)),
+        FilledButton(onPressed: main.$2, child: Text(main.$1)),
+        if (retry) ...[
+          TextButton(onPressed: ctl.reset, child: Text(l10n.tryAnotherScale)),
+          TextButton(onPressed: () => context.push('/report'), child: Text(l10n.reportEntry)),
+        ],
       ],
     );
   }
@@ -1295,21 +1452,23 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 }
 
-/// A tool of the editor's bottom bar: an icon (or a short text such as "4×") over its label.
+/// A tool of the editor's bottom bar: an icon over its label.
 class _Tool extends StatelessWidget {
   const _Tool({
-    this.icon,
-    this.text,
+    required this.icon,
     required this.label,
     this.selected = false,
     this.busy = false,
+    this.download,
     required this.onTap,
   });
 
-  final IconData? icon;
-  final String? text;
+  final IconData icon;
   final String label;
   final bool selected, busy;
+
+  /// The download of the models this tool needs: a ring around the icon (no value: starting).
+  final ({double? value})? download;
   final VoidCallback? onTap;
 
   @override
@@ -1320,18 +1479,29 @@ class _Tool extends StatelessWidget {
         : selected
         ? scheme.primary
         : scheme.onSurface;
+    final download = this.download;
     final glyph = busy
         ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-        : icon != null
-        ? Icon(icon, color: color)
-        : Text(
-            text ?? '',
-            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 16),
-          );
+        : download != null
+        ? Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox.square(
+                dimension: 32,
+                child: CircularProgressIndicator(strokeWidth: 2, value: download.value),
+              ),
+              Icon(icon, color: color, size: 18),
+            ],
+          )
+        : Icon(icon, color: color);
     return Expanded(
       child: Semantics(
         button: true,
         selected: selected,
+        value: switch (download?.value) {
+          final v? => AppLocalizations.of(context).modelsDownloading((v * 100).round()),
+          _ => null,
+        },
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
@@ -1342,7 +1512,7 @@ class _Tool extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(height: 24, child: Center(child: glyph)),
+                  SizedBox(height: 32, child: Center(child: glyph)),
                   const SizedBox(height: 4),
                   Text(
                     label,

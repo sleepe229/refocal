@@ -84,14 +84,14 @@ class _CompareSliderState extends State<CompareSlider> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     String pct(double v) => l10n.comparePercentOriginal((v.clamp(0.0, 1.0) * 100).round());
-    final pos = _original ? 1.0 : _pos;
+    final pos = _original || _held ? 1.0 : _pos;
     // In a bounded height (the editor's canvas) the photo fits the space above the controls;
     // in a list it takes the width.
     return LayoutBuilder(
       builder: (context, c) {
-        final photo = _loupe(
-          _sideBySide ? _pair(l10n, c.hasBoundedHeight) : _viewer(l10n, pct, pos),
-        );
+        final photo = _sideBySide
+            ? _pair(l10n, c.hasBoundedHeight)
+            : _hold(_viewer(l10n, pct, pos));
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -130,39 +130,16 @@ class _CompareSliderState extends State<CompareSlider> {
   }
 
   bool _sideBySide = false;
-  Offset? _loupeAt;
 
-  /// FR-CMP-006: a long press shows a 2x circle above the finger (06 §5 "лупа").
-  Widget _loupe(Widget child) => GestureDetector(
-    onLongPressStart: (d) => setState(() => _loupeAt = d.localPosition),
-    onLongPressMoveUpdate: (d) => setState(() => _loupeAt = d.localPosition),
-    onLongPressEnd: (_) => setState(() => _loupeAt = null),
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        child,
-        if (_loupeAt case final p?)
-          Positioned(
-            left: p.dx - _loupeSide / 2,
-            top: p.dy - _loupeSide / 2 - _loupeLift,
-            child: const IgnorePointer(
-              child: RawMagnifier(
-                size: Size.square(_loupeSide),
-                magnificationScale: 2,
-                // The circle sits above the finger and shows what is under it.
-                focalPointOffset: Offset(0, _loupeLift),
-                decoration: MagnifierDecoration(
-                  shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
-                  shadows: [BoxShadow(blurRadius: 6, color: Colors.black45)],
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
+  /// FR-CMP-002: a finger held on the photo shows the original until it is lifted.
+  bool _held = false;
+
+  Widget _hold(Widget child) => GestureDetector(
+    onLongPressStart: (_) => setState(() => _held = true),
+    onLongPressEnd: (_) => setState(() => _held = false),
+    onLongPressCancel: () => setState(() => _held = false),
+    child: child,
   );
-
-  static const double _loupeSide = 120, _loupeLift = 100;
 
   /// FR-CMP-004: original and result next to each other (above each other on a phone), one
   /// zoom for both (06 §5: synchronous).
