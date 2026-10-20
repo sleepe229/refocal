@@ -18,6 +18,7 @@
 #include "image/ops.hpp"
 #include "job/job.hpp"
 #include "util/error.hpp"
+#include "util/format.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
 #include "util/size.hpp"
@@ -45,7 +46,7 @@ void read_result_rows(const enh_viewer& v, int y, int n, int x, int w, uint8_t* 
   std::FILE* f = nullptr;
   int open_band = -1;
   auto close = [&] {
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // read only
     f = nullptr;
   };
   for (int r = 0; r < n; ++r) {
@@ -54,9 +55,7 @@ void read_result_rows(const enh_viewer& v, int y, int n, int x, int w, uint8_t* 
     const int b = int(it - v.band_y0.begin()) - 1;
     if (b != open_band) {
       close();
-      char name[32];
-      std::snprintf(name, sizeof name, "bands/%04d.raw", b);
-      f = std::fopen(fs::join(v.dir, name).c_str(), "rb");
+      f = std::fopen(fs::join(v.dir, strf("bands/%04d.raw", b)).c_str(), "rb");
       if (!f) fail(ENH_E_IO, "cannot read the result");
       open_band = b;
     }

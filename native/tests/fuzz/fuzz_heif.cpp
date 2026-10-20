@@ -27,8 +27,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
   const auto info = enh::heif_read_meta(out.data(), out.size());  // must not throw
   if (info.icc != meta.icc || info.exif_tiff != meta.exif || info.xmp != meta.xmp) {
-    std::fprintf(stderr, "metadata lost: icc %d exif %d xmp %d\n", info.icc == meta.icc,
-                 info.exif_tiff == meta.exif, info.xmp == meta.xmp);
+    (void)std::fprintf(stderr, "metadata lost: icc %d exif %d xmp %d\n", info.icc == meta.icc,
+                       info.exif_tiff == meta.exif, info.xmp == meta.xmp);
     std::abort();
   }
   return 0;

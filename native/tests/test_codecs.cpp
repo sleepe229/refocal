@@ -21,12 +21,12 @@
 #include "util/size.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                                        \
-  do {                                                                  \
-    if (!(c)) {                                                         \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
-      ++fails;                                                          \
-    }                                                                   \
+#define CHECK(c)                                                              \
+  do {                                                                        \
+    if (!(c)) {                                                               \
+      (void)std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                                \
+    }                                                                         \
   } while (0)
 
 using namespace enh;
@@ -205,7 +205,7 @@ static void write_png_meta(const std::string& path, int w, int h, const Bytes& e
   if (setjmp(png_jmpbuf(png))) {
     CHECK(false);
     png_destroy_write_struct(&png, &info);
-    std::fclose(f);
+    (void)std::fclose(f);  // failed already
     return;
   }
   png_init_io(png, f);
@@ -218,7 +218,7 @@ static void write_png_meta(const std::string& path, int w, int h, const Bytes& e
   for (int y = 0; y < h; ++y) png_write_row(png, row.data());
   png_write_end(png, info);
   png_destroy_write_struct(&png, &info);
-  std::fclose(f);
+  CHECK(std::fclose(f) == 0);
 }
 
 // A syntactically valid ICC header is enough for libpng's iCCP checks. The body is noise: libpng
@@ -269,7 +269,7 @@ static void test_png(const std::string& dir) {
     CHECK(img.px[9] == 10 && img.px[10] == 20 && img.px[11] == 30);
   }
   {  // 16-bit linear gray -> 8-bit sRGB RGB (libpng converts)
-    Bytes px(4 * 3 * 2, 0);
+    Bytes px(size_t{4} * 3 * 2, 0);
     const std::string p = fs::join(dir, "g16.png");
     write_png_simple(p, 4, 3, PNG_FORMAT_LINEAR_Y, px);
     ImageInfo i;
@@ -452,7 +452,7 @@ static void test_jpeg_meta(const std::string& dir) {
   Rgb8 img;
   img.w = 16;
   img.h = 8;
-  img.px.assign(16 * 8 * 3, 90);
+  img.px.assign(size_t{16} * 8 * 3, 90);
   OutputMeta meta;
   meta.exif = exif_rewrite(camera_exif(false).data(), camera_exif(false).size(), {16, 8, false});
   meta.xmp = ai_marker_xmp("Refocal test");
@@ -489,7 +489,7 @@ static void test_jpeg_quality(const std::string& dir) {
     const std::string p = dir + "/q" + std::to_string(q) + ".jpg";
     jpeg_encode(p, img, q);
     const int got = jpeg_probe(p).quality;
-    if (got != q) std::fprintf(stderr, "quality %d read back as %d\n", q, got);
+    if (got != q) (void)std::fprintf(stderr, "quality %d read back as %d\n", q, got);
     CHECK(got == q);
   }
 }
@@ -500,7 +500,7 @@ static void test_prefixed_exif(const std::string& dir) {
   prefixed.insert(prefixed.end(), cam.begin(), cam.end());
   OutputMeta md;
   md.exif = prefixed;
-  std::vector<uint8_t> px(16 * 8 * 3, 128);
+  std::vector<uint8_t> px(size_t{16} * 8 * 3, 128);
   const std::string png = fs::join(dir, "prefixed.png"), webp = fs::join(dir, "prefixed.webp");
   {
     PngWriter w(png, 16, 8, &md);
@@ -534,6 +534,6 @@ int main(int argc, char** argv) {
   test_jpeg_meta(dir);
   test_prefixed_exif(dir);
   test_jpeg_quality(dir);
-  std::printf("test_codecs: %d failures\n", fails);
+  (void)std::printf("test_codecs: %d failures\n", fails);
   return fails ? 1 : 0;
 }

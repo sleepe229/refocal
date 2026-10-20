@@ -1,0 +1,19 @@
+# Bug-finding checks for our code (core, CLI, tests, fuzzers), run in CI (pr.yml native job).
+# Style checks (naming, trailing return types, magic numbers, braces) are left to .clang-format
+# and review: they do not find bugs and fight the project's style.
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  performance-*,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-missing-std-forward,
+  cppcoreguidelines-narrowing-conversions,
+  cppcoreguidelines-prefer-member-initializer,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-rvalue-reference-param-not-moved,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-special-member-functions,
+  cppcoreguidelines-virtual-class-destructor
+HeaderFilterRegex: '.*/native/(core/src|include|tests)/.*'

@@ -9,6 +9,7 @@
 
 #include "pipeline/geometry.hpp"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -51,7 +52,7 @@ Rgb8 jpeg_clean(InferenceBackend& be, const Rgb8& img, float qf, int tile, int p
         float* gr = in.channel(1).row(yy);
         float* bl = in.channel(2).row(yy);
         for (int xx = 0; xx < nw; ++xx) {
-          const uint8_t* p = row + colidx[size_t(xx)] * 3;
+          const uint8_t* p = row + sz(colidx[sz(xx)]) * 3;
           r[xx] = p[0] * (1.f / 255.f);
           gr[xx] = p[1] * (1.f / 255.f);
           bl[xx] = p[2] * (1.f / 255.f);
@@ -71,9 +72,10 @@ Rgb8 jpeg_clean(InferenceBackend& be, const Rgb8& img, float qf, int tile, int p
         for (int x = ox0; x < ox1; ++x) {
           const int xx = x - x0 + P;
           auto u8 = [](float v) { return uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f)); };
-          dst[x * 3] = u8(r[xx]);
-          dst[x * 3 + 1] = u8(gr[xx]);
-          dst[x * 3 + 2] = u8(bl[xx]);
+          uint8_t* d = dst + sz(x) * 3;
+          d[0] = u8(r[xx]);
+          d[1] = u8(gr[xx]);
+          d[2] = u8(bl[xx]);
         }
       }
       ++done;

@@ -6,6 +6,8 @@
 #include <nlohmann/json.hpp>
 #include <set>
 
+#include "util/format.hpp"
+
 namespace enh {
 namespace {
 
@@ -65,9 +67,7 @@ std::optional<Action> parse_action(const std::string& s) {
 std::string vendor_name(uint32_t vendor_id) {
   for (const auto& v : vendor_table())
     if (v.id == vendor_id) return v.canonical;
-  char buf[16];
-  std::snprintf(buf, sizeof buf, "0x%04X", vendor_id);
-  return buf;
+  return strf("0x%04X", vendor_id);
 }
 
 bool vendor_matches(const std::string& rule_vendor, uint32_t vendor_id) {
@@ -101,15 +101,8 @@ std::vector<uint32_t> decode_driver_version(uint32_t vendor_id, uint32_t v,
 
 std::string format_driver_version(uint32_t vendor_id, uint32_t raw, const std::string& platform) {
   auto c = decode_driver_version(vendor_id, raw, platform);
-  char buf[64];
-  if (vendor_id == 0x13B5) {
-    std::snprintf(buf, sizeof buf, "r%up%u", c[0], c[1]);
-    return buf;
-  }
-  if (vendor_id == 0x10DE) {
-    std::snprintf(buf, sizeof buf, "%u.%u.%02u", c[0], c[1], c[2]);
-    return buf;
-  }
+  if (vendor_id == 0x13B5) return strf("r%up%u", c[0], c[1]);
+  if (vendor_id == 0x10DE) return strf("%u.%u.%02u", c[0], c[1], c[2]);
   std::string s;
   for (size_t i = 0; i < c.size(); ++i) s += (i ? "." : "") + std::to_string(c[i]);
   return s;

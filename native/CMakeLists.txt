@@ -189,6 +189,7 @@ add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL SYSTEM)
 set(ENH_SOURCES
   core/src/enh.cpp
   core/src/probe.cpp
+  core/src/util/format.cpp
   core/src/util/fs.cpp
   core/src/util/integrity.cpp
   core/src/util/log.cpp

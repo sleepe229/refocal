@@ -8,6 +8,8 @@
 #include <ctime>
 #include <nlohmann/json.hpp>
 
+#include "util/format.hpp"
+
 using nlohmann::json;
 
 namespace enh {
@@ -31,10 +33,7 @@ const char* exit_reason_name(ExitReason r) {
 }
 
 std::string SentinelRecord::key() const {
-  char buf[96];
-  std::snprintf(buf, sizeof buf, "%04x:%08x:%08x|", gpu.vendor_id, gpu.device_id,
-                gpu.driver_version);
-  return buf + model;
+  return strf("%04x:%08x:%08x|", gpu.vendor_id, gpu.device_id, gpu.driver_version) + model;
 }
 
 bool write_file_atomic(const std::string& path, const std::string& content) {
@@ -62,8 +61,9 @@ bool read_file(const std::string& path, std::string& out) {
   char buf[65536];
   size_t n;
   while ((n = std::fread(buf, 1, sizeof buf, f)) > 0) out.append(buf, n);
-  std::fclose(f);
-  return true;
+  const bool ok = !std::ferror(f);  // fread() returns 0 on an error too: not the whole file
+  (void)std::fclose(f);             // read only
+  return ok;
 }
 
 namespace {

@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "util/error.hpp"
+#include "util/format.hpp"
 #include "util/fs.hpp"
 
 namespace enh {
@@ -14,11 +15,7 @@ namespace enh {
 BandStore::BandStore(std::string job_dir, bool durable)
     : job_dir_(std::move(job_dir)), bands_dir_(fs::join(job_dir_, "bands")), durable_(durable) {}
 
-std::string BandStore::band_path(int i) const {
-  char b[24];
-  std::snprintf(b, sizeof b, "%04d.raw", i);
-  return fs::join(bands_dir_, b);
-}
+std::string BandStore::band_path(int i) const { return fs::join(bands_dir_, strf("%04d.raw", i)); }
 
 std::string BandStore::checkpoint_path() const { return fs::join(job_dir_, "checkpoint.json"); }
 

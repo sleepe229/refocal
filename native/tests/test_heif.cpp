@@ -155,9 +155,11 @@ int main(int argc, char** argv) {
     const Bytes in = make_heif(kTile2, kTile3);
     const Bytes out = heif_attach_meta(in, sample_meta());
     for (const auto& [name, b] : {std::pair{"grid.heic", in}, std::pair{"grid-meta.heic", out}}) {
-      if (FILE* f = std::fopen((std::string(argv[1]) + "/" + name).c_str(), "wb")) {
-        std::fwrite(b.data(), 1, b.size(), f);
-        std::fclose(f);
+      FILE* f = std::fopen((std::string(argv[1]) + "/" + name).c_str(), "wb");
+      const bool written = f && std::fwrite(b.data(), 1, b.size(), f) == b.size();
+      if (!f || std::fclose(f) != 0 || !written) {
+        (void)std::fprintf(stderr, "cannot write %s into %s\n", name, argv[1]);
+        return 1;
       }
     }
   }

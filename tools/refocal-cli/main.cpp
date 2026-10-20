@@ -48,7 +48,7 @@ struct Args {
 };
 
 int usage() {
-  std::fprintf(
+  (void)std::fprintf(
       stderr,
       "usage:\n  refocal-cli probe\n"
       "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg|.png|.webp\n"
@@ -76,7 +76,7 @@ void on_event(int64_t, int32_t type, int32_t, int64_t done, int64_t total, char*
   json j = json::parse(p, nullptr, false);
   enh_free(p);
   if (g_sink.json_out)
-    std::printf(
+    (void)std::printf(
         "%s\n",
         json{{"type", type}, {"done", done}, {"total", total}, {"payload", j}}.dump().c_str());
   std::lock_guard lk(g_sink.mu);
@@ -86,19 +86,19 @@ void on_event(int64_t, int32_t type, int32_t, int64_t done, int64_t total, char*
       break;
     case ENH_EV_PROGRESS:
       if (!g_sink.json_out)
-        std::fprintf(stderr, "\r%lld/%lld tiles, eta %.1f s   ", (long long)done, (long long)total,
-                     double(j.value("eta_ms", int64_t(-1))) / 1000.0);
+        (void)std::fprintf(stderr, "\r%lld/%lld tiles, eta %.1f s   ", (long long)done,
+                           (long long)total, double(j.value("eta_ms", int64_t(-1))) / 1000.0);
       break;
     case ENH_EV_FALLBACK:
-      std::fprintf(stderr, "\nfallback %s -> %s (%s)\n", j.value("from", "").c_str(),
-                   j.value("to", "").c_str(), j.value("reason", "").c_str());
+      (void)std::fprintf(stderr, "\nfallback %s -> %s (%s)\n", j.value("from", "").c_str(),
+                         j.value("to", "").c_str(), j.value("reason", "").c_str());
       break;
     case ENH_EV_WARNING:
-      std::fprintf(stderr, "\nwarning %s\n", j.value("code", "").c_str());
+      (void)std::fprintf(stderr, "\nwarning %s\n", j.value("code", "").c_str());
       break;
     case ENH_EV_NEEDS_USER:
-      std::fprintf(stderr, "\nneeds user: %s (rerun with a smaller --scale or --fast2)\n",
-                   j.dump().c_str());
+      (void)std::fprintf(stderr, "\nneeds user: %s (rerun with a smaller --scale or --fast2)\n",
+                         j.dump().c_str());
       break;
     case ENH_EV_DONE:
       g_sink.done = true;
@@ -174,7 +174,7 @@ int cmd_run(const Args& a) {
     st = enh_job_create(s, req.dump().c_str(), &j);
   }
   if (st != ENH_OK) {
-    std::fprintf(stderr, "job create failed: %d\n", st);
+    (void)std::fprintf(stderr, "job create failed: %d\n", st);
     enh_session_destroy(s);
     return 1;
   }
@@ -185,10 +185,10 @@ int cmd_run(const Args& a) {
     g_sink.cv.wait(lk, [] { return g_sink.done; });
   }
   enh_job_destroy(j);
-  std::fprintf(stderr, "\n");
+  (void)std::fprintf(stderr, "\n");
   int rc = 0;
   if (g_sink.status != ENH_OK) {
-    std::fprintf(stderr, "job failed: %s\n", g_sink.result.dump().c_str());
+    (void)std::fprintf(stderr, "job failed: %s\n", g_sink.result.dump().c_str());
     rc = 1;
   } else {
     char* ex = nullptr;
@@ -208,7 +208,7 @@ int cmd_run(const Args& a) {
                           .dump();
     if (enh_export(s, enh::fs::join(work, job_id).c_str(), opt.c_str(), out.c_str(), &ex) !=
         ENH_OK) {
-      std::fprintf(stderr, "export failed\n");
+      (void)std::fprintf(stderr, "export failed\n");
       rc = 1;
     }
     double sec = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
@@ -227,7 +227,7 @@ int cmd_compare(const Args& a) {
   try {
     enh::Rgb8 x = enh::decode_image(a.pos[1]), y = enh::decode_image(a.pos[2]);
     if (x.w != y.w || x.h != y.h) {
-      std::fprintf(stderr, "size mismatch: %dx%d vs %dx%d\n", x.w, x.h, y.w, y.h);
+      (void)std::fprintf(stderr, "size mismatch: %dx%d vs %dx%d\n", x.w, x.h, y.w, y.h);
       return 1;
     }
     double se = 0;
@@ -239,12 +239,12 @@ int cmd_compare(const Args& a) {
     }
     double mse = se / double(x.px.size());
     double psnr = mse == 0 ? 99.0 : 10 * std::log10(255.0 * 255.0 / mse);
-    std::printf("{\"psnr_db\": %.2f, \"max_abs\": %d, \"width\": %d, \"height\": %d}\n", psnr, maxd,
-                x.w, x.h);
+    (void)std::printf("{\"psnr_db\": %.2f, \"max_abs\": %d, \"width\": %d, \"height\": %d}\n", psnr,
+                      maxd, x.w, x.h);
     std::string min = a.get("--min-psnr");
     return !min.empty() && psnr < std::atof(min.c_str()) ? 1 : 0;
   } catch (const std::exception& e) {
-    std::fprintf(stderr, "%s\n", e.what());
+    (void)std::fprintf(stderr, "%s\n", e.what());
     return 1;
   }
 }

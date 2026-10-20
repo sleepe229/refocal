@@ -91,7 +91,7 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
   for (int y = 0; y < nh; ++y) {
     const uint8_t* row = small.row(reflect101(y, sh));
     for (int x = 0; x < nw; ++x) {
-      const uint8_t* p = row + reflect101(x, sw) * 3;
+      const uint8_t* p = row + sz(reflect101(x, sw)) * 3;
       const Hvi c = hvi_of_rgb(p[0] / 255.f, p[1] / 255.f, p[2] / 255.f, k);
       in.channel(0).row(y)[x] = c.h;
       in.channel(1).row(y)[x] = c.v;
@@ -136,15 +136,17 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
         delta[c] = (at(y0, x0) * (1 - ax) + at(y0, x1) * ax) * (1 - ay) +
                    (at(y1, x0) * (1 - ax) + at(y1, x1) * ax) * ay;
       }
-      Hvi c = hvi_of_rgb(src[x * 3] / 255.f, src[x * 3 + 1] / 255.f, src[x * 3 + 2] / 255.f, k);
+      const uint8_t* sp = src + sz(x) * 3;
+      Hvi c = hvi_of_rgb(sp[0] / 255.f, sp[1] / 255.f, sp[2] / 255.f, k);
       c.h += delta[0];
       c.v += delta[1];
       c.i += delta[2];
       float r, g, b;
       rgb_of_hvi(c, k, r, g, b);
-      dst[x * 3] = u8(r);
-      dst[x * 3 + 1] = u8(g);
-      dst[x * 3 + 2] = u8(b);
+      uint8_t* o = dst + sz(x) * 3;
+      o[0] = u8(r);
+      o[1] = u8(g);
+      o[2] = u8(b);
     }
   }
   return res;

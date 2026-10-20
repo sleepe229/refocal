@@ -23,7 +23,7 @@ RgbaWriter::RgbaWriter(const std::string& path, int w, int h) : impl_(std::make_
 }
 
 RgbaWriter::~RgbaWriter() {
-  if (impl_->f) std::fclose(impl_->f);
+  if (impl_->f) (void)std::fclose(impl_->f);  // not finished: the output is abandoned
 }
 
 void RgbaWriter::write_rows(const uint8_t* rgb, int rows) {
@@ -32,10 +32,12 @@ void RgbaWriter::write_rows(const uint8_t* rgb, int rows) {
   for (int r = 0; r < rows; ++r, ++m.y) {
     const uint8_t* s = rgb + sz(r) * sz(m.w) * 3;
     for (int x = 0; x < m.w; ++x) {
-      m.row[sz(x) * 4] = s[x * 3];
-      m.row[sz(x) * 4 + 1] = s[x * 3 + 1];
-      m.row[sz(x) * 4 + 2] = s[x * 3 + 2];
-      m.row[sz(x) * 4 + 3] = 255;
+      const uint8_t* p = s + sz(x) * 3;
+      uint8_t* d = &m.row[sz(x) * 4];
+      d[0] = p[0];
+      d[1] = p[1];
+      d[2] = p[2];
+      d[3] = 255;
     }
     if (std::fwrite(m.row.data(), 1, m.row.size(), m.f) != m.row.size()) {
       fail(ENH_E_DISK_FULL, "cannot write output");

@@ -77,9 +77,10 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
     float* g = in.channel(1).row(y);
     float* r = in.channel(2).row(y);
     for (int x = 0; x < small.w; ++x) {
-      r[x] = p[3 * x];
-      g[x] = p[3 * x + 1];
-      b[x] = p[3 * x + 2];
+      const uint8_t* q = p + 3 * sz(x);
+      r[x] = q[0];
+      g[x] = q[1];
+      b[x] = q[2];
     }
   }
   const std::vector<ncnn::Mat> out = yunet.run_outputs(in);
@@ -100,7 +101,7 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
       const float score = std::sqrt(std::clamp(pc[i], 0.f, 1.f) * std::clamp(po[i], 0.f, 1.f));
       if (score < min_score) continue;
       const int r = i / cols, c = i % cols;
-      const float* b = pb + 4 * i;
+      const float* b = pb + 4 * sz(i);
       const float cx = (float(c) + b[0]) * float(st), cy = (float(r) + b[1]) * float(st);
       const float w = std::exp(b[2]) * float(st), h = std::exp(b[3]) * float(st);
       Face f;
@@ -109,9 +110,10 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
       f.y = float((cy - h / 2) / s);
       f.w = float(w / s);
       f.h = float(h / s);
-      for (int j = 0; j < 5; ++j) {
-        f.lm[2 * j] = float((pk[10 * i + 2 * j] + float(c)) * float(st) / s);
-        f.lm[2 * j + 1] = float((pk[10 * i + 2 * j + 1] + float(r)) * float(st) / s);
+      const float* kp = pk + 10 * sz(i);
+      for (size_t j = 0; j < 5; ++j) {
+        f.lm[2 * j] = float((kp[2 * j] + float(c)) * float(st) / s);
+        f.lm[2 * j + 1] = float((kp[2 * j + 1] + float(r)) * float(st) / s);
       }
       faces.push_back(f);
     }
@@ -175,7 +177,7 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
         fc.y = (fc.y + float(ty)) / float(f);
         fc.w /= float(f);
         fc.h /= float(f);
-        for (int j = 0; j < 5; ++j) {
+        for (size_t j = 0; j < 5; ++j) {
           fc.lm[2 * j] = (fc.lm[2 * j] + float(tx)) / float(f);
           fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + float(ty)) / float(f);
         }
@@ -226,7 +228,7 @@ Affine Affine::scaled(double s) const {
 Affine face_alignment(const Face& f) {
   // Closed-form least squares for x' = a*x - b*y + tx, y' = b*x + a*y + ty.
   double mx = 0, my = 0, mu = 0, mv = 0;
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     mx += f.lm[2 * i];
     my += f.lm[2 * i + 1];
     mu += kTemplate[2 * i];
@@ -237,7 +239,7 @@ Affine face_alignment(const Face& f) {
   mu /= 5;
   mv /= 5;
   double sxx = 0, sab = 0, sba = 0;
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     const double x = f.lm[2 * i] - mx, y = f.lm[2 * i + 1] - my;
     const double u = kTemplate[2 * i] - mu, v = kTemplate[2 * i + 1] - mv;
     sxx += x * x + y * y;
@@ -268,10 +270,10 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
       inv.apply(x, y, &sx, &sy);
       const int x0 = int(std::floor(sx)), y0 = int(std::floor(sy));
       const double fx = sx - x0, fy = sy - y0;
-      const uint8_t* p00 = src.row(reflect(y0, src.h)) + 3 * reflect(x0, src.w);
-      const uint8_t* p01 = src.row(reflect(y0, src.h)) + 3 * reflect(x0 + 1, src.w);
-      const uint8_t* p10 = src.row(reflect(y0 + 1, src.h)) + 3 * reflect(x0, src.w);
-      const uint8_t* p11 = src.row(reflect(y0 + 1, src.h)) + 3 * reflect(x0 + 1, src.w);
+      const uint8_t* p00 = src.row(reflect(y0, src.h)) + 3 * sz(reflect(x0, src.w));
+      const uint8_t* p01 = src.row(reflect(y0, src.h)) + 3 * sz(reflect(x0 + 1, src.w));
+      const uint8_t* p10 = src.row(reflect(y0 + 1, src.h)) + 3 * sz(reflect(x0, src.w));
+      const uint8_t* p11 = src.row(reflect(y0 + 1, src.h)) + 3 * sz(reflect(x0 + 1, src.w));
       for (int ch = 0; ch < 3; ++ch) {
         const double v = (p00[ch] * (1 - fx) + p01[ch] * fx) * (1 - fy) +
                          (p10[ch] * (1 - fx) + p11[ch] * fx) * fy;
@@ -445,7 +447,7 @@ void masked_mean_lab(const Rgb8& img, double lab[3]) {
       const float m = feather(x, y);
       if (m <= 0) continue;
       double l[3];
-      rgb_to_lab(img.row(y) + 3 * x, l);
+      rgb_to_lab(img.row(y) + 3 * sz(x), l);
       for (int c = 0; c < 3; ++c) sum[c] += m * l[c];
       w += m;
     }
@@ -514,9 +516,9 @@ void paste_faces(uint8_t* band, int w, int y, int rows, const std::vector<Restor
         if (alpha <= 0) continue;
         const int x0 = std::min(int(fx), kFaceSide - 2), y0 = std::min(int(fy), kFaceSide - 2);
         const double tx = fx - x0, ty = fy - y0;
-        const uint8_t* p00 = f.face.row(y0) + 3 * x0;
-        const uint8_t* p10 = f.face.row(y0 + 1) + 3 * x0;
-        uint8_t* d = row + 3 * ox;
+        const uint8_t* p00 = f.face.row(y0) + 3 * sz(x0);
+        const uint8_t* p10 = f.face.row(y0 + 1) + 3 * sz(x0);
+        uint8_t* d = row + 3 * sz(ox);
         for (int ch = 0; ch < 3; ++ch) {
           const double v = (p00[ch] * (1 - tx) + p00[3 + ch] * tx) * (1 - ty) +
                            (p10[ch] * (1 - tx) + p10[3 + ch] * tx) * ty;

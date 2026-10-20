@@ -39,13 +39,13 @@ FileZipSource::FileZipSource(const std::string& path) {
   f_ = std::fopen(path.c_str(), "rb");
   if (!f_) fail(ENH_E_IO, "cannot open rfpack");
   if (fseeko(f_, 0, SEEK_END) != 0) {
-    std::fclose(f_);
+    (void)std::fclose(f_);  // read only
     fail(ENH_E_IO, "cannot read rfpack");
   }
   size_ = uint64_t(ftello(f_));
 }
 
-FileZipSource::~FileZipSource() { std::fclose(f_); }
+FileZipSource::~FileZipSource() { (void)std::fclose(f_); }  // read only
 
 void FileZipSource::read(uint64_t offset, void* dst, size_t n) const {
   if (offset > size_ || n > size_ - offset) bad("truncated");

@@ -180,18 +180,17 @@ enh_status enh_rfpack_extract(const char* rfpack_path, const char* entry, const 
         if (std::fwrite(p, 1, n, f) != n) enh::fail(ENH_E_IO, "cannot write " + part);
       });
     } catch (...) {
-      std::fclose(f);
-      std::remove(part.c_str());
+      (void)std::fclose(f);             // failing anyway
+      (void)std::remove(part.c_str());  // best effort: the startup sweep removes leftovers
       throw;
     }
-    if (std::fflush(f) != 0 || fsync(fileno(f)) != 0) {
-      std::fclose(f);
-      std::remove(part.c_str());
+    const bool synced = std::fflush(f) == 0 && fsync(fileno(f)) == 0;
+    if (std::fclose(f) != 0 || !synced) {
+      (void)std::remove(part.c_str());
       return ENH_E_IO;
     }
-    std::fclose(f);
     if (std::rename(part.c_str(), dst.c_str()) != 0) {
-      std::remove(part.c_str());
+      (void)std::remove(part.c_str());
       return ENH_E_IO;
     }
     return ENH_OK;

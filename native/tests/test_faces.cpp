@@ -36,7 +36,7 @@ static Rgb8 gradient(int w, int h) {
   m.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
-      uint8_t* p = m.row(y) + 3 * x;
+      uint8_t* p = m.row(y) + 3 * sz(x);
       p[0] = uint8_t(x * 255 / std::max(1, w - 1));
       p[1] = uint8_t(y * 255 / std::max(1, h - 1));
       p[2] = uint8_t((x + y) % 256);
@@ -58,7 +58,7 @@ TEST("alignment recovers a similarity from the five landmarks") {
   m.ty = 25;
   const Affine inv = m.inverse();
   Face f;
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     double x, y;
     inv.apply(tmpl[2 * i], tmpl[2 * i + 1], &x, &y);
     f.lm[2 * i] = float(x);
@@ -107,7 +107,7 @@ TEST("paste: strength 0 changes nothing; the crop centre takes the restored face
   const uint8_t* outside = whole.data() + (size_t(50) * sz(ow) + 50) * 3;
   CHECK(outside[0] == 10);
   // The feathered edge blends in between.
-  const uint8_t* edge = whole.data() + (size_t(356) * sz(ow) + 205 + 2 * 40) * 3;
+  const uint8_t* edge = whole.data() + (size_t(356) * sz(ow) + 205 + size_t{2} * 40) * 3;
   CHECK(edge[0] > 10 && edge[0] < 200);
 }
 
@@ -148,7 +148,7 @@ TEST("colour match: the restored face takes the original's mean Lab colour (FR-F
   masked_mean_lab(restored, after);
   const double de_after =
       std::hypot(std::hypot(after[0] - want[0], after[1] - want[1]), after[2] - want[2]);
-  std::printf("  dE %.1f -> %.2f\n", de, de_after);
+  (void)std::printf("  dE %.1f -> %.2f\n", de, de_after);
   CHECK(de > 10);
   CHECK(de_after <= 3);
   // The same colour: nothing changes beyond rounding.
@@ -208,7 +208,7 @@ TEST("YuNet decoding: grid cells, strides, NMS, threshold, back to image coordin
 
 TEST("#44: faces of 13 px in a small group photo are found on the upscale") {
   if (g_models.empty() || !fs::exists(fs::join(g_models, "det.yunet-2023mar/model.ncnn.bin"))) {
-    std::printf("  no detector weights: skipped\n");
+    (void)std::printf("  no detector weights: skipped\n");
     return;
   }
   auto det = make_ncnn_backend({BackendKind::cpu, 0, false, 0});
@@ -224,8 +224,8 @@ TEST("#44: faces of 13 px in a small group photo are found on the upscale") {
   auto plain = detect_faces(*det, small);
   keep_restorable(plain);
   const auto found = find_faces(*det, small);
-  std::printf("  solvay at %dx%d: %zu faces (%zu on the original, %zu without the upscale)\n",
-              small.w, small.h, found.size(), ref.size(), plain.size());
+  (void)std::printf("  solvay at %dx%d: %zu faces (%zu on the original, %zu without the upscale)\n",
+                    small.w, small.h, found.size(), ref.size(), plain.size());
   CHECK(plain.empty());
   CHECK(found.size() * 2 >= ref.size());
   // Each one is a face of the original, in the small photo's coordinates.
@@ -241,7 +241,7 @@ TEST("#44: faces of 13 px in a small group photo are found on the upscale") {
 
 TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
   if (g_models.empty() || !fs::exists(fs::join(g_models, "det.yunet-2023mar/model.ncnn.bin"))) {
-    std::printf("  no detector weights: skipped\n");
+    (void)std::printf("  no detector weights: skipped\n");
     return;
   }
   auto det = make_ncnn_backend({BackendKind::cpu, 0, false, 0});
@@ -250,7 +250,7 @@ TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
   for (const auto& [name, rows] : ref.items()) {
     const Rgb8 img = decode_image(fs::join(g_data, name));
     const auto faces = detect_faces(*det, img);
-    std::printf("  %s: %zu faces (OpenCV %zu)\n", name.c_str(), faces.size(), rows.size());
+    (void)std::printf("  %s: %zu faces (OpenCV %zu)\n", name.c_str(), faces.size(), rows.size());
     CHECK(faces.size() == rows.size());
     size_t strict = 0;
     for (const auto& r : rows) {
@@ -273,15 +273,15 @@ TEST("YuNet in the core finds what OpenCV FaceDetectorYN finds") {
       const bool close = best_iou > 0.85 && worst < 0.04 * rw;
       strict += close ? 1 : 0;
       if (!close) {
-        std::printf("    face %.0f,%.0f %.0fx%.0f: iou %.3f, landmarks off %.1f px\n", rx, ry, rw,
-                    rh, best_iou, worst);
+        (void)std::printf("    face %.0f,%.0f %.0fx%.0f: iou %.3f, landmarks off %.1f px\n", rx, ry,
+                          rw, rh, best_iou, worst);
         if (best) {
-          std::printf("      core  %.1f %.1f %.1f %.1f s=%.3f |", best->x, best->y, best->w,
-                      best->h, best->score);
+          (void)std::printf("      core  %.1f %.1f %.1f %.1f s=%.3f |", best->x, best->y, best->w,
+                            best->h, best->score);
           for (int i = 0; i < 10; ++i) std::printf(" %.1f", best->lm[i]);
-          std::printf("\n      opencv");
+          (void)std::printf("\n      opencv");
           for (size_t i = 0; i < 14; ++i) std::printf(" %.1f", float(r[i]));
-          std::printf("\n");
+          (void)std::printf("\n");
         }
       }
       // The same face: two runtimes may let neighbouring anchors of near-equal score win the
@@ -317,14 +317,14 @@ TEST("noise estimate (Immerkaer) recovers the sigma of added Gaussian noise") {
           img.row(y)[3 * x + c] = uint8_t(std::clamp(base + n + 0.5, 0.0, 255.0));
       }
     const double est = estimate_noise(img);
-    std::printf("  sigma %.0f -> %.2f\n", sigma, est);
+    (void)std::printf("  sigma %.0f -> %.2f\n", sigma, est);
     CHECK(std::abs(est - sigma) <= std::max(0.8, 0.12 * sigma));
   }
 }
 
 TEST("analyze: size, faces with the detector, noise") {
   if (g_models.empty() || !fs::exists(fs::join(g_models, "det.yunet-2023mar/model.ncnn.bin"))) {
-    std::printf("  no detector weights: skipped\n");
+    (void)std::printf("  no detector weights: skipped\n");
     return;
   }
   enh_session_config cfg{};
@@ -338,7 +338,7 @@ TEST("analyze: size, faces with the detector, noise") {
   if (out) {
     const auto a = nlohmann::json::parse(out);
     enh_free(out);
-    std::printf("  %s\n", a.dump().c_str());
+    (void)std::printf("  %s\n", a.dump().c_str());
     CHECK(a["width"] == 675 && a["height"] == 900);
     CHECK(a["faces"]["count"] == 1 && a["faces"]["detector"] == true);
     CHECK(a["faces"]["boxes"].size() == 1 && a["faces"]["boxes"][0].size() == 4);
@@ -361,7 +361,7 @@ TEST("analyze: size, faces with the detector, noise") {
       if (out) {
         const auto a = nlohmann::json::parse(out);
         enh_free(out);
-        std::printf("  edge: %s\n", a["faces"].dump().c_str());
+        (void)std::printf("  edge: %s\n", a["faces"].dump().c_str());
         for (const auto& b : a["faces"]["boxes"]) {
           CHECK(b[0].get<double>() >= 0 && b[1].get<double>() >= 0);
           CHECK(b[0].get<double>() + b[2].get<double>() <= full.w - x0);
@@ -379,7 +379,7 @@ TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") 
   const std::string gold = fs::join(g_models, "face.codeformer-golden");
   if (g_models.empty() || !fs::exists(fs::join(g_models, "face.codeformer/encoder.ncnn.bin")) ||
       !fs::exists(fs::join(gold, "in_3x512x512.f32"))) {
-    std::printf("  no CodeFormer pack: skipped\n");
+    (void)std::printf("  no CodeFormer pack: skipped\n");
     return;
   }
   const size_t n = size_t(3) * kFaceSide * kFaceSide;
@@ -408,7 +408,7 @@ TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") 
   for (size_t i = 0; i < out.px.size(); ++i)
     se += double(out.px[i] - want.px[i]) * (out.px[i] - want.px[i]);
   const double psnr = 10 * std::log10(255.0 * 255.0 * double(out.px.size()) / std::max(se, 1e-9));
-  std::printf("  CodeFormer w 0.7 vs PyTorch fp32: %.1f dB\n", psnr);
+  (void)std::printf("  CodeFormer w 0.7 vs PyTorch fp32: %.1f dB\n", psnr);
   CHECK(psnr >= 35);
   // Fidelity reaches the graph: w 0 and w 1 give different faces.
   CHECK(r.restore(to_rgb(in), 0).px != r.restore(to_rgb(in), 1).px);
@@ -417,7 +417,7 @@ TEST("CodeFormer split graph matches PyTorch (nightly: needs face.codeformer)") 
 TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4)") {
   if (g_models.empty() || !fs::exists(fs::join(g_models, "face.gfpgan-1.4/model.ncnn.bin")) ||
       !fs::exists(fs::join(g_models, "sr.general-x4v3/model.ncnn.bin"))) {
-    std::printf("  no face pack: skipped\n");
+    (void)std::printf("  no face pack: skipped\n");
     return;
   }
   enh_session_config cfg{};

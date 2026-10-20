@@ -117,7 +117,7 @@ void refine_mask(Mask8& m, const Rgb8& img) {
   std::vector<uint8_t> grey(sz(img.w) * sz(img.h));
   for (int y = 0; y < img.h; ++y)
     for (int x = 0; x < img.w; ++x) {
-      const uint8_t* p = img.row(y) + x * 3;
+      const uint8_t* p = img.row(y) + sz(x) * 3;
       grey[index2d(x, y, img.w)] =
           uint8_t((p[0] * 19595 + p[1] * 38470 + p[2] * 7471 + 0x8000) >> 16);
     }
@@ -161,9 +161,10 @@ Mask8 detect_scratches(InferenceBackend& be, const Rgb8& img, float threshold, i
   for (int y = 0; y < nh; ++y) {
     const uint8_t* p = small.row(y);
     float* d = in.channel(0).row(y);
-    for (int x = 0; x < nw; ++x)  // PIL "L": ITU-R 601-2 luma, 16-bit fixed point
-      d[x] = float((p[x * 3] * 19595 + p[x * 3 + 1] * 38470 + p[x * 3 + 2] * 7471 + 0x8000) >> 16) *
-             (1.f / 255.f);
+    for (int x = 0; x < nw; ++x) {  // PIL "L": ITU-R 601-2 luma, 16-bit fixed point
+      const uint8_t* q = p + sz(x) * 3;
+      d[x] = float((q[0] * 19595 + q[1] * 38470 + q[2] * 7471 + 0x8000) >> 16) * (1.f / 255.f);
+    }
   }
   ncnn::Mat out;
   be.run(in, out);
@@ -228,7 +229,7 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
       for (int xx = 0; xx < S; ++xx) {
         const int sx = colidx[sz(xx)];
         const float k = mask.at(sx, sy) ? 0.f : 1.f;
-        const uint8_t* p = row + sx * 3;
+        const uint8_t* p = row + sz(sx) * 3;
         m[xx] = k - 0.5f;
         r[xx] = (p[0] * (2.f / 255.f) - 1.f) * k;
         gr[xx] = (p[1] * (2.f / 255.f) - 1.f) * k;

@@ -271,8 +271,9 @@ void run_tile(InferenceBackend& be, const ncnn::Mat& in, ncnn::Mat& out, int pad
       }
       for (int c = 0; c < 3; ++c) {
         for (int r = scale * pad; r < scale * (h - pad); ++r) {
-          std::memcpy(out.channel(c).row(scale * y0 + r) + scale * (x0 + pad),
-                      so.channel(c).row(r) + scale * pad, sizeof(float) * sz(scale) * sz(x1 - x0));
+          std::memcpy(out.channel(c).row(scale * y0 + r) + sz(scale) * sz(x0 + pad),
+                      so.channel(c).row(r) + sz(scale) * sz(pad),
+                      sizeof(float) * sz(scale) * sz(x1 - x0));
         }
       }
     }
@@ -1194,7 +1195,7 @@ void enh_job::run_impl(nlohmann::json& result) {
             float* gg = t.in.channel(1).row(yy);
             float* bl = t.in.channel(2).row(yy);
             for (int xx = 0; xx < itw; ++xx) {
-              const uint8_t* p = row + colidx[sz(xx)] * 3;
+              const uint8_t* p = row + sz(colidx[sz(xx)]) * 3;
               r[xx] = p[0] * (1.f / 255.f);
               gg[xx] = p[1] * (1.f / 255.f);
               bl[xx] = p[2] * (1.f / 255.f);
@@ -1276,9 +1277,10 @@ void enh_job::run_impl(nlohmann::json& result) {
           uint8_t* dst = band.data() + sz(r) * sz(geo.sr_w) * 3;
           for (int X = X0; X < X1; ++X) {
             const int tx = X - txoff;
-            dst[X * 3] = q(c0[tx]);
-            dst[X * 3 + 1] = q(c1[tx]);
-            dst[X * 3 + 2] = q(c2[tx]);
+            uint8_t* d = dst + sz(X) * 3;
+            d[0] = q(c0[tx]);
+            d[1] = q(c1[tx]);
+            d[2] = q(c2[tx]);
           }
         }
         const int64_t done = ++done_tiles;

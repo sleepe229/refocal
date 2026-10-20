@@ -66,9 +66,11 @@ inline void json_str(std::string& out, std::string_view s) {
           break;
         default:
           if (static_cast<uint8_t>(c) < 0x20) {
-            char buf[8];
-            std::snprintf(buf, sizeof buf, "\\u%04x", c);
-            out += buf;
+            static constexpr char kHex[] = "0123456789abcdef";
+            const auto u = static_cast<uint8_t>(c);
+            out += "\\u00";
+            out += kHex[u >> 4];
+            out += kHex[u & 0xF];
           } else {
             out += c;
           }

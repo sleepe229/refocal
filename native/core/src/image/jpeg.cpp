@@ -36,7 +36,7 @@ struct File {
   FILE* f = nullptr;
   explicit File(const std::string& path, const char* mode) : f(std::fopen(path.c_str(), mode)) {}
   ~File() {
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // read only
   }
 };
 
@@ -165,7 +165,7 @@ struct JpegWriter::Impl {
   int w = 0;
   ~Impl() {
     if (created) jpeg_destroy_compress(&cinfo);
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // not finished: the output is abandoned
   }
 };
 
@@ -231,7 +231,10 @@ void JpegWriter::finish() {
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   jpeg_finish_compress(&m.cinfo);
   m.finished = true;
-  if (std::fflush(m.f) != 0 || std::ferror(m.f)) fail(ENH_E_IO, "JPEG write failed");
+  const bool written = std::fflush(m.f) == 0 && !std::ferror(m.f);
+  const bool closed = std::fclose(m.f) == 0;
+  m.f = nullptr;
+  if (!written || !closed) fail(ENH_E_IO, "JPEG write failed");
 }
 
 void jpeg_encode(const std::string& path, const Rgb8& img, int quality) {

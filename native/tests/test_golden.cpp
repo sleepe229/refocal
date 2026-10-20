@@ -23,6 +23,7 @@
 #include "image/jpeg.hpp"
 #include "mini_test.hpp"
 #include "pipeline/lowlight.hpp"
+#include "util/format.hpp"
 #include "util/fs.hpp"
 #include "util/size.hpp"
 
@@ -39,7 +40,7 @@ std::vector<float> read_f32(const std::string& path, size_t n) {
   FILE* f = std::fopen(path.c_str(), "rb");
   if (!f) return {};
   const size_t got = std::fread(v.data(), sizeof(float), n, f);
-  std::fclose(f);
+  (void)std::fclose(f);  // read only
   return got == n ? v : std::vector<float>{};
 }
 
@@ -74,7 +75,7 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
   CHECK(y.w == out && y.h == out && y.c == 3);
   if (y.w != out || y.h != out || y.c != 3) return 0;
   const double db = psnr(y, ref);
-  std::printf("golden %s %s: %.2f dB\n", m.id.c_str(), be->name().c_str(), db);
+  (void)std::printf("golden %s %s: %.2f dB\n", m.id.c_str(), be->name().c_str(), db);
   return db;
 }
 
@@ -85,7 +86,7 @@ void rrdb(const std::string& root, const std::string& id) {
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
   const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * sz(out) * out);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    (void)std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, id);
@@ -101,7 +102,7 @@ void fbcnn(const std::string& root) {
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kN * kN);
   const auto ref = read_f32(fs::join(dir, "golden_restore_out_3x96x96.f32"), size_t(3) * kN * kN);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden jpeg.fbcnn: not in %s, skipped\n", root.c_str());
+    (void)std::printf("golden jpeg.fbcnn: not in %s, skipped\n", root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, "jpeg.fbcnn");
@@ -116,7 +117,7 @@ void fbcnn(const std::string& root) {
   CHECK(y.size() == 1 && y[0].w == kN && y[0].h == kN && y[0].c == 3);
   if (y.size() != 1 || y[0].w != kN || y[0].h != kN || y[0].c != 3) return;
   const double db = psnr(y[0], ref);
-  std::printf("golden jpeg.fbcnn %s: %.2f dB\n", be->name().c_str(), db);
+  (void)std::printf("golden jpeg.fbcnn %s: %.2f dB\n", be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -130,7 +131,7 @@ void lowlight(const std::string& root) {
   const auto in = read_f32(fs::join(dir, "golden_in_3x384x384.f32"), n);
   const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), n);
   if (rgb.empty() || in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
+    (void)std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
     return;
   }
   const auto meta = nlohmann::json::parse(fs::read_text(fs::join(dir, "model.json")));
@@ -142,7 +143,7 @@ void lowlight(const std::string& root) {
     worst = std::max({worst, std::fabs(double(c.h) - in[i]), std::fabs(double(c.v) - in[px + i]),
                       std::fabs(double(c.i) - in[2 * px + i])});
   }
-  std::printf("golden old.lowlight-cidnet HVI transform: max diff %.2e\n", worst);
+  (void)std::printf("golden old.lowlight-cidnet HVI transform: max diff %.2e\n", worst);
   CHECK(worst < 1e-4);
   const ModelInfo m = resolve_model(root, "old.lowlight-cidnet");
   auto be = make_ncnn_backend({BackendKind::cpu, 0, true, 0});
@@ -164,7 +165,7 @@ void lowlight(const std::string& root) {
       se += d * d;
     }
   const double db = se == 0 ? 99 : 10 * std::log10(4.0 * 3 * px / se);
-  std::printf("golden old.lowlight-cidnet %s: %.2f dB\n", be->name().c_str(), db);
+  (void)std::printf("golden old.lowlight-cidnet %s: %.2f dB\n", be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -195,7 +196,7 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   const auto ref = read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape),
                             sz(cout) * sz(h) * sz(w));
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    (void)std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, id);
@@ -211,7 +212,7 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   CHECK(y.w == w && y.h == h && y.c == cout);
   if (y.w != w || y.h != h || y.c != cout) return;
   const double db = psnr_c(y, ref, cout, a, b);
-  std::printf("golden %s %s: %.2f dB\n", id.c_str(), be->name().c_str(), db);
+  (void)std::printf("golden %s %s: %.2f dB\n", id.c_str(), be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -232,9 +233,7 @@ std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::stri
   const auto res = nlohmann::json::parse(fs::read_text(fs::join(dir, "result.json")));
   std::vector<uint8_t> all;
   for (size_t b = 0; b < res["band_rows"].size(); ++b) {
-    char name[32];
-    std::snprintf(name, sizeof name, "bands/%04zu.raw", b);
-    const auto d = fs::read_all(fs::join(dir, name));
+    const auto d = fs::read_all(fs::join(dir, strf("bands/%04zu.raw", b)));
     all.insert(all.end(), d.begin(), d.end());
   }
   return {all, res["recipe_hash"].get<std::string>()};
@@ -249,7 +248,7 @@ int main(int argc, char** argv) {
   const auto ref =
       read_f32(fs::join(dir, "golden_out_dn050_3x640x640.f32"), size_t(3) * kOut * kOut);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden: no weights in %s, skipped\n", dir.c_str());
+    (void)std::printf("golden: no weights in %s, skipped\n", dir.c_str());
     return kSkip;
   }
   const ModelInfo m = resolve_model(argv[1], "sr.general-x4v3");
@@ -276,7 +275,7 @@ int main(int argc, char** argv) {
   if (out) {
     const auto b = nlohmann::json::parse(out);
     enh_free(out);
-    std::printf("benchmark: %s\n", b.dump().c_str());
+    (void)std::printf("benchmark: %s\n", b.dump().c_str());
     CHECK(b["backends"][0]["kind"] == "cpu" && b["backends"][0]["status"] == "ok");
     CHECK(b["tile128_ms"].get<double>() > 0);
     const std::string tier = b["tier"];
@@ -319,11 +318,11 @@ int main(int argc, char** argv) {
       CHECK(!a.first.empty() && a.first.size() == size_t(1280) * 960 * 3);
       CHECK(a.first == b.first);
       CHECK(a.second == b.second);
-      std::printf("determinism: %zu bytes, identical: %s\n", a.first.size(),
-                  a.first == b.first ? "yes" : "NO");
+      (void)std::printf("determinism: %zu bytes, identical: %s\n", a.first.size(),
+                        a.first == b.first ? "yes" : "NO");
       enh_session_destroy(ds);
     }
   }
-  std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
+  (void)std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
   return mini::failures() ? 1 : 0;
 }

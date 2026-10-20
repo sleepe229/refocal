@@ -80,7 +80,7 @@ void area_down(const uint8_t* src, int w, int rows, int f, uint8_t* dst) {
       for (int x = 0; x < ow; ++x) {
         const uint8_t* p = r + sz(x) * sz(f) * 3;
         uint32_t* a = &acc[sz(x) * 3];
-        for (int i = 0; i < f; ++i) {
+        for (size_t i = 0; i < sz(f); ++i) {
           a[0] += p[i * 3];
           a[1] += p[i * 3 + 1];
           a[2] += p[i * 3 + 2];
@@ -132,9 +132,10 @@ void PreviewAccumulator::add_rows(const uint8_t* rgb, int y0, int rows) {
     const uint8_t* r = rgb + sz(i) * sz(w_) * 3;
     for (int x = 0; x < w_; ++x) {
       uint32_t* d = s + sz(colmap_[sz(x)]) * 3;
-      d[0] += r[x * 3];
-      d[1] += r[x * 3 + 1];
-      d[2] += r[x * 3 + 2];
+      const uint8_t* q = r + sz(x) * 3;
+      d[0] += q[0];
+      d[1] += q[1];
+      d[2] += q[2];
     }
   }
 }
@@ -213,7 +214,7 @@ const float* LanczosResampler::hrow(int sy) {
       const float* wx = &ax_.w[sz(x) * sz(T)];
       float a = 0, b = 0, c = 0;
       for (int t = 0; t < T; ++t) {
-        const uint8_t* p = s + ix[t] * 3;
+        const uint8_t* p = s + sz(ix[t]) * 3;
         a += wx[t] * p[0];
         b += wx[t] * p[1];
         c += wx[t] * p[2];

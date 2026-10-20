@@ -31,6 +31,7 @@
 #include "job/events.hpp"
 #include "pipeline/look.hpp"
 #include "util/error.hpp"
+#include "util/format.hpp"
 #include "util/fs.hpp"
 #include "util/size.hpp"
 
@@ -38,12 +39,12 @@ using namespace enh;
 using json = nlohmann::json;
 
 static int fails = 0;
-#define CHECK(c)                                                        \
-  do {                                                                  \
-    if (!(c)) {                                                         \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
-      ++fails;                                                          \
-    }                                                                   \
+#define CHECK(c)                                                              \
+  do {                                                                        \
+    if (!(c)) {                                                               \
+      (void)std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                                \
+    }                                                                         \
   } while (0)
 
 // ---- event collection --------------------------------------------------------------------------
@@ -106,11 +107,10 @@ static std::string g_root, g_models, g_work;
 static void make_model(const std::string& id, int resize_type) {
   std::string dir = fs::join(g_models, id);
   fs::mkdirs(dir);
-  char param[256];
-  std::snprintf(param, sizeof param,
-                "7767517\n2 2\nInput in0 0 1 in0\nInterp up 1 1 in0 out0 0=%d 1=4.0 2=4.0\n",
-                resize_type);
-  fs::write_atomic(fs::join(dir, "model.ncnn.param"), std::string(param));
+  fs::write_atomic(
+      fs::join(dir, "model.ncnn.param"),
+      strf("7767517\n2 2\nInput in0 0 1 in0\nInterp up 1 1 in0 out0 0=%d 1=4.0 2=4.0\n",
+           resize_type));
   fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
   fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":4,\"pad\":16}"));
 }
@@ -124,7 +124,7 @@ static Rgb8 texture(int w, int h) {
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
       r = r * 1103515245u + 12345u;
-      uint8_t* p = img.row(y) + x * 3;
+      uint8_t* p = img.row(y) + sz(x) * 3;
       p[0] = uint8_t((x * 3 + y) & 0xFF);
       p[1] = uint8_t((uint32_t(y) * 2 + (r >> 24) % 16) & 0xFF);
       p[2] = uint8_t(((x / 8 + y / 8) % 2) * 200 + 20);
@@ -159,7 +159,8 @@ static Rgb8 nearest_up(const Rgb8& in, int f) {
   o.h = in.h * f;
   o.px.resize(sz(o.w) * sz(o.h) * 3);
   for (int y = 0; y < o.h; ++y)
-    for (int x = 0; x < o.w; ++x) std::memcpy(o.row(y) + x * 3, in.row(y / f) + (x / f) * 3, 3);
+    for (int x = 0; x < o.w; ++x)
+      std::memcpy(o.row(y) + sz(x) * 3, in.row(y / f) + sz(x / f) * 3, 3);
   return o;
 }
 
@@ -172,9 +173,7 @@ static Rgb8 read_output(const std::string& job_dir) {
   o.px.reserve(sz(o.w) * sz(o.h) * 3);
   int b = 0;
   for (int rows : r["band_rows"].get<std::vector<int>>()) {
-    char name[32];
-    std::snprintf(name, sizeof name, "bands/%04d.raw", b++);
-    auto d = fs::read_all(fs::join(job_dir, name));
+    auto d = fs::read_all(fs::join(job_dir, strf("bands/%04d.raw", b++)));
     CHECK(d.size() == sz(rows) * sz(o.w) * 3);
     o.px.insert(o.px.end(), d.begin(), d.end());
   }
@@ -339,10 +338,10 @@ static void test_viewer(Session& se) {
   std::string in2 = make_jpeg("v2.jpg", 64, 64);
   Collector c2;
   CHECK(run_job(se, req("view2", in2, "nearest4"), c2).status == ENH_OK);
-  std::remove(in2.c_str());
+  CHECK(std::remove(in2.c_str()) == 0);
   CHECK(enh_viewer_open(fs::join(g_work, "view2").c_str(), &v) == ENH_OK);
   if (v) {
-    std::vector<uint8_t> t(64 * 64 * 4);
+    std::vector<uint8_t> t(size_t{64} * 64 * 4);
     CHECK(enh_viewer_render(v, 1, 0, 0, 256, 256, 4, t.data(), int64_t(t.size())) == ENH_E_IO);
     CHECK(enh_viewer_render(v, 0, 0, 0, 256, 256, 4, t.data(), int64_t(t.size())) == ENH_OK);
     enh_viewer_close(v);
@@ -365,7 +364,7 @@ static void test_crop(Session& se) {
   enh_viewer* v = nullptr;
   CHECK(enh_viewer_open(fs::join(g_work, "crop").c_str(), &v) == ENH_OK);
   if (v) {
-    std::vector<uint8_t> t(64 * 48 * 4);
+    std::vector<uint8_t> t(size_t{64} * 48 * 4);
     CHECK(enh_viewer_render(v, 1, 0, 0, 256, 192, 4, t.data(), int64_t(t.size())) == ENH_OK);
     bool same = true;
     for (size_t i = 0; i < size_t(64) * 48; ++i)
@@ -405,7 +404,7 @@ static void test_tiled_equals_whole(Session& se) {
   for (size_t i = 0; i < a.px.size() && i < b.px.size(); ++i)
     maxd = std::max(maxd, std::abs(int(a.px[i]) - int(b.px[i])));
   CHECK(a.px.size() == b.px.size());
-  std::printf("bilinear tiled vs whole: max diff %d\n", maxd);
+  (void)std::printf("bilinear tiled vs whole: max diff %d\n", maxd);
   CHECK(maxd == 0);
 }
 
@@ -693,7 +692,7 @@ static void test_look_export(Session& se) {
   for (size_t i = 0; brighter && i < sr.px.size(); ++i) brighter = l.px[i] >= sr.px[i];
   for (int y = 0; brighter && y < sr.h; ++y) {
     left += l.row(y)[0] - sr.row(y)[0];
-    mid += l.row(y)[sr.w / 2 * 3] - sr.row(y)[sr.w / 2 * 3];
+    mid += l.row(y)[sz(sr.w / 2) * 3] - sr.row(y)[sz(sr.w / 2) * 3];
   }
   CHECK(brighter && left > 2 * mid);
   Rgb8 lw = sr;
@@ -751,11 +750,11 @@ static void test_lanczos() {
   Rgb8 flat;
   flat.w = 9;
   flat.h = 7;
-  flat.px.assign(9 * 7 * 3, 77);
-  std::vector<uint8_t> f(36 * 28 * 3);
+  flat.px.assign(size_t{9} * 7 * 3, 77);
+  std::vector<uint8_t> f(size_t{36} * 28 * 3);
   LanczosResampler lf(flat, 36, 28);
   lf.rows(0, 10, f.data());
-  lf.rows(10, 18, f.data() + 10 * 36 * 3);
+  lf.rows(10, 18, f.data() + size_t{10} * 36 * 3);
   bool all = true;
   for (uint8_t v : f) all &= v == 77;
   CHECK(all);
@@ -843,8 +842,8 @@ static void test_png_input(Session& se) {
   decode_image(dst4, &i4, &m4);
   CHECK(i4.w == w * 4 && m4.alpha.size() == sz(w) * sz(h) * 16);
   if (m4.alpha.size() == sz(w) * sz(h) * 16) {
-    CHECK(m4.alpha[sz(4 * 24) * sz(w) * 4 + 4 * 34] == 0);    // inside the block
-    CHECK(m4.alpha[sz(4 * 50) * sz(w) * 4 + 4 * 70] == 255);  // far from it
+    CHECK(m4.alpha[sz(4 * 24) * sz(w) * 4 + size_t{4} * 34] == 0);    // inside the block
+    CHECK(m4.alpha[sz(4 * 50) * sz(w) * 4 + size_t{4} * 70] == 255);  // far from it
   }
 }
 
@@ -992,7 +991,7 @@ static void test_cancel(Session& se, const std::string& in) {
   CHECK(wait_terminal(c, 10));
   double ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  std::printf("cancel latency: %.1f ms\n", ms);
+  (void)std::printf("cancel latency: %.1f ms\n", ms);
   CHECK(ms < 1000);
   CHECK(enh_job_status(j) == ENH_E_CANCELLED);
   enh_job_destroy(j);
@@ -1081,7 +1080,7 @@ static void test_x8_resume(Session& se) {
       ck["band_idx"] = 1;
       fs::write_atomic(fs::join(dir, "x8/checkpoint.json"), ck.dump());
       fs::remove_tree(fs::join(dir, "bands"));
-      std::remove(fs::join(dir, "checkpoint.json").c_str());
+      CHECK(std::remove(fs::join(dir, "checkpoint.json").c_str()) == 0);
     }
     Collector c;
     g_col = &c;
@@ -1415,6 +1414,6 @@ int main(int argc, char** argv) {
     test_oom_ladder(se);
     test_errors(se);
   }
-  std::printf("test_job: %d failures\n", fails);
+  (void)std::printf("test_job: %d failures\n", fails);
   return fails ? 1 : 0;
 }
