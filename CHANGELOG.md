@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0-beta.1
+
+A filter for the result.
+
+New:
+- **Filter** on the result screen: **Pastel** (soft pink colours, lifted shadows, less
+  contrast) with its own amount, and **Light leaks** (warm glows near the edges). They work
+  together and with the strength. The photo changes as you go; nothing is processed again.
+  What you see is what is saved, in every format.
+- The filter is kept in presets and history; a preset with a filter applies it to every photo
+  of a queue.
+- A finished photo opened from the queue now starts at its preset's strength and filter.
+
 ## 0.7.0-beta.1
 
 A simpler app: the photo first, the settings when you look for them.
