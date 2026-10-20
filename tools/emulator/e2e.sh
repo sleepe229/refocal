@@ -5,6 +5,7 @@
 #   [SCENARIO=basic|background|pause|queue] tools/emulator/e2e.sh APK [PHOTO.jpg|png|webp] [SCALE_LABEL]
 # background: Home during processing -> FGS notification, "Photo ready" -> reopen -> save.
 # pause: Pause -> force-stop (process killed) -> reopen -> continue from the list -> save.
+# After the first save every scenario turns on the filter (FR-LOOK-*) and saves again.
 # Every scenario ends with the log check, share intake, "edit with" and a queue of two photos;
 # queue: only share intake and the queue (no 4x run).
 # HEIC=1: also "Save as file" in HEIC, checked by check_heic.py (HEIC_CHECK="--icc --exif").
@@ -212,6 +213,26 @@ sleep 5
 echo "== verify gallery"
 adb_ shell content query --uri content://media/external/images/media \
   --projection _display_name:relative_path:width:height | grep Refocal_ || { echo FAIL; exit 1; }
+echo "== filter (FR-LOOK-*): Pastel and Light leaks, saved as shown"
+adb_ logcat -c
+tap_text "Filter" 30
+tap_text "Pastel" 30
+tap_text "Light leaks" 30
+sleep 1
+shot filter
+adb_ shell input keyevent KEYCODE_BACK
+sleep 1
+tap_text "Save" 30
+saved=0
+for _ in $(seq 90); do
+  if adb_ logcat -d | grep -q "look pastel 1.0 leaks: saved"; then saved=1; break; fi
+  sleep 2
+done
+[[ $saved = 1 ]] || { adb_ logcat -d | grep -iE "flutter|refocal|enh" | tail -30; echo "FAIL: no save with the filter"; exit 1; }
+rows=$(adb_ shell content query --uri content://media/external/images/media --projection _display_name | grep -c Refocal_ || true)
+[[ $rows -ge 2 ]] || { echo "FAIL: the filtered save is not in the gallery ($rows)"; exit 1; }
+echo "  saved with the filter ($rows results in the gallery)"
+sleep 5  # the "Saved" snack bar covers the bottom row
 echo "== share (06 §3.2): the system chooser opens with the result"
 adb_ logcat -c
 tap_text "Share" 30
