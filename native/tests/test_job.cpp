@@ -29,6 +29,7 @@
 #include "image/metaio.hpp"
 #include "image/ops.hpp"
 #include "job/events.hpp"
+#include "pipeline/look.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
 
@@ -633,6 +634,105 @@ static void test_export(Session& se) {
         "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"max_side\":8}}",
         "{\"thumbnail\":{\"path\":\"/tmp/t.jpg\",\"quality\":101}}"}) {
     CHECK(enh_export(se.s, job.c_str(), bad, dst.c_str(), nullptr) == ENH_E_INVALID);
+  }
+}
+
+// Looks (FR-LOOK-*): the matrix and the leaks after the strength blend, the same data the
+// editor previews with (enh_look_matrix, enh_look_leaks).
+static void test_look_export(Session& se) {
+  const std::string job = fs::join(g_work, "n2");
+  const Rgb8 sr = read_output(job);
+  auto exported = [&](const json& opts, const char* name) {
+    const std::string d = fs::join(g_root, name);
+    const enh_status st = enh_export(se.s, job.c_str(), opts.dump().c_str(), d.c_str(), nullptr);
+    return st == ENH_OK ? decode_image(d) : Rgb8{};
+  };
+  const json none = {{"format", "png"}, {"look", {{"id", "none"}}}};
+  CHECK(exported(none, "l-none.png").px == sr.px);
+  const json zero = {{"format", "png"}, {"look", {{"id", "pastel"}, {"amount", 0}}}};
+  CHECK(exported(zero, "l-zero.png").px == sr.px);
+
+  // The export is the matrix applied to the result, rounded.
+  const json pastel = {{"format", "png"}, {"look", {{"id", "pastel"}, {"amount", 0.8}}}};
+  Rgb8 want = sr;
+  apply_look(look_matrix("pastel", 0.8f), want.px.data(), size_t(want.w) * want.h);
+  const Rgb8 got = exported(pastel, "l-pastel.png");
+  CHECK(got.px == want.px && got.px != sr.px);
+  // The ABI hands out the same matrix.
+  float m[20];
+  CHECK(enh_look_matrix("pastel", 0.8f, m) == ENH_OK);
+  CHECK(std::equal(m, m + 20, look_matrix("pastel", 0.8f).begin()));
+
+  // After the strength blend: the look of the blend is the blend of the looks (the matrix is
+  // affine), which is how the editor previews a strength below 1 (two layers, one filter).
+  Rgb8 src = jpeg_decode(
+      json::parse(fs::read_text(fs::join(job, "request.json")))["input"].get<std::string>());
+  Rgb8 lz = sr;
+  LanczosResampler(src, sr.w, sr.h).rows(0, sr.h, lz.px.data());
+  json half = pastel;
+  half["strength"] = 0.5;
+  const Rgb8 h = exported(half, "l-half.png");
+  Rgb8 lzl = lz;
+  apply_look(look_matrix("pastel", 0.8f), lzl.px.data(), size_t(lz.w) * lz.h);
+  bool lerp_ok = h.px.size() == sr.px.size();
+  for (size_t i = 0; lerp_ok && i < sr.px.size(); ++i)
+    lerp_ok = std::abs(2 * h.px[i] - lzl.px[i] - want.px[i]) <= 3;
+  CHECK(lerp_ok);
+
+  // Leaks only brighten (screen), most at the left edge, and match the grid the ABI hands out.
+  const json leaks = {{"format", "png"}, {"look", {{"id", "none"}, {"leaks", true}}}};
+  const Rgb8 l = exported(leaks, "l-leaks.png");
+  bool brighter = l.px.size() == sr.px.size();
+  long left = 0, mid = 0;
+  for (size_t i = 0; brighter && i < sr.px.size(); ++i) brighter = l.px[i] >= sr.px[i];
+  for (int y = 0; brighter && y < sr.h; ++y) {
+    left += l.row(y)[0] - sr.row(y)[0];
+    mid += l.row(y)[sr.w / 2 * 3] - sr.row(y)[sr.w / 2 * 3];
+  }
+  CHECK(brighter && left > 2 * mid);
+  Rgb8 lw = sr;
+  LeakOverlay(sr.w, sr.h).blend_rows(0, sr.h, lw.px.data());
+  CHECK(l.px == lw.px);
+  std::vector<uint8_t> grid(size_t(ENH_LOOK_LEAKS_SIDE) * ENH_LOOK_LEAKS_SIDE * 4);
+  int32_t gw = 0, gh = 0;
+  CHECK(enh_look_leaks(sr.w, sr.h, grid.data(), int64_t(grid.size()), &gw, &gh) == ENH_OK);
+  CHECK(gw == 256 && gh == 172);  // 300 x 202
+  const Rgb8 lg = leak_grid(sr.w, sr.h);
+  bool grid_same = lg.w == gw && lg.h == gh;
+  for (size_t i = 0; grid_same && i < size_t(gw) * gh; ++i)
+    grid_same = std::equal(lg.px.begin() + i * 3, lg.px.begin() + i * 3 + 3, &grid[i * 4]) &&
+                grid[i * 4 + 3] == 255;
+  CHECK(grid_same);
+  CHECK(enh_look_leaks(sr.w, sr.h, grid.data(), 16, &gw, &gh) == ENH_E_INVALID);
+  CHECK(enh_look_leaks(0, sr.h, grid.data(), int64_t(grid.size()), &gw, &gh) == ENH_E_INVALID);
+
+  // The thumbnail carries the look too.
+  const std::string thumb = fs::join(g_root, "l-thumb.jpg");
+  json topt = pastel;
+  topt["thumbnail"] = {{"path", thumb}, {"max_side", 64}};
+  CHECK(enh_export(se.s, job.c_str(), topt.dump().c_str(), fs::join(g_root, "l-t.png").c_str(),
+                   nullptr) == ENH_OK);
+  PreviewAccumulator acc;
+  acc.init(got.w, got.h, 64);
+  acc.add_rows(got.px.data(), 0, got.h);
+  const std::string ref = fs::join(g_root, "l-thumb-ref.jpg");
+  jpeg_encode(ref, acc.finish(), 80);
+  CHECK(decode_image(thumb).px == decode_image(ref).px);
+
+  for (const char* bad :
+       {R"({"look":"pastel"})", R"({"look":{"id":"vivid"}})",
+        R"({"look":{"id":"pastel","amount":1.5}})", R"({"look":{"id":"pastel","amount":-0.1}})"}) {
+    CHECK(enh_export(se.s, job.c_str(), bad, fs::join(g_root, "l-bad.jpg").c_str(), nullptr) ==
+          ENH_E_INVALID);
+  }
+  CHECK(enh_look_matrix("vivid", 1, m) == ENH_E_INVALID);
+  CHECK(enh_look_matrix("pastel", 2, m) == ENH_E_INVALID);
+  // Amount 0 is the identity for every look.
+  for (const char* id : {"none", "pastel"}) {
+    const auto z = look_matrix(id, 0);
+    bool ident = true;
+    for (int i = 0; i < 20; ++i) ident = ident && z[size_t(i)] == (i % 6 == 0 ? 1.f : 0.f);
+    CHECK(look_known(id) && ident);
   }
 }
 
@@ -1293,6 +1393,7 @@ int main(int argc, char** argv) {
     test_scratches(se);
     test_lowlight(se);
     test_export(se);
+    test_look_export(se);
     test_lanczos();
     test_icc_validation();
     test_png_input(se);

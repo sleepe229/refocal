@@ -39,6 +39,18 @@ String builtinPresetLabel(AppLocalizations l10n, BuiltinPreset p) => switch (p) 
   BuiltinPreset.anime => l10n.presetAnime,
 };
 
+/// "Pastel 80%, light leaks" (FR-LOOK-*); "Off" for none.
+String lookLabel(AppLocalizations l10n, Look? look) {
+  if (look == null) return l10n.lookOff;
+  final parts = [
+    if (look.id == LookId.pastel)
+      '${l10n.lookPastel} ${l10n.strengthValue((look.amount * 100).round())}',
+    // "Pastel 80%, light leaks": lower case after the preset.
+    if (look.leaks) look.id == LookId.none ? l10n.lookLeaks : l10n.lookLeaks.toLowerCase(),
+  ];
+  return parts.join(', ');
+}
+
 /// "Standard", "High quality", "Anime" (FR-ENH-008).
 String srModelLabel(AppLocalizations l10n, SrModel m) => switch (m) {
   SrModel.compact => l10n.srModelCompact,

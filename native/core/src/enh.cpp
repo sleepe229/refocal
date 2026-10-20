@@ -17,6 +17,7 @@
 
 #include "job/session.hpp"
 #include "json_util.hpp"
+#include "pipeline/look.hpp"
 #include "policy/analyze.hpp"
 #include "policy/benchmark.hpp"
 #include "probe.hpp"
@@ -219,6 +220,39 @@ enh_status enh_verify_minisign(const char* msg_path, const char* sig_path,
     return ENH_OK;
   } catch (const enh::Error& e) {
     return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
+
+enh_status enh_look_matrix(const char* id, float amount, float* out20) {
+  if (!id || !out20) return ENH_E_INVALID;
+  try {
+    const auto m = enh::look_matrix(id, amount);
+    std::memcpy(out20, m.data(), sizeof(float) * m.size());
+    return ENH_OK;
+  } catch (const enh::Error& e) {
+    return e.status();
+  } catch (const std::exception&) {
+    return ENH_E_INTERNAL;
+  }
+}
+
+enh_status enh_look_leaks(int32_t w, int32_t h, uint8_t* rgba, int64_t rgba_size, int32_t* gw,
+                          int32_t* gh) {
+  if (!rgba || !gw || !gh || w <= 0 || h <= 0) return ENH_E_INVALID;
+  try {
+    const enh::Rgb8 g = enh::leak_grid(w, h);
+    if (rgba_size < int64_t(g.w) * g.h * 4) return ENH_E_INVALID;
+    for (size_t i = 0, n = size_t(g.w) * g.h; i < n; ++i) {
+      std::memcpy(rgba + i * 4, g.px.data() + i * 3, 3);
+      rgba[i * 4 + 3] = 255;
+    }
+    *gw = g.w;
+    *gh = g.h;
+    return ENH_OK;
+  } catch (const std::bad_alloc&) {
+    return ENH_E_OOM;
   } catch (const std::exception&) {
     return ENH_E_INTERNAL;
   }

@@ -835,5 +835,14 @@
   "share": "Share",
   "@share": {"description": "Result screen: hands the photo to another app (06 §3.2)."},
   "shareFailed": "Couldn't share: {error}",
-  "@shareFailed": {"placeholders": {"error": {"type": "String"}}}
+  "@shareFailed": {"placeholders": {"error": {"type": "String"}}},
+  "lookTitle": "Filter",
+  "@lookTitle": {"description": "Result screen: tooltip of the button opening the filters; history row (FR-LOOK-001)."},
+  "lookOff": "Off",
+  "lookPastel": "Pastel",
+  "@lookPastel": {"description": "Filter switch: soft pink colours, lifted shadows, less contrast."},
+  "lookLeaks": "Light leaks",
+  "@lookLeaks": {"description": "Look switch: soft warm glows near the photo's edges, as on film (FR-LOOK-003)."},
+  "presetLookAfter": "Filter: {look}",
+  "@presetLookAfter": {"placeholders": {"look": {"type": "String"}}}
 }

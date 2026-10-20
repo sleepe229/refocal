@@ -11,6 +11,7 @@ import '../../bootstrap/auto.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/app_log.dart';
 import '../../bootstrap/files.dart';
+import '../../bootstrap/looks.dart';
 import '../../bootstrap/models.dart';
 import '../../bootstrap/presets.dart';
 import '../../bootstrap/result_saver.dart';
@@ -35,7 +36,8 @@ class EditorArgs {
   final String? jobDir;
   final bool finished;
 
-  /// Parameters to start from, changeable before Enhance (a history entry, FR-HIST-003).
+  /// Parameters to start from, changeable before Enhance (a history entry, FR-HIST-003); with
+  /// [finished], the strength and look the result opens at (the queue's preset).
   final Recipe? recipe;
 }
 
@@ -56,6 +58,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// Strength the result starts with: from a preset or a history entry, else 100%.
   double _strength = 1;
 
+  /// The look the result starts with: from a preset or a history entry (FR-LOOK-004).
+  Look? _look;
+
   /// A new photo starts with Auto (06 §3.2): Enhance waits for its first proposal.
   late bool _autoFirst = widget.args.recipe == null && widget.args.jobDir == null;
 
@@ -72,7 +77,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final ctl = ref.read(enhanceProvider.notifier);
-        widget.args.finished ? ctl.open(dir, widget.input) : ctl.resume(dir, widget.input);
+        widget.args.finished
+            ? ctl.open(dir, widget.input, recipe: widget.args.recipe)
+            : ctl.resume(dir, widget.input);
       });
     }
   }
@@ -158,11 +165,15 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: switch (state) {
-                        Finished(:final result, :final strength) => CompareSlider(
+                        Finished(:final result, :final strength, :final look) => CompareSlider(
                           before: original,
                           after: FileImage(File(result.previewPath)),
                           aspectRatio: result.width / result.height,
                           strength: strength,
+                          look: ref.watch(engineProvider).value?.lookFilter(look),
+                          leaks: look?.leaks == true
+                              ? ref.watch(lookLeaksProvider((result.width, result.height))).value
+                              : null,
                           resultLabel: l10n.resultAlt(result.width, result.height),
                           // Zoom to 1:1 of the result (FR-CMP-005): tiles from its BandStore.
                           tiles: ref.watch(viewerTilesProvider(result.jobDir)).value,
@@ -238,6 +249,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   void _apply(Recipe r) {
     _choice = ScaleChoice.of(r);
     _strength = r.strength;
+    _look = r.look;
     _model = r.srModel;
     _faces = r.faceModel != null;
     _faceModel = r.faceModel ?? _faceModel;
@@ -260,6 +272,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   bool _matches(Recipe r) =>
       _choice == ScaleChoice.of(r) &&
       _strength == r.strength &&
+      _look == r.look &&
       _model == r.srModel &&
       _faces == (r.faceModel != null) &&
       (!_faces ||
@@ -418,6 +431,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       fast2: c.fastPath,
       srModel: _model,
       strength: _strength,
+      look: _look,
       faceModel: _faces ? _faceModel : null,
       faceStrength: _faceStrength,
       faceFidelity: _faceFidelity,
@@ -831,6 +845,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             style: _canvas.textTheme.bodySmall,
           )
         : null;
+    final look = _look != null
+        ? Text(
+            l10n.presetLookAfter(lookLabel(l10n, _look)),
+            textAlign: TextAlign.center,
+            style: _canvas.textTheme.bodySmall,
+          )
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -873,6 +894,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               _lowLightControl(l10n),
               _scratchesControl(l10n),
               ?strength,
+              ?look,
             ],
           ),
         ),
@@ -992,6 +1014,15 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               onPressed: busy ? null : () => _share(ctl, l10n),
               icon: const Icon(Icons.share_outlined),
             ),
+            const SizedBox(width: 8),
+            // FR-LOOK-001: the look, applied when saving.
+            IconButton.filledTonal(
+              tooltip: l10n.lookTitle,
+              isSelected: s.look != null,
+              onPressed: busy ? null : () => _lookSheet(l10n),
+              icon: const Icon(Icons.photo_filter_outlined),
+              selectedIcon: const Icon(Icons.photo_filter),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
@@ -1067,6 +1098,68 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// FR-LOOK-001..003: the pastel filter and its amount, and the light leaks. Each change shows
+  /// on the canvas at once; nothing is processed again.
+  Future<void> _lookSheet(AppLocalizations l10n) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Consumer(
+          builder: (context, ref, _) {
+            final s = ref.watch(enhanceProvider);
+            if (s is! Finished) return const SizedBox.shrink();
+            final ctl = ref.read(enhanceProvider.notifier);
+            final look = s.look ?? Look(LookId.none);
+            final pastel = look.id == LookId.pastel;
+            final percent = l10n.strengthValue((look.amount * 100).round());
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.lookPastel),
+                    value: pastel,
+                    onChanged: s.saving
+                        ? null
+                        : (v) => ctl.setLook(
+                            look.copyWith(id: v ? LookId.pastel : LookId.none, amount: 1),
+                          ),
+                  ),
+                  if (pastel)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: look.amount,
+                            divisions: 20,
+                            label: percent,
+                            semanticFormatterCallback: (v) =>
+                                '${l10n.lookPastel} ${l10n.strengthValue((v * 100).round())}',
+                            onChanged: s.saving
+                                ? null
+                                : (v) => ctl.setLook(look.copyWith(amount: v)),
+                          ),
+                        ),
+                        SizedBox(width: 48, child: Text(percent, textAlign: TextAlign.end)),
+                      ],
+                    ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.lookLeaks),
+                    value: look.leaks,
+                    onChanged: s.saving ? null : (v) => ctl.setLook(look.copyWith(leaks: v)),
+                  ),
                 ],
               ),
             );

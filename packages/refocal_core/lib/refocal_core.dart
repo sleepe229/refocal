@@ -12,6 +12,7 @@ export 'src/auto.dart';
 export 'src/enh_status.dart';
 export 'src/job_event.dart';
 export 'src/job_request.dart';
+export 'src/look.dart';
 export 'src/models/manifest.dart';
 export 'src/models/model_repository.dart';
 export 'src/queue_orchestrator.dart';

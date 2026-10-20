@@ -52,6 +52,7 @@ class ResultSaver {
     required String input,
     required OutputSpec output,
     required double strength,
+    Look? look,
     required Destination to,
   }) async {
     if (output.format == ExportFormat.heic && !heicSupported) {
@@ -66,13 +67,13 @@ class ResultSaver {
     final tmp = '${engine.exportDir}/$name';
     String? uri;
     try {
-      await _encode(r, tmp, output, strength: strength, thumbnail: preview);
+      await _encode(r, tmp, output, strength: strength, look: look, thumbnail: preview);
       uri = switch (to) {
         Destination.gallery => await platform.saveToGallery(tmp, name, format.mimeType),
         Destination.file => await platform.saveToFile(tmp, name, format.mimeType),
       };
       AppLog.info(
-        'export ${format.name} q${output.quality} strength $strength: '
+        'export ${format.name} q${output.quality} strength $strength look ${_lookLog(look)}: '
         '${uri == null ? 'cancelled' : 'saved'}',
       );
     } catch (e, stack) {
@@ -97,6 +98,7 @@ class ResultSaver {
             fast2: r.fast2,
             srModel: r.model,
             strength: strength,
+            look: look,
             output: output,
           ),
           inputPath: history.relative(input),
@@ -129,6 +131,7 @@ extension ResultSharing on ResultSaver {
     JobResult r, {
     required OutputSpec output,
     required double strength,
+    Look? look,
     required String title,
   }) async {
     if (output.format == ExportFormat.heic && !heicSupported) {
@@ -137,13 +140,13 @@ extension ResultSharing on ResultSaver {
     final dir = await Directory('${engine.dirs.cache}/share').create(recursive: true);
     final path = '${dir.path}/Refocal_${r.jobId}.${output.format.extension}';
     try {
-      await _encode(r, path, output, strength: strength);
+      await _encode(r, path, output, strength: strength, look: look);
     } catch (e, stack) {
       AppLog.error('share ${output.format.name} failed', e, stack);
       await deleteIfPresent(path);
       rethrow;
     }
-    AppLog.info('share ${output.format.name} strength $strength');
+    AppLog.info('share ${output.format.name} strength $strength look ${_lookLog(look)}');
     await platform.shareFile(path, output.format.mimeType, title);
   }
 }
@@ -156,12 +159,20 @@ extension on ResultSaver {
     String path,
     OutputSpec output, {
     required double strength,
+    Look? look,
     String? thumbnail,
   }) async {
     final format = output.format;
     final quality = output.quality ?? settings.quality; // ignored by lossless formats
     if (format == ExportFormat.heic) {
-      await _exportHeic(r, path, quality: quality, strength: strength, thumbnail: thumbnail);
+      await _exportHeic(
+        r,
+        path,
+        quality: quality,
+        strength: strength,
+        look: look,
+        thumbnail: thumbnail,
+      );
       return;
     }
     await engine.session.export(
@@ -171,6 +182,7 @@ extension on ResultSaver {
       quality: quality,
       lossless: format.lossless,
       strength: strength,
+      look: look,
       keepGps: settings.keepGps,
       aiMarker: settings.aiMarker,
       thumbnail: thumbnail,
@@ -185,6 +197,7 @@ extension on ResultSaver {
     String dst, {
     required int quality,
     required double strength,
+    Look? look,
     String? thumbnail,
   }) async {
     final raw = '$dst.rgba', encoded = '$dst.enc';
@@ -194,6 +207,7 @@ extension on ResultSaver {
         raw,
         format: 'rgba',
         strength: strength,
+        look: look,
         thumbnail: thumbnail,
         thumbnailMaxSide: HistoryStore.previewMaxSide,
       );
@@ -214,6 +228,9 @@ extension on ResultSaver {
     }
   }
 }
+
+String _lookLog(Look? l) =>
+    l == null ? 'none' : '${l.id.name} ${l.amount}${l.leaks ? ' leaks' : ''}';
 
 /// A saver with the current settings.
 Future<ResultSaver> readResultSaver(Ref ref) async {

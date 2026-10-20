@@ -352,5 +352,10 @@
   "homeSeeAll": "Все",
   "settingsAdvanced": "Дополнительно",
   "share": "Поделиться",
-  "shareFailed": "Не удалось поделиться: {error}"
+  "shareFailed": "Не удалось поделиться: {error}",
+  "lookTitle": "Фильтр",
+  "lookOff": "Нет",
+  "lookPastel": "Пастель",
+  "lookLeaks": "Блики",
+  "presetLookAfter": "Фильтр: {look}"
 }

@@ -86,6 +86,32 @@ void main() {
     expect(File('${root.path}/out.jpg').lengthSync(), greaterThan(1000));
   }, skip: skip);
 
+  test('looks: every id of the app is a preset of the core (FR-LOOK-*)', () async {
+    for (final id in LookId.values) {
+      final m = native.lookMatrix(id, 0.5);
+      expect(m, hasLength(20));
+      expect(m[18], 1, reason: 'alpha unchanged');
+    }
+    expect(native.lookMatrix(LookId.pastel, 0), [
+      for (var i = 0; i < 20; i++) i % 6 == 0 ? 1.0 : 0.0,
+    ]);
+    expect(
+      () => native.lookMatrix(LookId.pastel, 1.5),
+      throwsA(isA<EnhException>().having((e) => e.status, 'status', EnhStatus.invalid)),
+    );
+    final leaks = native.lookLeaks(388, 244);
+    expect((leaks.width, leaks.height), (256, 161));
+    expect(leaks.rgba, hasLength(256 * 161 * 4));
+    final job = session.start(req('look'));
+    final result = await job.done;
+    final out = await session.export(
+      result.jobDir,
+      '${root.path}/look.jpg',
+      look: Look(LookId.pastel, leaks: true),
+    );
+    expect(out['look'], isTrue);
+  }, skip: skip);
+
   test('analyze on a helper isolate (FR-ENH-007)', () async {
     final a = await session.analyze(input);
     expect((a.width, a.height), (97, 61));

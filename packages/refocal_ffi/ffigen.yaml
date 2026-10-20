@@ -18,6 +18,7 @@ functions:
       - enh_job_cancel
       - enh_job_pause
       - enh_job_status
+      - enh_look_matrix
       - enh_set_.*
 macros:
   include:
