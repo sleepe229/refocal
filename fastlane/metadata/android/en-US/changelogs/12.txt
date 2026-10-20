@@ -1,0 +1,4 @@
+Beta 0.8.0-beta.1:
+• Filter on the result: Pastel with its amount, and Light leaks
+• Works with the strength; no reprocessing; saved as you see it
+• Kept in presets and history
