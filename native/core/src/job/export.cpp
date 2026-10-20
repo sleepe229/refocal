@@ -48,6 +48,7 @@
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 
@@ -162,7 +163,7 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
       const auto& a = res["alpha"];
       const int aw = a.at("width").get<int>(), ah = a.at("height").get<int>();
       const auto raw = fs::read_all(fs::join(job_dir, kAlphaFile));
-      if (raw.size() != size_t(aw) * ah) fail(ENH_E_INVALID, "alpha file does not match");
+      if (raw.size() != sz(aw) * sz(ah)) fail(ENH_E_INVALID, "alpha file does not match");
       alpha3.w = aw;
       alpha3.h = ah;
       alpha3.px.resize(raw.size() * 3);
@@ -184,21 +185,21 @@ extern "C" enh_status enh_export(enh_session* s, const char* job_dir, const char
       std::vector<uint8_t> buf, lo, a3, alpha;
       int y = 0;
       for (size_t b = 0; b < rows.size(); ++b) {
-        const size_t n = size_t(rows[b]) * w * 3;
+        const size_t n = sz(rows[b]) * sz(w) * 3;
         store.read_band(int(b), buf, n);
         if (base) {
           lo.resize(n);
           base->rows(y, rows[b], lo.data());
           blend(lo.data(), buf.data(), n, float(strength), buf.data());
         }
-        if (look_color) apply_look(look_m, buf.data(), size_t(rows[b]) * w);
+        if (look_color) apply_look(look_m, buf.data(), sz(rows[b]) * sz(w));
         if (leaks) leaks->blend_rows(y, rows[b], buf.data());
         if constexpr (std::is_same_v<std::decay_t<decltype(writer)>, JpegWriter> ||
                       std::is_same_v<std::decay_t<decltype(writer)>, RgbaWriter>) {
           writer.write_rows(buf.data(), rows[b]);  // no alpha
         } else {
           if (alpha_up) {
-            const size_t px = size_t(rows[b]) * w;
+            const size_t px = sz(rows[b]) * sz(w);
             a3.resize(px * 3);
             alpha.resize(px);
             alpha_up->rows(y, rows[b], a3.data());

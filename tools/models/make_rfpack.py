@@ -11,7 +11,13 @@ before it reads the manifest, then every file as for a download.
 
   tools/models/make_rfpack.py MANIFEST PACK_ID OUT_DIR SECRET_KEY
 """
-import json, pathlib, subprocess, sys, tempfile, zipfile
+
+import json
+import pathlib
+import subprocess
+import sys
+import tempfile
+import zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from check_manifest import fetch, sha256  # noqa: E402
@@ -27,8 +33,11 @@ def main() -> int:
         sub = t / "manifest.json"
         sub.write_text(json.dumps({**m, "packs": [{**pack, "files": files}]}, indent=2) + "\n")
         comment = f"refocal rfpack {pack_id}@{pack['version']} serial:{m['serial']}"
-        subprocess.run(["minisign", "-S", "-s", key, "-m", str(sub), "-t", comment], check=True,
-                       stdin=subprocess.DEVNULL)
+        subprocess.run(
+            ["minisign", "-S", "-s", key, "-m", str(sub), "-t", comment],
+            check=True,
+            stdin=subprocess.DEVNULL,
+        )
         fetch(pack["license"]["url"], t / "license.txt")
         if sha256(t / "license.txt") != pack["license"]["text_sha256"]:
             sys.exit(f"license mismatch: {pack_id}")
@@ -39,7 +48,9 @@ def main() -> int:
                 sys.exit(f"mismatch: {pack_id}/{f['path']}")
         dst = pathlib.Path(out) / f"{pack_id}-{pack['version']}.rfpack"
         dst.parent.mkdir(parents=True, exist_ok=True)
-        names = ["manifest.json", "manifest.json.minisig", "license.txt"] + [f["path"] for f in files]
+        names = ["manifest.json", "manifest.json.minisig", "license.txt"] + [
+            f["path"] for f in files
+        ]
         with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
             for n in names:
                 z.write(t / n, n)

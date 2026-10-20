@@ -25,6 +25,7 @@
 #include "util/fs.hpp"
 #include "util/integrity.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 #include "util/zip.hpp"
 
 #ifndef ENH_VERSION_STRING
@@ -179,18 +180,17 @@ enh_status enh_rfpack_extract(const char* rfpack_path, const char* entry, const 
         if (std::fwrite(p, 1, n, f) != n) enh::fail(ENH_E_IO, "cannot write " + part);
       });
     } catch (...) {
-      std::fclose(f);
-      std::remove(part.c_str());
+      (void)std::fclose(f);             // failing anyway
+      (void)std::remove(part.c_str());  // best effort: the startup sweep removes leftovers
       throw;
     }
-    if (std::fflush(f) != 0 || fsync(fileno(f)) != 0) {
-      std::fclose(f);
-      std::remove(part.c_str());
+    const bool synced = std::fflush(f) == 0 && fsync(fileno(f)) == 0;
+    if (std::fclose(f) != 0 || !synced) {
+      (void)std::remove(part.c_str());
       return ENH_E_IO;
     }
-    std::fclose(f);
     if (std::rename(part.c_str(), dst.c_str()) != 0) {
-      std::remove(part.c_str());
+      (void)std::remove(part.c_str());
       return ENH_E_IO;
     }
     return ENH_OK;
@@ -244,7 +244,7 @@ enh_status enh_look_leaks(int32_t w, int32_t h, uint8_t* rgba, int64_t rgba_size
   try {
     const enh::Rgb8 g = enh::leak_grid(w, h);
     if (rgba_size < int64_t(g.w) * g.h * 4) return ENH_E_INVALID;
-    for (size_t i = 0, n = size_t(g.w) * g.h; i < n; ++i) {
+    for (size_t i = 0, n = enh::sz(g.w) * enh::sz(g.h); i < n; ++i) {
       std::memcpy(rgba + i * 4, g.px.data() + i * 3, 3);
       rgba[i * 4 + 3] = 255;
     }

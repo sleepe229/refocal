@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: tools/models/fetch.sh
       - name: Rebuilder image
-        run: docker build -t refocal-rebuilder:release --build-arg UID=$(id -u) --build-arg GID=$(id -g) tools/rebuilder
+        run: docker build -t refocal-rebuilder:release --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" tools/rebuilder
       - name: Build and sign
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -80,7 +80,7 @@ jobs:
             /src/flutter/bin/flutter --suppress-analytics pub deps --json' > deps.json
           tools/sbom/make_sbom.py "${GITHUB_REF_NAME#v}" deps.json "dist/refocal-${GITHUB_REF_NAME}.spdx.json"
       - name: SHA256SUMS
-        run: cd dist && sha256sum *.apk *.tar.gz *.spdx.json > SHA256SUMS && cat SHA256SUMS
+        run: cd dist && sha256sum -- *.apk *.tar.gz *.spdx.json > SHA256SUMS && cat SHA256SUMS
       # Not available for user-owned private repositories; runs once the repo is public.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: ${{ !github.event.repository.private }}

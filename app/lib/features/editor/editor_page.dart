@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -69,7 +70,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   void initState() {
     super.initState();
     if (widget.args.recipe case final r?) _apply(r);
-    _readSize();
+    unawaited(_readSize());
     if (widget.args.jobDir == null) {
       ref.listenManual(autoProvider(widget.input), _onAuto, fireImmediately: true);
     }
@@ -78,9 +79,11 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final ctl = ref.read(enhanceProvider.notifier);
-        widget.args.finished
-            ? ctl.open(dir, widget.input, recipe: widget.args.recipe)
-            : ctl.resume(dir, widget.input);
+        unawaited(
+          widget.args.finished
+              ? ctl.open(dir, widget.input, recipe: widget.args.recipe)
+              : ctl.resume(dir, widget.input),
+        );
       });
     }
   }
@@ -140,7 +143,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final r = _recipe;
     if (r == null && (_autoFirst || _choice == null)) return; // still deciding
     setState(() => _waiting = false);
-    if (r != null) _enhance(ref.read(enhanceProvider.notifier), r, AppLocalizations.of(context));
+    if (r != null) {
+      unawaited(_enhance(ref.read(enhanceProvider.notifier), r, AppLocalizations.of(context)));
+    }
   }
 
   @override
@@ -149,7 +154,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final state = ref.watch(enhanceProvider);
     final ctl = ref.read(enhanceProvider.notifier);
     ref.listen(enhanceProvider, (prev, next) {
-      if (next is AskUser && prev is! AskUser) _askUser(next.event);
+      if (next is AskUser && prev is! AskUser) unawaited(_askUser(next.event));
     });
     final original = ResizeImage(
       FileImage(File(widget.input)),
@@ -168,7 +173,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     return PopScope(
       canPop: state is! Running,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && state is Running) _stop(state, ctl, l10n, leave: true);
+        if (!didPop && state is Running) unawaited(_stop(state, ctl, l10n, leave: true));
       },
       child: Theme(
         data: canvas,

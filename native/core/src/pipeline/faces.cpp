@@ -12,6 +12,7 @@
 #include "image/ops.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -76,9 +77,10 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
     float* g = in.channel(1).row(y);
     float* r = in.channel(2).row(y);
     for (int x = 0; x < small.w; ++x) {
-      r[x] = p[3 * x];
-      g[x] = p[3 * x + 1];
-      b[x] = p[3 * x + 2];
+      const uint8_t* q = p + 3 * sz(x);
+      r[x] = q[0];
+      g[x] = q[1];
+      b[x] = q[2];
     }
   }
   const std::vector<ncnn::Mat> out = yunet.run_outputs(in);
@@ -88,7 +90,8 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
   const int strides[3] = {8, 16, 32};
   for (int k = 0; k < 3; ++k) {
     const int st = strides[k], cols = kYunetSide / st, n = cols * cols;
-    const ncnn::Mat &cls = out[k], &obj = out[3 + k], &box = out[6 + k], &kps = out[9 + k];
+    const ncnn::Mat &cls = out[sz(k)], &obj = out[sz(3 + k)], &box = out[sz(6 + k)],
+                    &kps = out[sz(9 + k)];
     if (int(cls.total()) != n || int(obj.total()) != n || int(box.total()) != 4 * n ||
         int(kps.total()) != 10 * n) {
       fail(ENH_E_MODEL, "face detector: unexpected output shape");
@@ -98,18 +101,19 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
       const float score = std::sqrt(std::clamp(pc[i], 0.f, 1.f) * std::clamp(po[i], 0.f, 1.f));
       if (score < min_score) continue;
       const int r = i / cols, c = i % cols;
-      const float* b = pb + 4 * i;
-      const float cx = (c + b[0]) * st, cy = (r + b[1]) * st;
-      const float w = std::exp(b[2]) * st, h = std::exp(b[3]) * st;
+      const float* b = pb + 4 * sz(i);
+      const float cx = (float(c) + b[0]) * float(st), cy = (float(r) + b[1]) * float(st);
+      const float w = std::exp(b[2]) * float(st), h = std::exp(b[3]) * float(st);
       Face f;
       f.score = score;
       f.x = float((cx - w / 2) / s);
       f.y = float((cy - h / 2) / s);
       f.w = float(w / s);
       f.h = float(h / s);
-      for (int j = 0; j < 5; ++j) {
-        f.lm[2 * j] = float((pk[10 * i + 2 * j] + c) * st / s);
-        f.lm[2 * j + 1] = float((pk[10 * i + 2 * j + 1] + r) * st / s);
+      const float* kp = pk + 10 * sz(i);
+      for (size_t j = 0; j < 5; ++j) {
+        f.lm[2 * j] = float((kp[2 * j] + float(c)) * float(st) / s);
+        f.lm[2 * j + 1] = float((kp[2 * j + 1] + float(r)) * float(st) / s);
       }
       faces.push_back(f);
     }
@@ -149,16 +153,18 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
       // The tile of the upscale, sampled bilinearly from the photo (pixel centres aligned).
       tile.w = std::min(T, uw - tx);
       tile.h = std::min(T, uh - ty);
-      tile.px.resize(size_t(tile.w) * tile.h * 3);
+      tile.px.resize(sz(tile.w) * sz(tile.h) * 3);
       for (int y = 0; y < tile.h; ++y) {
-        const float fy = std::clamp((ty + y + 0.5f) / f - 0.5f, 0.f, float(img.h - 1));
+        const float fy =
+            std::clamp((float(ty + y) + 0.5f) / float(f) - 0.5f, 0.f, float(img.h - 1));
         const int y0 = int(fy), y1 = std::min(y0 + 1, img.h - 1);
-        const float ay = fy - y0;
+        const float ay = fy - float(y0);
         uint8_t* d = tile.row(y);
         for (int x = 0; x < tile.w; ++x) {
-          const float fx = std::clamp((tx + x + 0.5f) / f - 0.5f, 0.f, float(img.w - 1));
+          const float fx =
+              std::clamp((float(tx + x) + 0.5f) / float(f) - 0.5f, 0.f, float(img.w - 1));
           const int x0 = int(fx), x1 = std::min(x0 + 1, img.w - 1);
-          const float ax = fx - x0;
+          const float ax = fx - float(x0);
           for (int c = 0; c < 3; ++c) {
             const float top = img.row(y0)[x0 * 3 + c] * (1 - ax) + img.row(y0)[x1 * 3 + c] * ax;
             const float bot = img.row(y1)[x0 * 3 + c] * (1 - ax) + img.row(y1)[x1 * 3 + c] * ax;
@@ -167,13 +173,13 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
         }
       }
       for (Face fc : detect_faces(yunet, tile, min_score)) {
-        fc.x = (fc.x + tx) / f;
-        fc.y = (fc.y + ty) / f;
-        fc.w /= f;
-        fc.h /= f;
-        for (int j = 0; j < 5; ++j) {
-          fc.lm[2 * j] = (fc.lm[2 * j] + tx) / f;
-          fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + ty) / f;
+        fc.x = (fc.x + float(tx)) / float(f);
+        fc.y = (fc.y + float(ty)) / float(f);
+        fc.w /= float(f);
+        fc.h /= float(f);
+        for (size_t j = 0; j < 5; ++j) {
+          fc.lm[2 * j] = (fc.lm[2 * j] + float(tx)) / float(f);
+          fc.lm[2 * j + 1] = (fc.lm[2 * j + 1] + float(ty)) / float(f);
         }
         if (std::min(fc.w, fc.h) >= kMinSmallFacePx) all.push_back(fc);
       }
@@ -222,7 +228,7 @@ Affine Affine::scaled(double s) const {
 Affine face_alignment(const Face& f) {
   // Closed-form least squares for x' = a*x - b*y + tx, y' = b*x + a*y + ty.
   double mx = 0, my = 0, mu = 0, mv = 0;
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     mx += f.lm[2 * i];
     my += f.lm[2 * i + 1];
     mu += kTemplate[2 * i];
@@ -233,7 +239,7 @@ Affine face_alignment(const Face& f) {
   mu /= 5;
   mv /= 5;
   double sxx = 0, sab = 0, sba = 0;
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     const double x = f.lm[2 * i] - mx, y = f.lm[2 * i + 1] - my;
     const double u = kTemplate[2 * i] - mu, v = kTemplate[2 * i + 1] - mv;
     sxx += x * x + y * y;
@@ -256,7 +262,7 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
   Rgb8 out;
   out.w = w;
   out.h = h;
-  out.px.resize(size_t(w) * h * 3);
+  out.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y) {
     uint8_t* o = out.row(y);
     for (int x = 0; x < w; ++x) {
@@ -264,10 +270,10 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
       inv.apply(x, y, &sx, &sy);
       const int x0 = int(std::floor(sx)), y0 = int(std::floor(sy));
       const double fx = sx - x0, fy = sy - y0;
-      const uint8_t* p00 = src.row(reflect(y0, src.h)) + 3 * reflect(x0, src.w);
-      const uint8_t* p01 = src.row(reflect(y0, src.h)) + 3 * reflect(x0 + 1, src.w);
-      const uint8_t* p10 = src.row(reflect(y0 + 1, src.h)) + 3 * reflect(x0, src.w);
-      const uint8_t* p11 = src.row(reflect(y0 + 1, src.h)) + 3 * reflect(x0 + 1, src.w);
+      const uint8_t* p00 = src.row(reflect(y0, src.h)) + 3 * sz(reflect(x0, src.w));
+      const uint8_t* p01 = src.row(reflect(y0, src.h)) + 3 * sz(reflect(x0 + 1, src.w));
+      const uint8_t* p10 = src.row(reflect(y0 + 1, src.h)) + 3 * sz(reflect(x0, src.w));
+      const uint8_t* p11 = src.row(reflect(y0 + 1, src.h)) + 3 * sz(reflect(x0 + 1, src.w));
       for (int ch = 0; ch < 3; ++ch) {
         const double v = (p00[ch] * (1 - fx) + p01[ch] * fx) * (1 - fy) +
                          (p10[ch] * (1 - fx) + p11[ch] * fx) * fy;
@@ -366,7 +372,7 @@ ncnn::Mat codebook_lookup(const ncnn::Mat& logits, const std::vector<float>& cod
     const float* r = rows + size_t(t) * kCodebookSize;
     const int best = int(std::max_element(r, r + kCodebookSize) - r);  // first of ties
     const float* code = codebook.data() + size_t(best) * kCodeDim;
-    for (int c = 0; c < kCodeDim; ++c) feat.channel(c)[t] = code[c];
+    for (int c = 0; c < kCodeDim; ++c) feat.channel(c)[sz(t)] = code[c];
   }
   return feat;
 }
@@ -441,7 +447,7 @@ void masked_mean_lab(const Rgb8& img, double lab[3]) {
       const float m = feather(x, y);
       if (m <= 0) continue;
       double l[3];
-      rgb_to_lab(img.row(y) + 3 * x, l);
+      rgb_to_lab(img.row(y) + 3 * sz(x), l);
       for (int c = 0; c < 3; ++c) sum[c] += m * l[c];
       w += m;
     }
@@ -499,7 +505,7 @@ void paste_faces(uint8_t* band, int w, int y, int rows, const std::vector<Restor
     if (f.strength <= 0) continue;
     const int ya = std::max(y, f.y0), yb = std::min(y + rows, f.y1), xb = std::min(w, f.x1);
     for (int oy = ya; oy < yb; ++oy) {
-      uint8_t* row = band + size_t(oy - y) * w * 3;
+      uint8_t* row = band + sz(oy - y) * sz(w) * 3;
       for (int ox = f.x0; ox < xb; ++ox) {
         double fx, fy;
         f.to_face.apply(ox + 0.5, oy + 0.5, &fx, &fy);
@@ -510,9 +516,9 @@ void paste_faces(uint8_t* band, int w, int y, int rows, const std::vector<Restor
         if (alpha <= 0) continue;
         const int x0 = std::min(int(fx), kFaceSide - 2), y0 = std::min(int(fy), kFaceSide - 2);
         const double tx = fx - x0, ty = fy - y0;
-        const uint8_t* p00 = f.face.row(y0) + 3 * x0;
-        const uint8_t* p10 = f.face.row(y0 + 1) + 3 * x0;
-        uint8_t* d = row + 3 * ox;
+        const uint8_t* p00 = f.face.row(y0) + 3 * sz(x0);
+        const uint8_t* p10 = f.face.row(y0 + 1) + 3 * sz(x0);
+        uint8_t* d = row + 3 * sz(ox);
         for (int ch = 0; ch < 3; ++ch) {
           const double v = (p00[ch] * (1 - tx) + p00[3 + ch] * tx) * (1 - ty) +
                            (p10[ch] * (1 - tx) + p10[3 + ch] * tx) * ty;

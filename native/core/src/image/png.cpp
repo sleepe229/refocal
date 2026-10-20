@@ -13,6 +13,7 @@
 #include "image/metaio.hpp"
 #include "util/error.hpp"
 #include "util/log.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -21,7 +22,7 @@ struct File {
   FILE* f = nullptr;
   explicit File(const std::string& path) : f(std::fopen(path.c_str(), "rb")) {}
   ~File() {
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // read only
   }
 };
 
@@ -104,7 +105,7 @@ Rgb8 png_decode(const std::string& path, SourceMeta* meta) {
     fail(ENH_E_INVALID, "PNG decode failed: " + msg);
   }
   if (hdr.alpha) {
-    rgba_to_rgb_on_white(img.px, size_t(img.w) * img.h, false, meta ? &meta->alpha : nullptr);
+    rgba_to_rgb_on_white(img.px, sz(img.w) * sz(img.h), false, meta ? &meta->alpha : nullptr);
   }
   return img;
 }
@@ -127,7 +128,7 @@ struct PngWriter::Impl {
   OutputMeta meta;
   ~Impl() {
     if (png) png_destroy_write_struct(&png, info ? &info : nullptr);
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // not finished: the output is abandoned
   }
 };
 
@@ -137,7 +138,7 @@ PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* me
   if (meta) m.meta = *meta;
   m.w = w;
   m.alpha = alpha;
-  if (alpha) m.row.resize(size_t(w) * 4);
+  if (alpha) m.row.resize(sz(w) * 4);
   m.f = std::fopen(path.c_str(), "wb");
   if (!m.f) fail(ENH_E_IO, "cannot create output");
   m.png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, on_write_error, on_warning);
@@ -181,16 +182,18 @@ void PngWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) {
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   for (int r = 0; r < rows; ++r) {
     if (!m.alpha) {
-      png_write_row(m.png, const_cast<png_bytep>(rgb + size_t(r) * m.w * 3));
+      png_write_row(m.png, const_cast<png_bytep>(rgb + sz(r) * sz(m.w) * 3));
       continue;
     }
-    const uint8_t* s = rgb + size_t(r) * m.w * 3;
-    const uint8_t* a = alpha + size_t(r) * m.w;
+    const uint8_t* s = rgb + sz(r) * sz(m.w) * 3;
+    const uint8_t* a = alpha + sz(r) * sz(m.w);
     for (int x = 0; x < m.w; ++x) {
-      m.row[size_t(x) * 4] = s[x * 3];
-      m.row[size_t(x) * 4 + 1] = s[x * 3 + 1];
-      m.row[size_t(x) * 4 + 2] = s[x * 3 + 2];
-      m.row[size_t(x) * 4 + 3] = a[x];
+      const uint8_t* p = s + sz(x) * 3;
+      uint8_t* d = &m.row[sz(x) * 4];
+      d[0] = p[0];
+      d[1] = p[1];
+      d[2] = p[2];
+      d[3] = a[x];
     }
     png_write_row(m.png, m.row.data());
   }
@@ -202,7 +205,10 @@ void PngWriter::finish() {
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   png_write_end(m.png, m.info);
   m.finished = true;
-  if (std::fflush(m.f) != 0 || std::ferror(m.f)) fail(ENH_E_IO, "PNG write failed");
+  const bool written = std::fflush(m.f) == 0 && !std::ferror(m.f);
+  const bool closed = std::fclose(m.f) == 0;
+  m.f = nullptr;
+  if (!written || !closed) fail(ENH_E_IO, "PNG write failed");
 }
 
 }  // namespace enh

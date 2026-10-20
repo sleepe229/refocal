@@ -1,7 +1,7 @@
 # Refocal native core: libenh (C ABI in include/enh.h).
 # Consumers: packages/refocal_ffi (Android via AGP externalNativeBuild; iOS via xcframework),
 # tools/refocal-cli and native tests (desktop).
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.25)  # add_subdirectory(... SYSTEM)
 # The app's pubspec.yaml is the single source of the version: x.y.z for project(), the full
 # version without build metadata (e.g. 0.0.3-alpha.1) for enh_version() and xmp:CreatorTool.
 cmake_path(SET ENH_PUBSPEC NORMALIZE ${CMAKE_CURRENT_SOURCE_DIR}/../app/pubspec.yaml)
@@ -30,6 +30,7 @@ set(ENH_SANITIZE "" CACHE STRING "address (ASan+UBSan) | thread | empty")
 # libFuzzer targets (tests/fuzz, 11 §1); clang with ENH_SANITIZE=address. Coverage
 # instrumentation goes into everything, the decoders of the vendored libraries included.
 option(ENH_BUILD_FUZZ "libFuzzer targets (clang, ENH_SANITIZE=address)" OFF)
+option(ENH_WERROR "warnings in our code fail the build (CI)" OFF)
 if(ENH_BUILD_FUZZ)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR NOT ENH_SANITIZE STREQUAL "address")
     message(FATAL_ERROR "ENH_BUILD_FUZZ needs clang and ENH_SANITIZE=address")
@@ -118,7 +119,7 @@ if(ANDROID AND NCNN_SIMPLEOMP AND NOT TARGET pthread)
   # libpthread. A target of that name takes precedence over -lpthread and adds nothing.
   add_library(pthread INTERFACE)
 endif()
-add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/ncnn EXCLUDE_FROM_ALL SYSTEM)
 
 # ---- libjpeg-turbo (git submodule, IJG/BSD-3/zlib) ----
 # Built as an external project: it does not support add_subdirectory(). The toolchain is
@@ -177,17 +178,18 @@ enh_set_default(PNG_TESTS OFF)
 enh_set_default(PNG_TOOLS OFF)
 enh_set_default(PNG_FRAMEWORK OFF)
 enh_set_default(SKIP_INSTALL_ALL ON)
-add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL SYSTEM)
 # Library only: encoder, demux (input metadata), mux (output metadata, FR-EXP-001).
 foreach(o ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO WEBPMUX EXTRAS)
   enh_set_default(WEBP_BUILD_${o} OFF)
 endforeach()
-add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL SYSTEM)
 
 # ---- libenh ----
 set(ENH_SOURCES
   core/src/enh.cpp
   core/src/probe.cpp
+  core/src/util/format.cpp
   core/src/util/fs.cpp
   core/src/util/integrity.cpp
   core/src/util/log.cpp
@@ -232,13 +234,24 @@ endif()
 list(APPEND ENH_SOURCES ${MONOCYPHER_DIR}/monocypher.c ${MONOCYPHER_DIR}/optional/monocypher-ed25519.c)
 
 add_library(enh_core STATIC ${ENH_SOURCES})
-target_include_directories(enh_core PUBLIC include core/src
-  PRIVATE ${DART_DL_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include
-  ${MONOCYPHER_DIR} ${MONOCYPHER_DIR}/optional)
+target_include_directories(enh_core PUBLIC include core/src)
+# Third-party headers: their warnings are not ours (-Werror below applies to our code).
+target_include_directories(enh_core SYSTEM PRIVATE ${DART_DL_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/single_include ${MONOCYPHER_DIR}
+  ${MONOCYPHER_DIR}/optional)
 target_link_libraries(enh_core PUBLIC ncnn jpeg_static png_static webpdemux libwebpmux ZLIB::ZLIB
   Threads::Threads)
 set_source_files_properties(${DART_DL_DIR}/dart_api_dl.c PROPERTIES COMPILE_OPTIONS "-w")
-target_compile_options(enh_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
+# Our code (core, CLI, tests, fuzzers); third_party keeps its own flags and its headers are
+# SYSTEM. Narrowing and sign changes are explicit (util/size.hpp).
+set(ENH_WARNINGS -Wall -Wextra -Wshadow -Wconversion -Wsign-conversion)
+if(ENH_WERROR)
+  list(APPEND ENH_WARNINGS -Werror)
+endif()
+function(enh_warnings target)
+  target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${ENH_WARNINGS}>)
+endfunction()
+enh_warnings(enh_core)
 target_compile_definitions(enh_core PRIVATE ENH_BUILDING ENH_VERSION_STRING="${ENH_VERSION}")
 if(ANDROID)
   target_link_libraries(enh_core PUBLIC log)
@@ -250,6 +263,7 @@ endif()
 add_library(enh SHARED core/src/enh_export_anchor.cpp)
 target_link_libraries(enh PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,enh_core>")
 target_include_directories(enh PUBLIC include)
+enh_warnings(enh)
 if(ANDROID)
   # 16 KB page size (Android 15+). CPU threads come from ncnn simpleomp, not libomp.
   target_link_options(enh PRIVATE "-Wl,-z,max-page-size=16384"
@@ -261,48 +275,59 @@ option(ENH_BUILD_CLI "tools/refocal-cli" OFF)
 if(ENH_BUILD_CLI AND NOT ANDROID AND NOT IOS)
   add_executable(refocal-cli ${CMAKE_CURRENT_SOURCE_DIR}/../tools/refocal-cli/main.cpp)
   target_link_libraries(refocal-cli PRIVATE enh_core)
-  target_include_directories(refocal-cli PRIVATE third_party/json/single_include)
+  enh_warnings(refocal-cli)
+  target_include_directories(refocal-cli SYSTEM PRIVATE third_party/json/single_include)
 endif()
 
 if(ENH_BUILD_TESTS)
   enable_testing()
   add_executable(test_abi tests/test_abi.cpp)
+  enh_warnings(test_abi)
   target_link_libraries(test_abi PRIVATE enh)
   target_include_directories(test_abi PRIVATE core/src)
   add_test(NAME abi COMMAND test_abi)
   add_executable(test_pipeline tests/test_pipeline.cpp)
+  enh_warnings(test_pipeline)
   target_link_libraries(test_pipeline PRIVATE enh_core)
-  target_include_directories(test_pipeline PRIVATE third_party/json/single_include)
+  target_include_directories(test_pipeline SYSTEM PRIVATE third_party/json/single_include)
   add_test(NAME pipeline COMMAND test_pipeline ${CMAKE_CURRENT_BINARY_DIR}/test-work)
   add_executable(test_job tests/test_job.cpp)
+  enh_warnings(test_job)
   target_link_libraries(test_job PRIVATE enh_core)
-  target_include_directories(test_job PRIVATE core/src third_party/json/single_include)
+  target_include_directories(test_job PRIVATE core/src)
+  target_include_directories(test_job SYSTEM PRIVATE third_party/json/single_include)
   add_test(NAME job COMMAND test_job ${CMAKE_CURRENT_BINARY_DIR}/test-work-job)
   add_executable(test_codecs tests/test_codecs.cpp)
+  enh_warnings(test_codecs)
   target_link_libraries(test_codecs PRIVATE enh_core)
   add_test(NAME codecs COMMAND test_codecs ${CMAKE_CURRENT_BINARY_DIR}/test-work-codecs)
   # TEST-ML-001 on the real weights: skipped (77) unless tools/models/fetch.sh put them into
   # ENH_GOLDEN_DIR (LOCK=tools/models/golden.lock and the models.lock pins).
   set(ENH_GOLDEN_DIR "${CMAKE_BINARY_DIR}/golden" CACHE PATH "golden weights and references")
   add_executable(test_golden tests/test_golden.cpp)
+  enh_warnings(test_golden)
   target_link_libraries(test_golden PRIVATE enh_core)
-  target_include_directories(test_golden PRIVATE third_party/json/single_include)
+  target_include_directories(test_golden SYSTEM PRIVATE third_party/json/single_include)
   add_test(NAME golden COMMAND test_golden ${ENH_GOLDEN_DIR})
   set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(test_faces tests/test_faces.cpp)
+  enh_warnings(test_faces)
   target_link_libraries(test_faces PRIVATE enh_core)
-  target_include_directories(test_faces PRIVATE third_party/json/single_include)
+  target_include_directories(test_faces SYSTEM PRIVATE third_party/json/single_include)
   add_test(NAME faces COMMAND test_faces ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/faces
     ${ENH_GOLDEN_DIR} ${CMAKE_CURRENT_BINARY_DIR}/test-work-faces)
   add_executable(test_integrity tests/test_integrity.cpp)
+  enh_warnings(test_integrity)
   target_link_libraries(test_integrity PRIVATE enh_core)
   add_test(NAME integrity COMMAND test_integrity ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/minisign
     ${CMAKE_CURRENT_BINARY_DIR}/test-work-integrity)
   add_executable(test_rfpack tests/test_rfpack.cpp)
+  enh_warnings(test_rfpack)
   target_link_libraries(test_rfpack PRIVATE enh_core)
   add_test(NAME rfpack COMMAND test_rfpack ${CMAKE_CURRENT_BINARY_DIR}/test-work-rfpack)
   foreach(t blocklist sentinel log heif)
     add_executable(test_${t} tests/test_${t}.cpp)
+    enh_warnings(test_${t})
     target_link_libraries(test_${t} PRIVATE enh_core)
     add_test(NAME ${t} COMMAND test_${t})
   endforeach()
@@ -311,6 +336,7 @@ endif()
 if(ENH_BUILD_FUZZ)
   foreach(t metaio decode zip heif)
     add_executable(fuzz_${t} tests/fuzz/fuzz_${t}.cpp)
+    enh_warnings(fuzz_${t})
     target_link_libraries(fuzz_${t} PRIVATE enh_core)
     target_link_options(fuzz_${t} PRIVATE -fsanitize=fuzzer)
   endforeach()

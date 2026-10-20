@@ -120,8 +120,8 @@ class EnhanceController extends Notifier<EnhanceState> {
   EnhanceState build() {
     listenSelf((_, next) => _last = next);
     ref.onDispose(() {
-      _sub?.cancel();
-      _actions?.cancel();
+      unawaited(_sub?.cancel());
+      unawaited(_actions?.cancel());
       _job?.cancel();
       _cleanup();
     });
@@ -217,7 +217,7 @@ class EnhanceController extends Notifier<EnhanceState> {
             final pct = (progress * 100).floor();
             if (pct != lastPercent) {
               lastPercent = pct;
-              fg.update(this, '$pct%', pct);
+              unawaited(fg.update(this, '$pct%', pct));
             }
           case FallbackEvent():
             AppLog.warn('fallback ${e.kind.name} ${e.from} -> ${e.to} (${e.reason})');

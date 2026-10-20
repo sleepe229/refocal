@@ -8,25 +8,34 @@ downscaled photo.
 CIDNet works in its HVI colour space: RGB -> HVI (a per-pixel transform with a learnt density
 k), the network adds a correction, HVI -> RGB. The transforms index with boolean masks, which
 ncnn has no layer for, so the graph is the network alone: HVI in, corrected HVI out (always
-384 x 384, see SIZE: the photo reflect-padded); the core does both transforms (k is in model.json). Its attention is over
-channels with the whole image as the sequence, so tiles would each see other statistics and
+384 x 384, see SIZE: the photo reflect-padded); the core does both transforms (k is in
+model.json). Its attention is over channels with the whole image as the sequence, so tiles
+would each see other statistics and
 the seams would show: the core runs it once on the photo scaled to at most 384 px and adds the
 correction, upsampled, to the full-size HVI. low_report.json measures that against the
 network on the full image, on a seeded synthetic dark photo. Writes
 OUT_DIR/old.lowlight-cidnet/{model.ncnn.param,model.ncnn.bin,model.json} and a golden pair.
 Needs torch, pnnx, numpy and Pillow (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
 
 COMMIT = "eb43d7d91e9a336c66856824ff9e4603ae41f408"
 RAW = f"https://raw.githubusercontent.com/Fediory/HVI-CIDNet/{COMMIT}/net"
 HF_REV = "51481ef2546f870060c43eb6d6525399f5b3d2d3"
-WEIGHTS = f"https://huggingface.co/Fediory/HVI-CIDNet-Generalization/resolve/{HF_REV}/pytorch_model.bin"
+WEIGHTS = (
+    f"https://huggingface.co/Fediory/HVI-CIDNet-Generalization/resolve/{HF_REV}/pytorch_model.bin"
+)
 SRC_SHA = {
     "CIDNet.py": "dc9b9232f225f5760417175d25f8efc146f51c0acd1ee014df6b9f0a6b2e8d84",
     "HVI_transform.py": "8be0fea6e61c51d6290722f0cf81be1f334b1b998dbfd409435343d9d4bd5bb2",
@@ -41,7 +50,7 @@ MAX_SIDE = 384  # run 39065558081: 256 px 32.9 dB, 384 px 31.9, 512 px 25.9 vs t
 SIZE = 384
 
 # The two rearrange patterns of LCA.py, as reshapes (einops is not in the lock).
-EINOPS = '''
+EINOPS = """
 def rearrange(t, pattern, head, h=None, w=None):
     b, c = t.shape[0], t.shape[1]
     if pattern == "b (head c) h w -> b head c (h w)":
@@ -49,7 +58,7 @@ def rearrange(t, pattern, head, h=None, w=None):
     if pattern == "b head c (h w) -> b (head c) h w":
         return t.reshape(b, head * t.shape[2], h, w)
     raise NotImplementedError(pattern)
-'''
+"""
 HUB = "class PyTorchModelHubMixin:\n    pass\n"
 
 
@@ -123,7 +132,7 @@ def dark_photo() -> np.ndarray:
     img = np.stack([0.5 + 0.4 * np.sin(9 * x + 3 * y), 0.4 + 0.4 * y, 0.6 - 0.5 * x], -1)
     for _ in range(12):
         y0, x0 = rng.integers(0, h - 64), rng.integers(0, w - 64)
-        img[y0:y0 + rng.integers(16, 64), x0:x0 + rng.integers(16, 64)] = rng.random(3)
+        img[y0 : y0 + rng.integers(16, 64), x0 : x0 + rng.integers(16, 64)] = rng.random(3)
     img = np.clip(img, 0, 1) ** 2.2 * 0.12  # under-exposed, linear-ish
     img = img + rng.normal(0, 0.006, img.shape)  # sensor noise
     return np.clip(img, 0, 1).astype(np.float32)
@@ -222,14 +231,26 @@ def main() -> int:
     with torch.no_grad():
         torch.jit.trace(core, torch.rand(1, 3, SIZE, SIZE)).save(str(work / "core.pt"))
     subprocess.run(
-        [a.pnnx, str(work / "core.pt"), f"inputshape=[1,3,{SIZE},{SIZE}]",
-         "fp16=1", f"ncnnparam={dst / 'model.ncnn.param'}", f"ncnnbin={dst / 'model.ncnn.bin'}",
-         f"pnnxparam={work / 'core.pnnx.param'}", f"pnnxbin={work / 'core.pnnx.bin'}",
-         f"pnnxpy={work / 'core_pnnx.py'}", f"pnnxonnx={work / 'core.pnnx.onnx'}",
-         f"ncnnpy={work / 'core_ncnn.py'}"],
-        check=True, cwd=work, stdout=subprocess.DEVNULL)
+        [
+            a.pnnx,
+            str(work / "core.pt"),
+            f"inputshape=[1,3,{SIZE},{SIZE}]",
+            "fp16=1",
+            f"ncnnparam={dst / 'model.ncnn.param'}",
+            f"ncnnbin={dst / 'model.ncnn.bin'}",
+            f"pnnxparam={work / 'core.pnnx.param'}",
+            f"pnnxbin={work / 'core.pnnx.bin'}",
+            f"pnnxpy={work / 'core_pnnx.py'}",
+            f"pnnxonnx={work / 'core.pnnx.onnx'}",
+            f"ncnnpy={work / 'core_ncnn.py'}",
+        ],
+        check=True,
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+    )
     (dst / "model.json").write_text(
-        json.dumps({"scale": 1, "size": SIZE, "max_side": MAX_SIDE, "density_k": k}) + "\n")
+        json.dumps({"scale": 1, "size": SIZE, "max_side": MAX_SIDE, "density_k": k}) + "\n"
+    )
     for f in sorted(dst.iterdir()):
         print(f"  old.lowlight-cidnet/{f.name} {f.stat().st_size} {sha256(f)}")
     return 0

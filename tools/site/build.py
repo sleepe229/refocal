@@ -26,7 +26,9 @@ PAGE = """<!doctype html>
 <meta name="description" content="{summary}">
 <link rel="icon" href="icon.png">
 <style>
-:root {{ color-scheme: light dark; --fg: #1b1b1f; --bg: #fdfcff; --muted: #5d5e66; --link: #2f5bd3; }}
+:root {{
+  color-scheme: light dark; --fg: #1b1b1f; --bg: #fdfcff; --muted: #5d5e66; --link: #2f5bd3;
+}}
 @media (prefers-color-scheme: dark) {{
   :root {{ --fg: #e4e2e6; --bg: #121316; --muted: #a9a9b2; --link: #9db6ff; }}
 }}

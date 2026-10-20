@@ -22,7 +22,15 @@ It writes OUT_DIR/face.codeformer/{encoder,generator}.ncnn.{param,bin}, codebook
 and the parity report of ncnn CPU against PyTorch fp32 (PSNR, at w 0, 0.5, 0.7 and 1).
 Needs torch and pnnx (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, types, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import types
+import urllib.request
 
 import numpy as np
 import torch
@@ -33,8 +41,10 @@ SOURCES = {
     "codeformer_arch.py": "dfccf9e9e6cd58b933301350e956418d1ffb15bb601ef5ce16d6dda3f01d020a",
 }
 SRC_URL = f"https://raw.githubusercontent.com/sczhou/CodeFormer/{COMMIT}/basicsr/archs/"
-WEIGHTS = ("https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
-           "1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7")
+WEIGHTS = (
+    "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
+    "1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7",
+)
 LICENSE_URL = f"https://raw.githubusercontent.com/sczhou/CodeFormer/{COMMIT}/LICENSE"
 CONNECT = ["32", "64", "128", "256"]
 
@@ -68,15 +78,18 @@ def load_upstream(work: pathlib.Path):
         "basicsr.utils.registry": types.ModuleType("basicsr.utils.registry"),
     }
     pkgs["basicsr.utils"].get_root_logger = lambda *a, **k: types.SimpleNamespace(
-        info=print, warning=print)
+        info=print, warning=print
+    )
     pkgs["basicsr.utils.registry"].ARCH_REGISTRY = registry
     sys.modules.update(pkgs)
     mods = {}
     for name in ["vqgan_arch", "codeformer_arch"]:
         mod = types.ModuleType(f"basicsr.archs.{name}")
         sys.modules[mod.__name__] = mod
-        exec(compile((work / f"{name}.py").read_text(), str(work / f"{name}.py"), "exec"),
-             mod.__dict__)
+        exec(
+            compile((work / f"{name}.py").read_text(), str(work / f"{name}.py"), "exec"),
+            mod.__dict__,
+        )
         mods[name] = mod
     return mods["codeformer_arch"].CodeFormer
 
@@ -87,7 +100,7 @@ def qkv_linears(mha):
     pnnx converts modules, not F.linear on parameter slices."""
     e = mha.embed_dim
     out = torch.nn.ModuleList()
-    ws = list(zip(mha.in_proj_weight.split(e), mha.in_proj_bias.split(e)))
+    ws = list(zip(mha.in_proj_weight.split(e), mha.in_proj_bias.split(e), strict=False))
     ws.append((mha.out_proj.weight, mha.out_proj.bias))
     for w, b in ws:
         lin = torch.nn.Linear(e, e)
@@ -113,9 +126,9 @@ def self_attention_layer(layer, qkv, t, pos):
     kt = k.transpose(1, 2).contiguous()  # [1, e, tokens]
     heads = []
     for i in range(h):
-        qi, vi = q[:, :, i * d:(i + 1) * d], v[:, :, i * d:(i + 1) * d]
-        kti = kt[:, i * d:(i + 1) * d, :]
-        heads.append(torch.matmul(torch.softmax(torch.matmul(qi, kti) * d ** -0.5, dim=-1), vi))
+        qi, vi = q[:, :, i * d : (i + 1) * d], v[:, :, i * d : (i + 1) * d]
+        kti = kt[:, i * d : (i + 1) * d, :]
+        heads.append(torch.matmul(torch.softmax(torch.matmul(qi, kti) * d**-0.5, dim=-1), vi))
     t = t + qkv[3](torch.cat(heads, dim=2))
     return t + layer.linear2(layer.activation(layer.linear1(layer.norm2(t))))
 
@@ -137,7 +150,7 @@ class Encoder(torch.nn.Module):
             if i in out_list:
                 feats.append(x)
         query = cf.feat_emb(x.reshape(1, x.shape[1], -1).transpose(1, 2))  # [1, 256 tokens, 512]
-        for layer, qkv in zip(cf.ft_layers, self.qkv):
+        for layer, qkv in zip(cf.ft_layers, self.qkv, strict=False):
             query = self_attention_layer(layer, qkv, query, cf.position_emb.unsqueeze(0))
         logits = cf.idx_pred_layer(query)  # [1, 256, 1024]
         # out_list is in block order: 256 px first. Return 32, 64, 128, 256.
@@ -174,6 +187,7 @@ def lookup(logits: np.ndarray, codebook: np.ndarray) -> np.ndarray:
 def face_input(path: str | None) -> np.ndarray:
     if path:
         import cv2
+
         img = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
     else:  # a smooth seeded pattern: parity only, not quality
@@ -188,22 +202,30 @@ def psnr(a: np.ndarray, b: np.ndarray) -> float:
     a8 = np.clip((a + 1) * 127.5 + 0.5, 0, 255).astype(np.uint8).astype(np.float64)
     b8 = np.clip((b + 1) * 127.5 + 0.5, 0, 255).astype(np.uint8).astype(np.float64)
     mse = np.mean((a8 - b8) ** 2)
-    return 99.0 if mse == 0 else 10 * np.log10(255 ** 2 / mse)
+    return 99.0 if mse == 0 else 10 * np.log10(255**2 / mse)
 
 
-def pnnx_convert(pnnx: str, ts: pathlib.Path, shapes: list[str], dst: pathlib.Path, name: str,
-                 work: pathlib.Path) -> None:
+def pnnx_convert(
+    pnnx: str, ts: pathlib.Path, shapes: list[str], dst: pathlib.Path, name: str, work: pathlib.Path
+) -> None:
     args = [pnnx, str(ts)]
-    args += [f"inputshape={','.join(shapes)}", "fp16=1",
-             f"ncnnparam={dst / (name + '.ncnn.param')}", f"ncnnbin={dst / (name + '.ncnn.bin')}",
-             f"pnnxparam={work / (name + '.pnnx.param')}", f"pnnxbin={work / (name + '.pnnx.bin')}",
-             f"pnnxpy={work / (name + '_pnnx.py')}", f"pnnxonnx={work / (name + '.pnnx.onnx')}",
-             f"ncnnpy={work / (name + '_ncnn.py')}"]
+    args += [
+        f"inputshape={','.join(shapes)}",
+        "fp16=1",
+        f"ncnnparam={dst / (name + '.ncnn.param')}",
+        f"ncnnbin={dst / (name + '.ncnn.bin')}",
+        f"pnnxparam={work / (name + '.pnnx.param')}",
+        f"pnnxbin={work / (name + '.pnnx.bin')}",
+        f"pnnxpy={work / (name + '_pnnx.py')}",
+        f"pnnxonnx={work / (name + '.pnnx.onnx')}",
+        f"ncnnpy={work / (name + '_ncnn.py')}",
+    ]
     subprocess.run(args, check=True, cwd=work, stdout=subprocess.DEVNULL)
 
 
 def run_ncnn(dst: pathlib.Path, name: str, inputs: list[np.ndarray], n_out: int) -> list:
     import ncnn
+
     net = ncnn.Net()
     net.opt.use_vulkan_compute = False
     net.load_param(str(dst / f"{name}.ncnn.param"))
@@ -235,8 +257,7 @@ def main() -> int:
     pth = work / "codeformer.pth"
     fetch(WEIGHTS[0], pth, WEIGHTS[1])
     fetch(LICENSE_URL, dst / "LICENSE.txt", None)
-    cf = CodeFormer(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9,
-                    connect_list=CONNECT)
+    cf = CodeFormer(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9, connect_list=CONNECT)
     state = torch.load(pth, map_location="cpu", weights_only=True)
     cf.load_state_dict(state["params_ema"], strict=True)  # ML-CNV-003: params_ema
     cf.eval()
@@ -278,8 +299,9 @@ def main() -> int:
     for w in (0.0, 0.5, 0.7, 1.0):
         with torch.no_grad():
             ref = cf(x, w=w, adain=False)[0][0].numpy()
-        nc = run_ncnn(dst, "generator", [q_nc] + e_nc[1:] +
-                      [np.full((1, 1, 1), w, np.float32)], 1)[0]
+        nc = run_ncnn(dst, "generator", [q_nc] + e_nc[1:] + [np.full((1, 1, 1), w, np.float32)], 1)[
+            0
+        ]
         report[f"psnr_w{w}"] = round(psnr(nc, ref), 2)
     # Golden pair for the core (test_faces): the input face and the PyTorch fp32 output at the
     # default fidelity, next to the pack directory (not part of the pack).
@@ -287,10 +309,13 @@ def main() -> int:
     gold.mkdir(exist_ok=True)
     x[0].numpy().astype(np.float32).tofile(gold / "in_3x512x512.f32")
     with torch.no_grad():
-        cf(x, w=0.7, adain=False)[0][0].numpy().astype(np.float32).tofile(gold / "out_w07_3x512x512.f32")
+        cf(x, w=0.7, adain=False)[0][0].numpy().astype(np.float32).tofile(
+            gold / "out_w07_3x512x512.f32"
+        )
     print(json.dumps(report))
-    (dst / "model.json").write_text(json.dumps({
-        "split": "codeformer", "fidelity_default": 0.7, "codebook": [1024, 256]}) + "\n")
+    (dst / "model.json").write_text(
+        json.dumps({"split": "codeformer", "fidelity_default": 0.7, "codebook": [1024, 256]}) + "\n"
+    )
     (out / "parity.json").write_text(json.dumps(report, indent=1) + "\n")
     for f in sorted(dst.iterdir()):
         print(f"  face.codeformer/{f.name} {f.stat().st_size} {sha256(f)}")

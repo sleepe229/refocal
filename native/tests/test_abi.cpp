@@ -8,12 +8,12 @@
 #include "json_util.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                                        \
-  do {                                                                  \
-    if (!(c)) {                                                         \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
-      ++fails;                                                          \
-    }                                                                   \
+#define CHECK(c)                                                              \
+  do {                                                                        \
+    if (!(c)) {                                                               \
+      (void)std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                                \
+    }                                                                         \
   } while (0)
 
 int main() {
@@ -47,6 +47,6 @@ int main() {
   enh::json_str(out, std::string("\xed\xa0\x80", 3));  // UTF-16 surrogate encoded in UTF-8
   CHECK(out == "\"\xEF\xBF\xBD\xEF\xBF\xBD\xEF\xBF\xBD\"");
 
-  std::printf("test_abi: %d failures\n", fails);
+  (void)std::printf("test_abi: %d failures\n", fails);
   return fails ? 1 : 0;
 }

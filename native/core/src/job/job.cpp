@@ -39,6 +39,7 @@
 #include "util/fs.hpp"
 #include "util/log.hpp"
 #include "util/sha256.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -260,7 +261,7 @@ void run_tile(InferenceBackend& be, const ncnn::Mat& in, ncnn::Mat& out, int pad
       if (sub.empty()) fail(ENH_E_OOM, "sub-tile input");
       for (int c = 0; c < 3; ++c) {
         for (int r = 0; r < h; ++r) {
-          std::memcpy(sub.channel(c).row(r), in.channel(c).row(y0 + r) + x0, sizeof(float) * w);
+          std::memcpy(sub.channel(c).row(r), in.channel(c).row(y0 + r) + x0, sizeof(float) * sz(w));
         }
       }
       ncnn::Mat so;
@@ -270,8 +271,9 @@ void run_tile(InferenceBackend& be, const ncnn::Mat& in, ncnn::Mat& out, int pad
       }
       for (int c = 0; c < 3; ++c) {
         for (int r = scale * pad; r < scale * (h - pad); ++r) {
-          std::memcpy(out.channel(c).row(scale * y0 + r) + scale * (x0 + pad),
-                      so.channel(c).row(r) + scale * pad, sizeof(float) * scale * (x1 - x0));
+          std::memcpy(out.channel(c).row(scale * y0 + r) + sz(scale) * sz(x0 + pad),
+                      so.channel(c).row(r) + sz(scale) * sz(pad),
+                      sizeof(float) * sz(scale) * sz(x1 - x0));
         }
       }
     }
@@ -513,10 +515,10 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
 }  // namespace
 
 template <class F>
-bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage, const char* kind,
+bool enh_job::on_ladder(const JobRequest& rq, const std::string& id, int stage, const char* kind,
                         F&& f) {
   const ModelInfo m = resolve_model(s->models_dir, id);
-  Ladder lad = backend_ladder(*s, req, id);
+  Ladder lad = backend_ladder(*s, rq, id);
   if (lad.rungs.back().kind == BackendKind::cpu)
     lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
   for (size_t rung = 0; rung < lad.rungs.size(); ++rung) {
@@ -545,14 +547,14 @@ bool enh_job::on_ladder(const JobRequest& req, const std::string& id, int stage,
 
 // S9: FBCNN restore graph, 1x, before faces and SR. A model that fails on every backend leaves
 // the image as it is, with a FALLBACK event of kind "jpeg" (ADR-0016), as for faces.
-Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
-  const float qf = req.jpeg_qf >= 0 ? float(req.jpeg_qf) : jpeg_qf_of_quality(jpeg_quality);
+Rgb8 enh_job::clean_jpeg(const JobRequest& rq, Rgb8 img, int jpeg_quality) {
+  const float qf = rq.jpeg_qf >= 0 ? float(rq.jpeg_qf) : jpeg_qf_of_quality(jpeg_quality);
   sink.emit(ENH_EV_STAGE, kStageJpeg, 0, 0, {{"stage", "jpeg_clean"}, {"qf", qf}});
-  const int pad = resolve_model(s->models_dir, req.jpeg_model).pad;
+  const int pad = resolve_model(s->models_dir, rq.jpeg_model).pad;
   // Tiles multiple of 8 (three stride-2 levels); 256 like SR on T1/T2 (S2/S3).
   constexpr int kTile = 256;
   Rgb8 out;
-  if (!on_ladder(req, req.jpeg_model, kStageJpeg, "jpeg", [&](InferenceBackend& be) {
+  if (!on_ladder(rq, rq.jpeg_model, kStageJpeg, "jpeg", [&](InferenceBackend& be) {
         out = jpeg_clean(be, img, qf, kTile, pad, [&](int done, int total) {
           sink.progress(kStageJpeg, done, total, -1, done == total);
           return !stop();
@@ -564,15 +566,15 @@ Rgb8 enh_job::clean_jpeg(const JobRequest& req, Rgb8 img, int jpeg_quality) {
 
 // S9: HVI-CIDNet once on a downscale (pipeline/lowlight). Failing on every backend leaves the
 // image as it is, with a FALLBACK event of kind "lowlight" (ADR-0016).
-Rgb8 enh_job::brighten(const JobRequest& req, Rgb8 img) {
+Rgb8 enh_job::brighten(const JobRequest& rq, Rgb8 img) {
   sink.emit(ENH_EV_STAGE, kStageLowLight, 0, 0, {{"stage", "low_light"}});
-  const std::string meta = fs::join(fs::join(s->models_dir, req.lowlight_model), "model.json");
+  const std::string meta = fs::join(fs::join(s->models_dir, rq.lowlight_model), "model.json");
   const auto j = nlohmann::json::parse(fs::read_text(meta), nullptr, false);
   if (j.is_discarded() || !j.contains("density_k") || !j["density_k"].is_number())
     fail(ENH_E_MODEL, "low-light pack without density_k");
   const float k = j["density_k"].get<float>();
   Rgb8 out;
-  if (!on_ladder(req, req.lowlight_model, kStageLowLight, "lowlight",
+  if (!on_ladder(rq, rq.lowlight_model, kStageLowLight, "lowlight",
                  [&](InferenceBackend& be) { out = enhance_low_light(be, img, k); }))
     return img;
   sink.progress(kStageLowLight, 1, 1, -1, true);
@@ -581,12 +583,12 @@ Rgb8 enh_job::brighten(const JobRequest& req, Rgb8 img) {
 
 // S9: the BOPBTL detector, then MI-GAN on the holes it found. Either failing on every backend
 // leaves the image as it is, with a FALLBACK event of kind "scratches" (ADR-0016).
-Rgb8 enh_job::remove_scratches(const JobRequest& req, Rgb8 img) {
+Rgb8 enh_job::remove_scratches(const JobRequest& rq, Rgb8 img) {
   sink.emit(ENH_EV_STAGE, kStageScratches, 0, 0, {{"stage", "scratches"}});
   Mask8 mask;
   // The detector's mask is nearest-upsampled from 256 px: grow it by about half a cell.
   const int grow = std::max(1, std::min(img.w, img.h) / kScratchShortSide / 2 + 1);
-  if (!on_ladder(req, req.scratch_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
+  if (!on_ladder(rq, rq.scratch_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
         mask = detect_scratches(be, img, kScratchThreshold, grow);
       }))
     return img;
@@ -597,7 +599,7 @@ Rgb8 enh_job::remove_scratches(const JobRequest& req, Rgb8 img) {
     return img;
   }
   Rgb8 out;
-  if (!on_ladder(req, req.inpaint_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
+  if (!on_ladder(rq, rq.inpaint_model, kStageScratches, "scratches", [&](InferenceBackend& be) {
         out = inpaint(be, img, mask, [&](int done, int total) {
           sink.progress(kStageScratches, done, total, -1, done == total);
           return !stop();
@@ -607,7 +609,7 @@ Rgb8 enh_job::remove_scratches(const JobRequest& req, Rgb8 img) {
   return out;
 }
 
-std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rgb8& img) {
+std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& rq, const Rgb8& img) {
   sink.emit(ENH_EV_STAGE, kStageFaces, 0, 0, {{"stage", "restore_faces"}});
   // ADR-0016: a face that fails on every backend is left as the SR model makes it, with a
   // FALLBACK event; so are all of them when detection itself fails.
@@ -620,7 +622,7 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   std::vector<Face> found;
   try {
     auto det = make_ncnn_backend({BackendKind::cpu, 0, false, s->cpu_threads});
-    det->load(resolve_model(s->models_dir, req.det_model));
+    det->load(resolve_model(s->models_dir, rq.det_model));
     found = find_faces(*det, img);
   } catch (const Error& e) {
     if (!recoverable(e.status())) throw;
@@ -635,7 +637,7 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   found.erase(std::remove_if(found.begin(), found.end(),
                              [&](const Face& f) {
                                return std::any_of(
-                                   req.faces_off.begin(), req.faces_off.end(),
+                                   rq.faces_off.begin(), rq.faces_off.end(),
                                    [&](const FaceBox& b) { return iou(f, b) >= kSameFaceIou; });
                              }),
               found.end());
@@ -645,8 +647,8 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
   std::vector<RestoredFace> out;
   if (found.empty()) return out;
 
-  const FaceModel fm = resolve_face_model(s->models_dir, req.face_model);
-  Ladder lad = backend_ladder(*s, req, fm.id);
+  const FaceModel fm = resolve_face_model(s->models_dir, rq.face_model);
+  Ladder lad = backend_ladder(*s, rq, fm.id);
   // ADR-0016: the face model gets a CPU fp32 rung after CPU fp16.
   if (lad.rungs.back().kind == BackendKind::cpu)
     lad.rungs.push_back({BackendKind::cpu, 0, false, s->cpu_threads});
@@ -692,8 +694,8 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     for (;;) {
       enh_status st = ENH_OK;
       try {
-        restored = be->restore(aligned, req.face_fidelity);
-        if (req.face_color_match) {
+        restored = be->restore(aligned, rq.face_fidelity);
+        if (rq.face_color_match) {
           const double de = match_face_color(restored, aligned);
           ENH_LOGD("face %zu: colour shift dE %.1f", i, de);
         }
@@ -718,9 +720,9 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& req, const Rg
     // lose detail the photo has) gets half the strength.
     const double crop_side_in = kFaceSide / std::hypot(align.a, align.c);
     const float weight = crop_side_in > kFaceSide ? 0.5f : 1.f;
-    out.push_back(prepare_paste(align, std::move(restored), req.scale,
-                                float(req.face_strength) * weight, img.w * req.scale,
-                                img.h * req.scale));
+    out.push_back(prepare_paste(align, std::move(restored), rq.scale,
+                                float(rq.face_strength) * weight, img.w * rq.scale,
+                                img.h * rq.scale));
     sink.progress(kStageFaces, int64_t(i + 1), int64_t(found.size()), -1, true);
   }
   return out;
@@ -874,7 +876,7 @@ void enh_job::run_impl(nlohmann::json& result) {
   // FR-IMP-007: the SR model sees the image on white; the alpha is kept, oriented like the
   // pixels, and the PNG/WebP export scales it back on (JPEG has none).
   nlohmann::json alpha_json;
-  if (!meta.alpha.empty() && meta.alpha.size() != size_t(info.w) * info.h) {
+  if (!meta.alpha.empty() && meta.alpha.size() != sz(info.w) * sz(info.h)) {
     ENH_LOGW("alpha of %zu px for a %dx%d image: dropped", meta.alpha.size(), info.w, info.h);
     meta.alpha = {};
   }
@@ -887,7 +889,7 @@ void enh_job::run_impl(nlohmann::json& result) {
       a3.px[i * 3] = a3.px[i * 3 + 1] = a3.px[i * 3 + 2] = meta.alpha[i];
     meta.alpha = {};
     a3 = apply_orientation(std::move(a3), info.orientation);
-    std::vector<uint8_t> a(size_t(a3.w) * a3.h);
+    std::vector<uint8_t> a(sz(a3.w) * sz(a3.h));
     for (size_t i = 0; i < a.size(); ++i) a[i] = a3.px[i * 3];
     fs::write_atomic(fs::join(dir, kAlphaFile), a.data(), a.size());
     alpha_json = {{"file", kAlphaFile}, {"width", a3.w}, {"height", a3.h}};
@@ -897,16 +899,18 @@ void enh_job::run_impl(nlohmann::json& result) {
     sink.emit(ENH_EV_WARNING, kStageDecode, 0, 0, {{"code", "animation_first_frame"}});
   // FR-ENH-015: a fragment preview runs on its part of the photo only (and of the alpha).
   if (req.crop_w) {
-    if (req.crop_x + req.crop_w > img.w || req.crop_y + req.crop_h > img.h)
+    // Compared without the sum: crop_x may be up to INT_MAX (only >= 0 is checked on parse).
+    if (req.crop_x > img.w - req.crop_w || req.crop_y > img.h - req.crop_h)
       fail(ENH_E_INVALID, "crop outside the photo");
     img = crop(img, req.crop_x, req.crop_y, req.crop_w, req.crop_h);
     if (!alpha_json.is_null()) {
-      const int aw = alpha_json["width"];
+      const int aw = alpha_json["width"], ah = alpha_json["height"];
       auto a = fs::read_all(fs::join(dir, kAlphaFile));
-      std::vector<uint8_t> c(size_t(req.crop_w) * req.crop_h);
+      if (a.size() != sz(aw) * sz(ah)) fail(ENH_E_IO, "alpha file does not match");
+      std::vector<uint8_t> c(sz(req.crop_w) * sz(req.crop_h));
       for (int y = 0; y < req.crop_h; ++y)
-        std::memcpy(&c[size_t(y) * req.crop_w], &a[size_t(req.crop_y + y) * aw + req.crop_x],
-                    size_t(req.crop_w));
+        std::memcpy(&c[index2d(0, y, req.crop_w)], &a[index2d(req.crop_x, req.crop_y + y, aw)],
+                    sz(req.crop_w));
       fs::write_atomic(fs::join(dir, kAlphaFile), c.data(), c.size());
       alpha_json["width"] = req.crop_w;
       alpha_json["height"] = req.crop_h;
@@ -965,7 +969,7 @@ void enh_job::run_impl(nlohmann::json& result) {
     for (int b = 0; b < bands; ++b) {
       if (stop()) throw Stopped{};
       const int y0 = b * kRows, rows = std::min(kRows, oh - y0);
-      band.resize(size_t(rows) * ow * 3);
+      band.resize(sz(rows) * sz(ow) * 3);
       up.rows(y0, rows, band.data());
       paste_faces(band.data(), ow, y0, rows, faces);
       preview.add_rows(band.data(), y0, rows);
@@ -1139,7 +1143,7 @@ void enh_job::run_impl(nlohmann::json& result) {
   if (start_band > 0) {
     std::vector<uint8_t> buf;
     for (int b = 0; b < start_band; ++b) {
-      store.read_band(b, buf, size_t(g.band_out_rows(b)) * g.out_w * 3);
+      store.read_band(b, buf, sz(g.band_out_rows(b)) * sz(g.out_w) * 3);
       preview.add_rows(buf.data(), g.band_out_y0(b), g.band_out_rows(b));
     }
   }
@@ -1172,26 +1176,26 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   // One pass over [src] from band [first] into [st]; the last pass pastes the faces and feeds
   // the preview.
-  auto sr_pass = [&](const Rgb8& src, const Geometry& g, BandStore& st, const Checkpoint& ck,
-                     int first, bool last) {
+  auto sr_pass = [&](const Rgb8& src, const Geometry& geo, BandStore& st, const Checkpoint& ckp,
+                     int first, bool is_last) {
     q1.reset();
     q2.reset();
-    const int tpb = g.tiles_per_band();
+    const int tpb = geo.tiles_per_band();
     std::thread prep(guarded([&] {
-      const int P = g.pad, itw = g.net_in_w(), ith = g.net_in_h();
-      std::vector<int> colidx(static_cast<size_t>(itw));
-      for (int b = first; b < g.bands() && !stop(); ++b) {
+      const int P = geo.pad, itw = geo.net_in_w(), ith = geo.net_in_h();
+      std::vector<int> colidx(sz(itw));
+      for (int b = first; b < geo.bands() && !stop(); ++b) {
         for (int j = 0; j < tpb && !stop(); ++j) {
           TileIn t{b, j, ncnn::Mat(itw, ith, 3)};
-          const int x0 = g.xs[j];
-          for (int xx = 0; xx < itw; ++xx) colidx[xx] = reflect101(x0 - P + xx, g.in_w);
+          const int x0 = geo.xs[sz(j)];
+          for (int xx = 0; xx < itw; ++xx) colidx[sz(xx)] = reflect101(x0 - P + xx, geo.in_w);
           for (int yy = 0; yy < ith; ++yy) {
-            const uint8_t* row = src.row(reflect101(g.ys[b] - P + yy, g.in_h));
+            const uint8_t* row = src.row(reflect101(geo.ys[sz(b)] - P + yy, geo.in_h));
             float* r = t.in.channel(0).row(yy);
             float* gg = t.in.channel(1).row(yy);
             float* bl = t.in.channel(2).row(yy);
             for (int xx = 0; xx < itw; ++xx) {
-              const uint8_t* p = row + colidx[xx] * 3;
+              const uint8_t* p = row + sz(colidx[sz(xx)]) * 3;
               r[xx] = p[0] * (1.f / 255.f);
               gg[xx] = p[1] * (1.f / 255.f);
               bl[xx] = p[2] * (1.f / 255.f);
@@ -1211,16 +1215,16 @@ void enh_job::run_impl(nlohmann::json& result) {
           break;
         }
         if (!thermal_gate(*be, done_tiles.load(), total_tiles)) break;
-        memory_gate(g, done_tiles.load(), total_tiles, fallbacks);
+        memory_gate(geo, done_tiles.load(), total_tiles, fallbacks);
         TileOut o{t->band, t->j, {}};
         for (;;) {
           try {
-            run_tile(*be, t->in, o.out, g.pad, g.model_scale, split);
+            run_tile(*be, t->in, o.out, geo.pad, geo.model_scale, split);
             break;
           } catch (const Error& e) {
             // ADR-0016: out of memory -> a smaller tile first, then the next backend.
             if (e.status() == ENH_E_OOM &&
-                smaller_tile(g, "oom", done_tiles.load(), total_tiles, fallbacks))
+                smaller_tile(geo, "oom", done_tiles.load(), total_tiles, fallbacks))
               continue;
             if (!recoverable(e.status()) || rung + 1 >= ladder.size()) throw;
             std::string from = backend_kind_name(ladder[rung]);
@@ -1239,8 +1243,8 @@ void enh_job::run_impl(nlohmann::json& result) {
             throttled = false;  // a new backend runs unthrottled: the next gate applies it again
           }
         }
-        const int S = g.model_scale;
-        if (o.out.w != S * g.net_in_w() || o.out.h != S * g.net_in_h() || o.out.c != 3) {
+        const int S = geo.model_scale;
+        if (o.out.w != S * geo.net_in_w() || o.out.h != S * geo.net_in_h() || o.out.c != 3) {
           fail(ENH_E_MODEL, "unexpected model output shape");
         }
         if (!q2.push(std::move(o))) return;
@@ -1249,7 +1253,7 @@ void enh_job::run_impl(nlohmann::json& result) {
     }));
 
     std::thread post(guarded([&] {
-      const int S = g.model_scale, P = g.pad;
+      const int S = geo.model_scale, P = geo.pad;
       std::vector<uint8_t> band, down_buf;
       auto q = [](float v) -> uint8_t {
         v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
@@ -1258,42 +1262,45 @@ void enh_job::run_impl(nlohmann::json& result) {
       while (auto t = q2.pop()) {
         if (stop()) break;
         const int b = t->band, j = t->j;
-        const int rows = g.band_sr_rows(b);
-        if (j == 0) band.assign(size_t(rows) * g.sr_w * 3, 0);
-        const int Y0 = S * g.band_in_y0(b);
-        const int tyoff = S * (g.ys[b] - P);
-        const int X0 = S * owned_start(g.xs, j, g.tw);
-        const int X1 = j + 1 < tpb ? S * owned_start(g.xs, j + 1, g.tw) : g.sr_w;
-        const int txoff = S * (g.xs[j] - P);
+        const int rows = geo.band_sr_rows(b);
+        if (j == 0) band.assign(sz(rows) * sz(geo.sr_w) * 3, 0);
+        const int Y0 = S * geo.band_in_y0(b);
+        const int tyoff = S * (geo.ys[sz(b)] - P);
+        const int X0 = S * owned_start(geo.xs, j, geo.tw);
+        const int X1 = j + 1 < tpb ? S * owned_start(geo.xs, j + 1, geo.tw) : geo.sr_w;
+        const int txoff = S * (geo.xs[sz(j)] - P);
         for (int r = 0; r < rows; ++r) {
           const int ty = Y0 + r - tyoff;
           const float* c0 = t->out.channel(0).row(ty);
           const float* c1 = t->out.channel(1).row(ty);
           const float* c2 = t->out.channel(2).row(ty);
-          uint8_t* dst = band.data() + size_t(r) * g.sr_w * 3;
+          uint8_t* dst = band.data() + sz(r) * sz(geo.sr_w) * 3;
           for (int X = X0; X < X1; ++X) {
             const int tx = X - txoff;
-            dst[X * 3] = q(c0[tx]);
-            dst[X * 3 + 1] = q(c1[tx]);
-            dst[X * 3 + 2] = q(c2[tx]);
+            uint8_t* d = dst + sz(X) * 3;
+            d[0] = q(c0[tx]);
+            d[1] = q(c1[tx]);
+            d[2] = q(c2[tx]);
           }
         }
         const int64_t done = ++done_tiles;
         if (j + 1 == tpb) {
           uint8_t* out = band.data();
-          const int orows = g.band_out_rows(b);
-          if (g.down > 1) {
-            down_buf.resize(size_t(orows) * g.out_w * 3);
-            area_down(band.data(), g.sr_w, rows, g.down, down_buf.data());
+          const int orows = geo.band_out_rows(b);
+          if (geo.down > 1) {
+            down_buf.resize(sz(orows) * sz(geo.out_w) * 3);
+            area_down(band.data(), geo.sr_w, rows, geo.down, down_buf.data());
             out = down_buf.data();
           }
-          if (last && !faces.empty()) paste_faces(out, g.out_w, g.band_out_y0(b), orows, faces);
-          if (last) preview.add_rows(out, g.band_out_y0(b), orows);
-          st.commit(b, out, size_t(orows) * g.out_w * 3, ck);
+          if (is_last && !faces.empty())
+            paste_faces(out, geo.out_w, geo.band_out_y0(b), orows, faces);
+          if (is_last) preview.add_rows(out, geo.band_out_y0(b), orows);
+          st.commit(b, out, sz(orows) * sz(geo.out_w) * 3, ckp);
         }
         const double el = duration<double>(steady_clock::now() - t_sr).count();
         const int64_t here = done - resumed_tiles;
-        const int64_t eta = here > 0 ? int64_t(el / here * (total_tiles - done) * 1000) : -1;
+        const int64_t eta =
+            here > 0 ? int64_t(el / double(here) * double(total_tiles - done) * 1000) : -1;
         sink.progress(kStageUpscale, done, total_tiles, eta, done == total_tiles);
       }
     }));
@@ -1311,11 +1318,11 @@ void enh_job::run_impl(nlohmann::json& result) {
     Rgb8 mid;
     mid.w = g1.out_w;
     mid.h = g1.out_h;
-    mid.px.resize(size_t(mid.w) * mid.h * 3);
+    mid.px.resize(sz(mid.w) * sz(mid.h) * 3);
     img = Rgb8{};
     std::vector<uint8_t> buf;
     for (int b = 0; b < g1.bands(); ++b) {
-      const size_t n = size_t(g1.band_out_rows(b)) * g1.out_w * 3;
+      const size_t n = sz(g1.band_out_rows(b)) * sz(g1.out_w) * 3;
       store1.read_band(b, buf, n);
       std::memcpy(mid.row(g1.band_out_y0(b)), buf.data(), n);
     }

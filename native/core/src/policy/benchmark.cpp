@@ -25,7 +25,7 @@ struct Run {
   bool gpu = false, fp16 = false;
   std::string status = "error";
   double ms = 0;
-  GateMetrics gate;
+  GateMetrics gate{};
 };
 
 // Median of [runs] timed runs after one warm-up; the output of the last run in [out].

@@ -13,6 +13,7 @@
 
 #include "image/metaio.hpp"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 namespace {
@@ -35,7 +36,7 @@ struct File {
   FILE* f = nullptr;
   explicit File(const std::string& path, const char* mode) : f(std::fopen(path.c_str(), mode)) {}
   ~File() {
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // read only
   }
 };
 
@@ -137,7 +138,7 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   jpeg_start_decompress(&d->cinfo);
   img->w = int(d->cinfo.output_width);
   img->h = int(d->cinfo.output_height);
-  img->px.resize(size_t(img->w) * img->h * 3);
+  img->px.resize(sz(img->w) * sz(img->h) * 3);
   while (d->cinfo.output_scanline < d->cinfo.output_height) {
     JSAMPROW row = img->row(int(d->cinfo.output_scanline));
     jpeg_read_scanlines(&d->cinfo, &row, 1);
@@ -164,7 +165,7 @@ struct JpegWriter::Impl {
   int w = 0;
   ~Impl() {
     if (created) jpeg_destroy_compress(&cinfo);
-    if (f) std::fclose(f);
+    if (f) (void)std::fclose(f);  // not finished: the output is abandoned
   }
 };
 
@@ -219,7 +220,7 @@ void JpegWriter::write_rows(const uint8_t* rgb, int rows) {
   Impl& m = *impl_;
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   for (int i = 0; i < rows; ++i) {
-    JSAMPROW r = const_cast<uint8_t*>(rgb + size_t(i) * m.w * 3);
+    JSAMPROW r = const_cast<uint8_t*>(rgb + sz(i) * sz(m.w) * 3);
     jpeg_write_scanlines(&m.cinfo, &r, 1);
   }
 }
@@ -230,7 +231,10 @@ void JpegWriter::finish() {
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   jpeg_finish_compress(&m.cinfo);
   m.finished = true;
-  if (std::fflush(m.f) != 0 || std::ferror(m.f)) fail(ENH_E_IO, "JPEG write failed");
+  const bool written = std::fflush(m.f) == 0 && !std::ferror(m.f);
+  const bool closed = std::fclose(m.f) == 0;
+  m.f = nullptr;
+  if (!written || !closed) fail(ENH_E_IO, "JPEG write failed");
 }
 
 void jpeg_encode(const std::string& path, const Rgb8& img, int quality) {

@@ -14,7 +14,15 @@ scratch_report.json: IoU and recall of the mask on a seeded synthetic photo with
 scratches, against the scratches drawn.
 Needs torch, pnnx, numpy and Pillow (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request, zipfile
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
+import zipfile
 
 import numpy as np
 import torch
@@ -73,7 +81,7 @@ def scratched_photo() -> tuple[Image.Image, np.ndarray]:
     img = 0.45 + 0.25 * np.sin(7 * x + 2 * y) + 0.15 * y
     for _ in range(10):  # rectangles: edges that are not scratches
         y0, x0 = rng.integers(0, h - 96), rng.integers(0, w - 96)
-        img[y0:y0 + rng.integers(24, 96), x0:x0 + rng.integers(24, 96)] = rng.random()
+        img[y0 : y0 + rng.integers(24, 96), x0 : x0 + rng.integers(24, 96)] = rng.random()
     img = np.clip(img + rng.normal(0, 0.03, img.shape), 0, 1)
     photo = Image.fromarray((img * 255).astype(np.uint8))
     mask = Image.new("L", (w, h), 0)
@@ -81,8 +89,12 @@ def scratched_photo() -> tuple[Image.Image, np.ndarray]:
     for i in range(14):
         pts = [(int(rng.integers(0, w)), int(rng.integers(0, h)))]
         for _ in range(3):  # a slightly bent line
-            pts.append((int(np.clip(pts[-1][0] + rng.integers(-160, 160), 0, w - 1)),
-                        int(np.clip(pts[-1][1] + rng.integers(-160, 160), 0, h - 1))))
+            pts.append(
+                (
+                    int(np.clip(pts[-1][0] + rng.integers(-160, 160), 0, w - 1)),
+                    int(np.clip(pts[-1][1] + rng.integers(-160, 160), 0, h - 1)),
+                )
+            )
         width = int(rng.integers(1, 4))
         dp.line(pts, fill=235 if i % 3 else 20, width=width)
         dm.line(pts, fill=255, width=width)
@@ -108,8 +120,12 @@ def scratch_report(det: Detect) -> dict:
         inter, union = (m & truth).sum(), (m | truth).sum()
         # Scratches drawn 1-3 px wide on the full image are under a pixel at 256 px: a hit within
         # 2 px of a drawn scratch counts (the inpainting mask is dilated anyway).
-        near = np.asarray(Image.fromarray(truth.astype(np.uint8) * 255).filter(
-            ImageFilter.MaxFilter(5))) > 0
+        near = (
+            np.asarray(
+                Image.fromarray(truth.astype(np.uint8) * 255).filter(ImageFilter.MaxFilter(5))
+            )
+            > 0
+        )
         out[str(t)] = {
             "iou": float(inter / max(union, 1)),
             "recall": float(inter / max(truth.sum(), 1)),
@@ -149,9 +165,19 @@ def main() -> int:
     sys.path.insert(0, str(work))
     from detection_models import networks  # noqa: E402  (upstream code, pinned above)
 
-    net = networks.UNet(in_channels=1, out_channels=1, depth=4, conv_num=2, wf=6, padding=True,
-                        batch_norm=True, up_mode="upsample", with_tanh=False, sync_bn=False,
-                        antialiasing=True)
+    net = networks.UNet(
+        in_channels=1,
+        out_channels=1,
+        depth=4,
+        conv_num=2,
+        wf=6,
+        padding=True,
+        batch_norm=True,
+        up_mode="upsample",
+        with_tanh=False,
+        sync_bn=False,
+        antialiasing=True,
+    )
     state = torch.load(pt, map_location="cpu", weights_only=False)["model_state"]
     net.load_state_dict({k.removeprefix("module."): v for k, v in state.items()}, strict=True)
     net.eval()
@@ -161,7 +187,7 @@ def main() -> int:
     (dst / "scratch_report.json").write_text(json.dumps(scratch_report(det), indent=2) + "\n")
 
     photo, _ = scratched_photo()
-    x = to_input(photo)[:, :, :GOLDEN[0], :GOLDEN[1]].contiguous()
+    x = to_input(photo)[:, :, : GOLDEN[0], : GOLDEN[1]].contiguous()
     with torch.no_grad():
         y = det(x)
     x.numpy().tofile(dst / f"golden_in_1x{GOLDEN[0]}x{GOLDEN[1]}.f32")
@@ -170,15 +196,27 @@ def main() -> int:
     with torch.no_grad():
         torch.jit.trace(det, torch.rand(1, 1, 256, 256)).save(str(work / "detect.pt"))
     subprocess.run(
-        [a.pnnx, str(work / "detect.pt"), "inputshape=[1,1,256,256]",
-         "inputshape2=[1,1,256,384]", "fp16=1",
-         f"ncnnparam={dst / 'model.ncnn.param'}", f"ncnnbin={dst / 'model.ncnn.bin'}",
-         f"pnnxparam={work / 'detect.pnnx.param'}", f"pnnxbin={work / 'detect.pnnx.bin'}",
-         f"pnnxpy={work / 'detect_pnnx.py'}", f"pnnxonnx={work / 'detect.pnnx.onnx'}",
-         f"ncnnpy={work / 'detect_ncnn.py'}"],
-        check=True, cwd=work, stdout=subprocess.DEVNULL)
+        [
+            a.pnnx,
+            str(work / "detect.pt"),
+            "inputshape=[1,1,256,256]",
+            "inputshape2=[1,1,256,384]",
+            "fp16=1",
+            f"ncnnparam={dst / 'model.ncnn.param'}",
+            f"ncnnbin={dst / 'model.ncnn.bin'}",
+            f"pnnxparam={work / 'detect.pnnx.param'}",
+            f"pnnxbin={work / 'detect.pnnx.bin'}",
+            f"pnnxpy={work / 'detect_pnnx.py'}",
+            f"pnnxonnx={work / 'detect.pnnx.onnx'}",
+            f"ncnnpy={work / 'detect_ncnn.py'}",
+        ],
+        check=True,
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+    )
     (dst / "model.json").write_text(
-        json.dumps({"scale": 1, "short_side": 256, "multiple": 16, "threshold": THRESHOLD}) + "\n")
+        json.dumps({"scale": 1, "short_side": 256, "multiple": 16, "threshold": THRESHOLD}) + "\n"
+    )
     for f in sorted(dst.iterdir()):
         print(f"  old.scratch/{f.name} {f.stat().st_size} {sha256(f)}")
     return 0

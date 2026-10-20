@@ -483,11 +483,11 @@ class RefocalJob {
     if (ev is DoneEvent) {
       _finished = true;
       _done.complete(ev.result);
-      _events.close();
+      unawaited(_events.close());
     } else if (ev is FailedEvent) {
       _finished = true;
       _done.completeError(JobFailure(ev));
-      _events.close();
+      unawaited(_events.close());
     }
   }
 

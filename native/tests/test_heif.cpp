@@ -99,17 +99,18 @@ TEST("moov, truncation and garbage are refused, never crash") {
   // A property box of size 0 ("to the end of ipco") would swallow the appended colr (fuzzer).
   Bytes zero = in;
   const Bytes nclx = {'c', 'o', 'l', 'r', 'n', 'c', 'l', 'x'};
-  const auto at = std::search(zero.begin(), zero.end(), nclx.begin(), nclx.end()) - zero.begin();
+  const size_t at =
+      size_t(std::search(zero.begin(), zero.end(), nclx.begin(), nclx.end()) - zero.begin());
   zero[at - 1] = 0;
   zero[at - 2] = 0;
   zero[at - 3] = 0;
   zero[at - 4] = 0;
   CHECK(throws_invalid(zero));
   // Every prefix that cuts the meta box is malformed.
-  for (size_t n = 0; n < 24 + 8; ++n) CHECK(throws_invalid(Bytes(in.begin(), in.begin() + n)));
+  for (size_t n = 0; n < 24 + 8; ++n) CHECK(throws_invalid(Bytes(in.data(), in.data() + n)));
   for (size_t n = 32; n < in.size() - 165; n += 7) {
     try {
-      (void)heif_attach_meta(Bytes(in.begin(), in.begin() + n), sample_meta());
+      (void)heif_attach_meta(Bytes(in.data(), in.data() + n), sample_meta());
     } catch (const Error&) {
     }
   }
@@ -124,7 +125,7 @@ TEST("a uuid box in iref is refused (it would be written back without its userty
            in[at + 3];
   };
   auto put32 = [&](size_t at, uint32_t v) {
-    for (int i = 0; i < 4; ++i) in[at + i] = uint8_t(v >> (24 - 8 * i));
+    for (size_t i = 0; i < 4; ++i) in[at + i] = uint8_t(v >> (24 - 8 * i));
   };
   auto find = [&](const char* t) {
     return size_t(std::search(in.begin(), in.end(), t, t + 4) - in.begin()) - 4;
@@ -133,9 +134,9 @@ TEST("a uuid box in iref is refused (it would be written back without its userty
   const uint32_t size = be32(dimg);
   Bytes uuid = {0, 0, 0, 0, 'u', 'u', 'i', 'd'};
   uuid.insert(uuid.end(), 16, 0x42);
-  uuid.insert(uuid.end(), in.begin() + dimg + 8, in.begin() + dimg + size);
-  in.erase(in.begin() + dimg, in.begin() + dimg + size);
-  in.insert(in.begin() + dimg, uuid.begin(), uuid.end());
+  const auto box = in.begin() + std::ptrdiff_t(dimg), box_end = box + std::ptrdiff_t(size);
+  uuid.insert(uuid.end(), box + 8, box_end);
+  in.insert(in.erase(box, box_end), uuid.begin(), uuid.end());
   put32(dimg, size + 16);
   put32(iref, be32(iref) + 16);
   put32(meta, be32(meta) + 16);
@@ -154,9 +155,11 @@ int main(int argc, char** argv) {
     const Bytes in = make_heif(kTile2, kTile3);
     const Bytes out = heif_attach_meta(in, sample_meta());
     for (const auto& [name, b] : {std::pair{"grid.heic", in}, std::pair{"grid-meta.heic", out}}) {
-      if (FILE* f = std::fopen((std::string(argv[1]) + "/" + name).c_str(), "wb")) {
-        std::fwrite(b.data(), 1, b.size(), f);
-        std::fclose(f);
+      FILE* f = std::fopen((std::string(argv[1]) + "/" + name).c_str(), "wb");
+      const bool written = f && std::fwrite(b.data(), 1, b.size(), f) == b.size();
+      if (!f || std::fclose(f) != 0 || !written) {
+        (void)std::fprintf(stderr, "cannot write %s into %s\n", name, argv[1]);
+        return 1;
       }
     }
   }

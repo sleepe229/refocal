@@ -30,6 +30,7 @@ NAME=refocal-e2e-$$
 cleanup() { $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
+# shellcheck disable=SC2016  # the script runs, and expands, inside the container
 $DOCKER run -d --name "$NAME" --device /dev/kvm --group-add "$KVM_GID" ${EMU_USER:+--user "$EMU_USER"} \
   -v "$APK:/in/app.apk:ro" -v "$PHOTO:/in/photo.$EXT:ro" \
   ${RFPACK:+-v "$(realpath "$RFPACK"):/in/pack.rfpack:ro"} refocal-emulator:35 bash -c '
@@ -69,7 +70,7 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
         hit = ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
 if hit: print(*hit)' "$want")
     if [[ -n "$xy" ]]; then
-      if [[ ${NOTAP:-0} = 1 ]]; then echo "  '$want' shown at $xy"; else adb_ shell input tap $xy; echo "  tap '$want' at $xy"; fi
+      if [[ ${NOTAP:-0} = 1 ]]; then echo "  '$want' shown at $xy"; else adb_ shell input tap "${xy% *}" "${xy#* }"; echo "  tap '$want' at $xy"; fi
       return 0
     fi
     sleep 2
@@ -138,7 +139,7 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
     if want in attr("content-desc") and by_desc is None: by_desc = xy
 hit = by_text or by_desc
 if hit: print(*hit)' "$step")
-      if [[ -n "$xy" ]]; then adb_ shell input tap $xy; echo "  tap '$step' at $xy"; break; fi
+      if [[ -n "$xy" ]]; then adb_ shell input tap "${xy% *}" "${xy#* }"; echo "  tap '$step' at $xy"; break; fi
       sleep 2
     done
     sleep 2
@@ -163,7 +164,7 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
         b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
         print((b[0] + b[2]) // 2, (b[1] + b[3]) // 2); break')
 [[ -n "$xy" ]] || xy="177 1523"
-adb_ shell input tap $xy
+adb_ shell input tap "${xy% *}" "${xy#* }"
 echo "  picked photo at $xy"
 if [[ -n "$SCALE" ]]; then
   # The scale is under Adjust (06 §3.2), its sheet lists every scale with the size it gives.
@@ -282,7 +283,8 @@ if [[ ${HEIC:-0} = 1 ]]; then
   [[ -n "$heic" ]] || { echo "FAIL: no HEIC saved"; debug_dump heic; exit 1; }
   adb_ pull "$heic" /tmp/result.heic >/dev/null
   $DOCKER cp "$NAME:/tmp/result.heic" "$OUT/result.heic"
-  python3 "$(dirname "$0")/check_heic.py" "$OUT/result.heic" ${HEIC_CHECK:-} || { echo "FAIL: HEIC check"; exit 1; }
+  read -ra heic_check <<< "${HEIC_CHECK:-}"  # options, e.g. "--icc --exif"
+  python3 "$(dirname "$0")/check_heic.py" "$OUT/result.heic" "${heic_check[@]}" || { echo "FAIL: HEIC check"; exit 1; }
 fi
 echo "== bug-report log (FR-SET-007, PRIV-LOG-001)"
 adb_ shell input keyevent KEYCODE_BACK

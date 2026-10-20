@@ -45,7 +45,7 @@ class Sha256 {
     for (int i = 0; i < 8; ++i) lenb[i] = uint8_t(bits >> (56 - 8 * i));
     update(lenb, 8);
     char out[65];
-    for (int i = 0; i < 8; ++i) snprintf(out + i * 8, 9, "%08x", h_[i]);
+    for (size_t i = 0; i < 8; ++i) (void)snprintf(out + i * 8, 9, "%08x", h_[i]);
     return std::string(out, 64);
   }
 
@@ -62,8 +62,9 @@ class Sha256 {
     char buf[1 << 16];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), f)) > 0) h.update(buf, n);
-    fclose(f);
-    return h.hex();
+    const bool ok = !ferror(f);  // fread() returns 0 on an error too: not the whole file
+    (void)fclose(f);             // read only
+    return ok ? h.hex() : std::string();
   }
 
  private:
@@ -81,7 +82,7 @@ class Sha256 {
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
         0xc67178f2};
     uint32_t w[64];
-    for (int i = 0; i < 16; ++i)
+    for (size_t i = 0; i < 16; ++i)
       w[i] = (uint32_t(b[i * 4]) << 24) | (uint32_t(b[i * 4 + 1]) << 16) |
              (uint32_t(b[i * 4 + 2]) << 8) | uint32_t(b[i * 4 + 3]);
     for (int i = 16; i < 64; ++i) {

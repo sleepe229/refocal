@@ -143,7 +143,7 @@ std::string write(const Bytes& z) {
 
 enh_status extract(const Bytes& z, const std::string& entry, int64_t max = 1 << 30) {
   const std::string dst = fs::join(g_work, "out.bin");
-  std::remove(dst.c_str());
+  (void)std::remove(dst.c_str());  // from the previous case, if any
   const enh_status st = enh_rfpack_extract(write(z).c_str(), entry.c_str(), dst.c_str(), max);
   // Nothing is left behind on failure, not even the .part file.
   if (st != ENH_OK) CHECK(!fs::exists(dst) && !fs::exists(dst + ".part"));

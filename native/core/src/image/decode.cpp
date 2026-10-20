@@ -29,7 +29,7 @@ std::string sniff_format(const std::string& path) {
   FILE* f = std::fopen(path.c_str(), "rb");
   if (!f) fail(ENH_E_IO, "cannot open input");
   const size_t n = std::fread(b, 1, sizeof b, f);
-  std::fclose(f);
+  (void)std::fclose(f);  // read only
   if (n >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return "jpeg";
   if (n >= 8 && std::memcmp(b, "\x89PNG\r\n\x1a\n", 8) == 0) return "png";
   if (n >= 12 && std::memcmp(b, "RIFF", 4) == 0 && std::memcmp(b + 8, "WEBP", 4) == 0)

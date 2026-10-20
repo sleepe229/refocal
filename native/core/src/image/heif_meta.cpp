@@ -116,7 +116,7 @@ struct Writer {
   void end(size_t at) {
     const size_t n = b.size() - at;
     if (n > 0xFFFFFFFFu) bad("box too large");
-    for (int i = 0; i < 4; ++i) b[at + i] = uint8_t(n >> (24 - 8 * i));
+    for (size_t i = 0; i < 4; ++i) b[at + i] = uint8_t(n >> (24 - 8 * i));
   }
 };
 
@@ -468,7 +468,8 @@ HeifMetaInfo heif_read_meta(const uint8_t* data, size_t n) {
     if (!i) continue;
     const auto d = item_data(m, r.from);
     if (i->type == "Exif" && d.size() >= 4) {
-      const uint32_t off = uint32_t(d[0]) << 24 | d[1] << 16 | d[2] << 8 | d[3];
+      const uint32_t off =
+          uint32_t(d[0]) << 24 | uint32_t(d[1]) << 16 | uint32_t(d[2]) << 8 | uint32_t(d[3]);
       if (off <= d.size() - 4) info.exif_tiff.assign(d.begin() + 4 + off, d.end());
     } else if (i->type == "mime" && i->content_type == kXmpMime) {
       info.xmp.assign(d.begin(), d.end());
@@ -610,7 +611,7 @@ std::vector<uint8_t> heif_attach_meta(const std::vector<uint8_t>& in, const Outp
       } else if (c.type == "iinf") {
         size_t count = 0;
         for (const auto& i : m.infes) count += !dropped.count(i.id);
-        count += (exif_id != 0) + (xmp_id != 0);
+        count += size_t(exif_id != 0) + size_t(xmp_id != 0);
         const bool v1 = count > 0xFFFF;
         const size_t at = w.begin_full("iinf", v1 ? 1 : 0, 0);
         if (v1)
@@ -677,9 +678,9 @@ std::vector<uint8_t> heif_attach_meta(const std::vector<uint8_t>& in, const Outp
 
   std::vector<uint8_t> out;
   out.reserve(in.size() + meta_box.size());
-  out.insert(out.end(), in.begin(), in.begin() + m.meta.start);
+  out.insert(out.end(), in.data(), in.data() + m.meta.start);
   out.insert(out.end(), meta_box.begin(), meta_box.end());
-  out.insert(out.end(), in.begin() + m.meta.end(), in.end());
+  out.insert(out.end(), in.data() + m.meta.end(), in.data() + in.size());
   return out;
 }
 

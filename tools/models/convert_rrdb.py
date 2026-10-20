@@ -11,7 +11,14 @@ golden pair OUT_DIR/<id>/golden_{in_3x96x96,out_3x384x384}.f32 (a fixed tile and
 output) for test_golden. The ncnn side is checked there, with the core (TEST-ML-001).
 Needs torch and pnnx (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
 
 import numpy as np
 import torch
@@ -137,12 +144,24 @@ def convert(mid: str, spec: dict, out: pathlib.Path, pnnx: str, work: pathlib.Pa
         torch.jit.trace(m, torch.rand(1, 3, 128, 128)).save(str(ts))
     # Dynamic spatial size (tiles of any size), fp16 weights for the pack (04 §6).
     subprocess.run(
-        [pnnx, str(ts), "inputshape=[1,3,128,128]", "inputshape2=[1,3,192,192]", "fp16=1",
-         f"ncnnparam={dst / 'model.ncnn.param'}", f"ncnnbin={dst / 'model.ncnn.bin'}",
-         f"pnnxparam={work / (mid + '.pnnx.param')}", f"pnnxbin={work / (mid + '.pnnx.bin')}",
-         f"pnnxpy={work / (mid + '_pnnx.py')}", f"pnnxonnx={work / (mid + '.pnnx.onnx')}",
-         f"ncnnpy={work / (mid + '_ncnn.py')}"],
-        check=True, cwd=work, stdout=subprocess.DEVNULL)
+        [
+            pnnx,
+            str(ts),
+            "inputshape=[1,3,128,128]",
+            "inputshape2=[1,3,192,192]",
+            "fp16=1",
+            f"ncnnparam={dst / 'model.ncnn.param'}",
+            f"ncnnbin={dst / 'model.ncnn.bin'}",
+            f"pnnxparam={work / (mid + '.pnnx.param')}",
+            f"pnnxbin={work / (mid + '.pnnx.bin')}",
+            f"pnnxpy={work / (mid + '_pnnx.py')}",
+            f"pnnxonnx={work / (mid + '.pnnx.onnx')}",
+            f"ncnnpy={work / (mid + '_ncnn.py')}",
+        ],
+        check=True,
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+    )
     param = (dst / "model.ncnn.param").read_text()
     if " in0 " not in param or " out0" not in param:
         sys.exit(f"{mid}: unexpected blob names in the ncnn graph")

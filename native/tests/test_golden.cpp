@@ -23,7 +23,9 @@
 #include "image/jpeg.hpp"
 #include "mini_test.hpp"
 #include "pipeline/lowlight.hpp"
+#include "util/format.hpp"
 #include "util/fs.hpp"
+#include "util/size.hpp"
 
 using namespace enh;
 
@@ -38,7 +40,7 @@ std::vector<float> read_f32(const std::string& path, size_t n) {
   FILE* f = std::fopen(path.c_str(), "rb");
   if (!f) return {};
   const size_t got = std::fread(v.data(), sizeof(float), n, f);
-  std::fclose(f);
+  (void)std::fclose(f);  // read only
   return got == n ? v : std::vector<float>{};
 }
 
@@ -47,7 +49,7 @@ double psnr(const ncnn::Mat& out, const std::vector<float>& ref) {
   double se = 0;
   for (int c = 0; c < 3; ++c) {
     const float* o = out.channel(c);
-    const float* r = ref.data() + size_t(c) * n;
+    const float* r = ref.data() + sz(c) * sz(n);
     for (int i = 0; i < n; ++i) {
       const double d = std::fmin(std::fmax(o[i], 0.f), 1.f) - r[i];
       se += d * d;
@@ -64,7 +66,7 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
   be->load(m);
   ncnn::Mat x(size, size, 3);
   for (int c = 0; c < 3; ++c) {
-    std::copy_n(in.data() + size_t(c) * size * size, size * size,
+    std::copy_n(in.data() + sz(c) * sz(size) * sz(size), size * size,
                 static_cast<float*>(x.channel(c)));
   }
   ncnn::Mat y;
@@ -73,7 +75,7 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
   CHECK(y.w == out && y.h == out && y.c == 3);
   if (y.w != out || y.h != out || y.c != 3) return 0;
   const double db = psnr(y, ref);
-  std::printf("golden %s %s: %.2f dB\n", m.id.c_str(), be->name().c_str(), db);
+  (void)std::printf("golden %s %s: %.2f dB\n", m.id.c_str(), be->name().c_str(), db);
   return db;
 }
 
@@ -82,9 +84,9 @@ void rrdb(const std::string& root, const std::string& id) {
   const std::string dir = fs::join(root, id);
   const int out = kRrdbIn * kScale;
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
-  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * out * out);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * sz(out) * out);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    (void)std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, id);
@@ -100,7 +102,7 @@ void fbcnn(const std::string& root) {
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kN * kN);
   const auto ref = read_f32(fs::join(dir, "golden_restore_out_3x96x96.f32"), size_t(3) * kN * kN);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden jpeg.fbcnn: not in %s, skipped\n", root.c_str());
+    (void)std::printf("golden jpeg.fbcnn: not in %s, skipped\n", root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, "jpeg.fbcnn");
@@ -109,13 +111,13 @@ void fbcnn(const std::string& root) {
   be->load(m);
   ncnn::Mat x(kN, kN, 3), q(1, 1, 1);
   for (int c = 0; c < 3; ++c)
-    std::copy_n(in.data() + size_t(c) * kN * kN, kN * kN, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * kN * kN, kN * kN, static_cast<float*>(x.channel(c)));
   q[0] = 0.7f;
   const auto y = be->run_inputs({x, q}, {"out0"});
   CHECK(y.size() == 1 && y[0].w == kN && y[0].h == kN && y[0].c == 3);
   if (y.size() != 1 || y[0].w != kN || y[0].h != kN || y[0].c != 3) return;
   const double db = psnr(y[0], ref);
-  std::printf("golden jpeg.fbcnn %s: %.2f dB\n", be->name().c_str(), db);
+  (void)std::printf("golden jpeg.fbcnn %s: %.2f dB\n", be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -129,26 +131,26 @@ void lowlight(const std::string& root) {
   const auto in = read_f32(fs::join(dir, "golden_in_3x384x384.f32"), n);
   const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), n);
   if (rgb.empty() || in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
+    (void)std::printf("golden old.lowlight-cidnet: not in %s, skipped\n", root.c_str());
     return;
   }
   const auto meta = nlohmann::json::parse(fs::read_text(fs::join(dir, "model.json")));
   const float k = meta["density_k"].get<float>();
-  const size_t px = size_t(kN) * kN;
+  const size_t px = sz(kN) * kN;
   double worst = 0;
   for (size_t i = 0; i < px; ++i) {
     const Hvi c = hvi_of_rgb(rgb[i], rgb[px + i], rgb[2 * px + i], k);
     worst = std::max({worst, std::fabs(double(c.h) - in[i]), std::fabs(double(c.v) - in[px + i]),
                       std::fabs(double(c.i) - in[2 * px + i])});
   }
-  std::printf("golden old.lowlight-cidnet HVI transform: max diff %.2e\n", worst);
+  (void)std::printf("golden old.lowlight-cidnet HVI transform: max diff %.2e\n", worst);
   CHECK(worst < 1e-4);
   const ModelInfo m = resolve_model(root, "old.lowlight-cidnet");
   auto be = make_ncnn_backend({BackendKind::cpu, 0, true, 0});
   be->load(m);
   ncnn::Mat x(kN, kN, 3);
   for (int c = 0; c < 3; ++c)
-    std::copy_n(in.data() + size_t(c) * px, px, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * sz(px), px, static_cast<float*>(x.channel(c)));
   const auto ys = be->run_inputs({x}, {"out0"});
   CHECK(ys.size() == 1);
   if (ys.size() != 1) return;
@@ -159,11 +161,11 @@ void lowlight(const std::string& root) {
   double se = 0;
   for (int c = 0; c < 3; ++c)
     for (size_t i = 0; i < px; ++i) {
-      const double d = static_cast<const float*>(y.channel(c))[i] - ref[size_t(c) * px + i];
+      const double d = static_cast<const float*>(y.channel(c))[i] - ref[sz(c) * px + i];
       se += d * d;
     }
   const double db = se == 0 ? 99 : 10 * std::log10(4.0 * 3 * px / se);
-  std::printf("golden old.lowlight-cidnet %s: %.2f dB\n", be->name().c_str(), db);
+  (void)std::printf("golden old.lowlight-cidnet %s: %.2f dB\n", be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -173,7 +175,7 @@ double psnr_c(const ncnn::Mat& out, const std::vector<float>& ref, int c, float 
   double se = 0;
   for (int k = 0; k < c; ++k) {
     const float* o = out.channel(k);
-    const float* r = ref.data() + size_t(k) * n;
+    const float* r = ref.data() + sz(k) * sz(n);
     for (int i = 0; i < n; ++i) {
       const double d = std::fmin(std::fmax(o[i] * a + b, 0.f), 1.f) - (r[i] * a + b);
       se += d * d;
@@ -190,11 +192,11 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   const std::string dir = fs::join(root, id);
   const std::string shape = "x" + std::to_string(h) + "x" + std::to_string(w) + ".f32";
   const auto in =
-      read_f32(fs::join(dir, "golden_in_" + std::to_string(cin) + shape), size_t(cin) * h * w);
-  const auto ref =
-      read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape), size_t(cout) * h * w);
+      read_f32(fs::join(dir, "golden_in_" + std::to_string(cin) + shape), sz(cin) * sz(h) * sz(w));
+  const auto ref = read_f32(fs::join(dir, "golden_out_" + std::to_string(cout) + shape),
+                            sz(cout) * sz(h) * sz(w));
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
+    (void)std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, id);
@@ -203,13 +205,14 @@ void old_pack(const std::string& root, const std::string& id, int cin, int cout,
   be->load(m);
   ncnn::Mat x(w, h, cin);
   for (int c = 0; c < cin; ++c)
-    std::copy_n(in.data() + size_t(c) * h * w, size_t(h) * w, static_cast<float*>(x.channel(c)));
+    std::copy_n(in.data() + sz(c) * sz(h) * sz(w), sz(h) * sz(w),
+                static_cast<float*>(x.channel(c)));
   ncnn::Mat y;
   be->run(x, y);
   CHECK(y.w == w && y.h == h && y.c == cout);
   if (y.w != w || y.h != h || y.c != cout) return;
   const double db = psnr_c(y, ref, cout, a, b);
-  std::printf("golden %s %s: %.2f dB\n", id.c_str(), be->name().c_str(), db);
+  (void)std::printf("golden %s %s: %.2f dB\n", id.c_str(), be->name().c_str(), db);
   CHECK(db >= 40);
 }
 
@@ -230,9 +233,7 @@ std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::stri
   const auto res = nlohmann::json::parse(fs::read_text(fs::join(dir, "result.json")));
   std::vector<uint8_t> all;
   for (size_t b = 0; b < res["band_rows"].size(); ++b) {
-    char name[32];
-    std::snprintf(name, sizeof name, "bands/%04zu.raw", b);
-    const auto d = fs::read_all(fs::join(dir, name));
+    const auto d = fs::read_all(fs::join(dir, strf("bands/%04zu.raw", b)));
     all.insert(all.end(), d.begin(), d.end());
   }
   return {all, res["recipe_hash"].get<std::string>()};
@@ -247,7 +248,7 @@ int main(int argc, char** argv) {
   const auto ref =
       read_f32(fs::join(dir, "golden_out_dn050_3x640x640.f32"), size_t(3) * kOut * kOut);
   if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
-    std::printf("golden: no weights in %s, skipped\n", dir.c_str());
+    (void)std::printf("golden: no weights in %s, skipped\n", dir.c_str());
     return kSkip;
   }
   const ModelInfo m = resolve_model(argv[1], "sr.general-x4v3");
@@ -274,7 +275,7 @@ int main(int argc, char** argv) {
   if (out) {
     const auto b = nlohmann::json::parse(out);
     enh_free(out);
-    std::printf("benchmark: %s\n", b.dump().c_str());
+    (void)std::printf("benchmark: %s\n", b.dump().c_str());
     CHECK(b["backends"][0]["kind"] == "cpu" && b["backends"][0]["status"] == "ok");
     CHECK(b["tile128_ms"].get<double>() > 0);
     const std::string tier = b["tier"];
@@ -290,12 +291,12 @@ int main(int argc, char** argv) {
     Rgb8 img;
     img.w = 320;
     img.h = 240;
-    img.px.resize(size_t(img.w) * img.h * 3);
+    img.px.resize(sz(img.w) * sz(img.h) * 3);
     for (int y = 0; y < img.h; ++y)
       for (int x = 0; x < img.w; ++x)
         for (int c = 0; c < 3; ++c)
-          img.px[(size_t(y) * img.w + x) * 3 + c] = uint8_t(
-              std::lround(255 * in[size_t(c) * kIn * kIn + size_t(y % kIn) * kIn + x % kIn]));
+          img.px[index2d(x, y, img.w) * 3 + sz(c)] =
+              uint8_t(std::lround(255 * in[sz(c) * kIn * kIn + index2d(x % kIn, y % kIn, kIn)]));
     const std::string input = fs::join(work, "in.jpg");
     jpeg_encode(input, img, 90);
     enh_session_config dc{};
@@ -317,11 +318,11 @@ int main(int argc, char** argv) {
       CHECK(!a.first.empty() && a.first.size() == size_t(1280) * 960 * 3);
       CHECK(a.first == b.first);
       CHECK(a.second == b.second);
-      std::printf("determinism: %zu bytes, identical: %s\n", a.first.size(),
-                  a.first == b.first ? "yes" : "NO");
+      (void)std::printf("determinism: %zu bytes, identical: %s\n", a.first.size(),
+                        a.first == b.first ? "yes" : "NO");
       enh_session_destroy(ds);
     }
   }
-  std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
+  (void)std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
   return mini::failures() ? 1 : 0;
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # S2 benchmark matrix on the 12 MP image. Every timed run holds the shared bench lock.
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 IN=${IN:-data/avignon_12mp.jpg}
 OUT=out/matrix; mkdir -p "$OUT"
 LOCK="flock /tmp/refocal-bench.lock"
@@ -37,7 +37,7 @@ run x4_vk0_t256_raw_png1 --scale 4 --tile 256 --backend vk0 --out-png "$OUT/png1
 for BE in vk0 vk1 cpu; do
   for T in 128 256; do run x2_${BE}_t${T}_raw --scale 2 --tile $T --backend $BE; done
   T=$([[ $BE == cpu ]] && echo 128 || echo 256)
-  run fast2_${BE}_t${T}_raw --scale fast2 --tile $T --backend $BE
+  run "fast2_${BE}_t${T}_raw" --scale fast2 --tile "$T" --backend "$BE"
 done
 run x2_vk1_t256_lz4 --scale 2 --tile 256 --backend vk1 --lz4
 # CPU fp16 storage off (x86 has no fp16 arithmetic; storage only)

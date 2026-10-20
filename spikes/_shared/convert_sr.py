@@ -1,13 +1,16 @@
-"""Convert Real-ESRGAN realesr-general-x4v3 (SRVGGNetCompact) to ONNX + ncnn, with DNI denoise levels.
+"""Convert Real-ESRGAN realesr-general-x4v3 (SRVGGNetCompact) to ONNX + ncnn, with DNI denoise
+levels.
 
 Denoise levels (ADR-0015) are baked offline by interpolating weights between
 realesr-general-x4v3 (strong denoise, level 1.0) and realesr-general-wdn-x4v3 (no denoise, level 0):
     W(level) = level * W_x4v3 + (1 - level) * W_wdn
 Outputs (spikes/_shared/models/): sr_compact_dn{000,050,100}.{onnx,ncnn.param,ncnn.bin}
 
-Architecture re-implemented from Real-ESRGAN (BSD-3-Clause, xinntao), realesrgan/archs/srvgg_arch.py.
+Architecture re-implemented from Real-ESRGAN (BSD-3-Clause, xinntao),
+realesrgan/archs/srvgg_arch.py.
 Run with the S1 venv:  ../s1-gfpgan/.venv/bin/python convert_sr.py
 """
+
 import subprocess
 from pathlib import Path
 
@@ -43,7 +46,9 @@ class SRVGGNetCompact(nn.Module):
 
 def load(level: float) -> SRVGGNetCompact:
     a = torch.load(W / "realesr-general-x4v3.pth", map_location="cpu", weights_only=True)["params"]
-    b = torch.load(W / "realesr-general-wdn-x4v3.pth", map_location="cpu", weights_only=True)["params"]
+    b = torch.load(W / "realesr-general-wdn-x4v3.pth", map_location="cpu", weights_only=True)[
+        "params"
+    ]
     state = {k: level * a[k] + (1 - level) * b[k] for k in a}
     m = SRVGGNetCompact()
     m.load_state_dict(state, strict=True)
@@ -57,23 +62,42 @@ def main() -> None:
         m = load(level)
         x = torch.rand(1, 3, 288, 288)
         onnx_path = OUT / f"{name}.onnx"
-        torch.onnx.export(m, (x,), str(onnx_path), input_names=["input"], output_names=["output"],
-                          opset_version=17, dynamo=False,
-                          dynamic_axes={"input": {2: "h", 3: "w"}, "output": {2: "h4", 3: "w4"}})
-        subprocess.run([str(PNNX), onnx_path.name, "inputshape=[1,3,288,288]", "fp16=1"],
-                       cwd=OUT, check=True, capture_output=True)
+        torch.onnx.export(
+            m,
+            (x,),
+            str(onnx_path),
+            input_names=["input"],
+            output_names=["output"],
+            opset_version=17,
+            dynamo=False,
+            dynamic_axes={"input": {2: "h", 3: "w"}, "output": {2: "h4", 3: "w4"}},
+        )
+        subprocess.run(
+            [str(PNNX), onnx_path.name, "inputshape=[1,3,288,288]", "fp16=1"],
+            cwd=OUT,
+            check=True,
+            capture_output=True,
+        )
         for junk in OUT.glob(f"{name}.pnnx*"):
             junk.unlink()
         for junk in OUT.glob(f"{name}_*.py"):
             junk.unlink()
         n = sum(p.numel() for p in m.parameters())
-        print(f"{name}: {n / 1e6:.3f}M params, ncnn bin {(OUT / f'{name}.ncnn.bin').stat().st_size / 1e6:.2f} MB")
+        print(
+            f"{name}: {n / 1e6:.3f}M params, "
+            f"ncnn bin {(OUT / f'{name}.ncnn.bin').stat().st_size / 1e6:.2f} MB"
+        )
 
-    # Golden reference tile for S3 correctness checks: deterministic 160x160 input -> torch fp32 output.
+    # Golden reference tile for S3 correctness checks: deterministic 160x160 input -> torch fp32
+    # output.
     rng = np.random.default_rng(20261009)
     base = rng.random((3, 20, 20), dtype=np.float32)
-    tile = F.interpolate(torch.from_numpy(base)[None], size=(160, 160), mode="bicubic", align_corners=False)
-    tile = (tile + 0.03 * torch.randn(tile.shape, generator=torch.Generator().manual_seed(7))).clamp(0, 1)
+    tile = F.interpolate(
+        torch.from_numpy(base)[None], size=(160, 160), mode="bicubic", align_corners=False
+    )
+    tile = (
+        tile + 0.03 * torch.randn(tile.shape, generator=torch.Generator().manual_seed(7))
+    ).clamp(0, 1)
     with torch.no_grad():
         ref = load(0.5)(tile).clamp(0, 1)
     tile.numpy().astype(np.float32).tofile(OUT / "golden_in_3x160x160.f32")

@@ -4,7 +4,11 @@ and SHA-256 as the app does. For CI tests that need a pack (nightly faces).
 
   tools/models/fetch_pack.py PACK_ID DIR
 """
-import hashlib, json, pathlib, sys
+
+import hashlib
+import json
+import pathlib
+import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from check_manifest import fetch  # noqa: E402

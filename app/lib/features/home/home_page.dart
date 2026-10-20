@@ -40,7 +40,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
     _shares = ref.read(sharedImageEventsProvider).listen((_) => _openShared());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _openShared();
+      unawaited(_openShared());
       // ADR-0017: benchmark (or its cached result) in the background once the app is up.
       ref.read(tierProvider.future).ignore();
     });
@@ -48,7 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   void dispose() {
-    _shares?.cancel();
+    unawaited(_shares?.cancel());
     super.dispose();
   }
 
@@ -169,17 +169,19 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
-    bar.closed.then((reason) async {
-      if (reason == SnackBarClosedReason.action) return;
-      try {
-        await (await store).discard(j.dir);
-      } on FileSystemException catch (e, stack) {
-        showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
-      }
-      if (!mounted) return;
-      _hidden.remove(j.dir);
-      ref.invalidate(jobListProvider);
-    });
+    unawaited(
+      bar.closed.then((reason) async {
+        if (reason == SnackBarClosedReason.action) return;
+        try {
+          await (await store).discard(j.dir);
+        } on FileSystemException catch (e, stack) {
+          showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
+        }
+        if (!mounted) return;
+        _hidden.remove(j.dir);
+        ref.invalidate(jobListProvider);
+      }),
+    );
   }
 
   /// FR-MODEL-008: updates found by the opt-in check (FR-SET-005).

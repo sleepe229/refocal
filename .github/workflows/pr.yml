@@ -47,6 +47,20 @@ jobs:
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
 
+  # Scripts and workflows: shellcheck, ruff (lint + format, ruff.toml), actionlint.
+  scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: pip install --user --quiet ruff==0.14.0 shellcheck-py==0.11.0.1 actionlint-py==1.7.8.24
+      - name: shellcheck
+        run: git ls-files '*.sh' | grep -v '^native/third_party/' | xargs ~/.local/bin/shellcheck
+      - name: ruff
+        run: ~/.local/bin/ruff check . && ~/.local/bin/ruff format --check .
+      - name: actionlint
+        run: PATH="$HOME/.local/bin:$PATH" actionlint
+
   dart:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -189,7 +203,7 @@ jobs:
       - name: Configure
         run: >
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build-ci -G "Unix Makefiles"
-          -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }}
+          -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }} -DENH_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           -DENH_NCNN_RUNTIME_CPU=OFF
           -DCMAKE_BUILD_TYPE=RelWithDebInfo

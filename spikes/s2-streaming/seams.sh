@@ -9,7 +9,7 @@ OUT=out/seams_${BE}_fp${FP}; mkdir -p "$OUT"
 LOCK="flock /tmp/refocal-bench.lock"
 run() { # name args...
   local n=$1; shift
-  $LOCK build/s2_stream --input $IN --job "$OUT/job" --backend $BE --fp16 $FP --threads 8 \
+  $LOCK build/s2_stream --input "$IN" --job "$OUT/job" --backend "$BE" --fp16 "$FP" --threads 8 \
     --out-png "$OUT/$n.png" --png-level 1 --stats "$OUT/$n.json" "$@" 2>/dev/null
 }
 run whole --tile 0

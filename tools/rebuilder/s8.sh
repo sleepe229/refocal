@@ -64,6 +64,7 @@ fi
 # unsigned server build B (apksigcopier) and verify it with apksigner. Two ways to sign:
 #  1. apksigner on the unsigned APK — only with --alignment-preserved (S8 finding);
 #  2. Gradle signingConfig (build C = A + key.properties), the release.yml path.
+# shellcheck disable=SC2016  # the script runs, and expands, inside the container
 $DOCKER run --rm -v "$OUT:/w" -w /w "$IMG" bash -euo pipefail -c '
   [[ -f test.jks ]] || keytool -genkeypair -keystore test.jks -storepass s8test -keypass s8test \
     -alias s8 -keyalg RSA -keysize 4096 -validity 10000 -dname CN=refocal-s8-test >/dev/null 2>&1
@@ -77,6 +78,7 @@ cp "$OUT/test.jks" "$OUT/in/release.jks"
 run C --hostname dev-box --cpus "$(nproc)" -e SRC=/home/vagrant/build/io.github.refocal.app -e TZ=UTC \
       -e LANG=C.UTF-8 -e UMASK=022 -e KS_PASS=s8test -e KS_ALIAS=s8
 rm -f "$OUT/in/release.jks"
+# shellcheck disable=SC2016  # the script runs, and expands, inside the container
 $DOCKER run --rm -v "$OUT:/w" -w /w "$IMG" bash -uo pipefail -c '
   for signed in A-signed-default A-signed-alignment-preserved C; do
     rm -f copy.apk

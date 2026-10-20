@@ -13,11 +13,15 @@
 #endif
 
 #include "util/error.hpp"
+#include "util/format.hpp"
 
 namespace enh {
 namespace {
 
 std::atomic<int> g_min{static_cast<int>(LogLevel::info)};
+
+// The longest message kept: a log line, not a dump.
+constexpr size_t kMaxLine = 1023;
 
 struct FileSink {
   std::mutex mu;
@@ -30,15 +34,17 @@ struct FileSink {
     if (!f) return;
     if (size + int64_t(line.size()) > max) rotate();
     if (!f) return;
-    std::fwrite(line.data(), 1, line.size(), f);
-    std::fflush(f);  // the lines before a native crash are the useful ones
+    // A log line that cannot be written is lost: there is nowhere to report it.
+    (void)std::fwrite(line.data(), 1, line.size(), f);
+    (void)std::fflush(f);  // the lines before a native crash are the useful ones
     size += int64_t(line.size());
   }
 
-  void rotate() {  // under mu
-    std::fclose(f);
+  void rotate() {          // under mu
+    (void)std::fclose(f);  // flushed after every line
     const std::string old = path + ".1";
-    std::rename(path.c_str(), old.c_str());
+    // Best effort: without the rename the log starts over in the same file.
+    (void)std::rename(path.c_str(), old.c_str());
     f = std::fopen(path.c_str(), "w");
     size = 0;
   }
@@ -108,13 +114,18 @@ void log_open(const std::string& path, int64_t max_bytes) {
   if (max_bytes < 4096) fail(ENH_E_INVALID, "log size too small");
   FileSink& s = sink();
   std::lock_guard lk(s.mu);
-  if (s.f) std::fclose(s.f);
+  if (s.f) (void)std::fclose(s.f);  // flushed after every line
   s.f = std::fopen(path.c_str(), "a");
   if (!s.f) fail(ENH_E_IO, "cannot open the log file");
   s.path = path;
   s.max = max_bytes;
-  std::fseek(s.f, 0, SEEK_END);
-  s.size = std::ftell(s.f);
+  const long end = std::fseek(s.f, 0, SEEK_END) == 0 ? std::ftell(s.f) : -1;
+  if (end < 0) {
+    (void)std::fclose(s.f);
+    s.f = nullptr;
+    fail(ENH_E_IO, "cannot open the log file");
+  }
+  s.size = end;
 }
 
 static void emit(int level, const char* msg) {
@@ -124,24 +135,29 @@ static void emit(int level, const char* msg) {
                              ANDROID_LOG_ERROR};
   __android_log_write(prio[level], "enh", line.c_str());
 #else
-  std::fprintf(stderr, "[enh %s] %s\n", kTag[level], line.c_str());
+  (void)std::fprintf(stderr, "[enh %s] %s\n", kTag[level], line.c_str());
 #endif
   char ts[32];
   const std::time_t now = std::time(nullptr);
   std::tm tm{};
   gmtime_r(&now, &tm);
-  std::strftime(ts, sizeof ts, "%Y-%m-%dT%H:%M:%SZ", &tm);
+  if (std::strftime(ts, sizeof ts, "%Y-%m-%dT%H:%M:%SZ", &tm) == 0) ts[0] = '\0';
   sink().write(std::string(ts) + " " + kTag[level] + " " + line + "\n");
 }
 
 void log(LogLevel level, const char* fmt, ...) {
   if (static_cast<int>(level) < g_min.load(std::memory_order_relaxed)) return;
-  char buf[1024];
   va_list ap;
   va_start(ap, fmt);
-  std::vsnprintf(buf, sizeof buf, fmt, ap);
+  std::string msg;
+  try {
+    msg = vstrf(fmt, ap);
+  } catch (const Error&) {
+    msg = std::string("bad log format: ") + fmt;
+  }
   va_end(ap);
-  emit(static_cast<int>(level), buf);
+  if (msg.size() > kMaxLine) msg.resize(kMaxLine);
+  emit(static_cast<int>(level), msg.c_str());
 }
 
 }  // namespace enh

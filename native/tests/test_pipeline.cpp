@@ -22,14 +22,15 @@
 #include "util/error.hpp"
 #include "util/fs.hpp"
 #include "util/sha256.hpp"
+#include "util/size.hpp"
 
 static int fails = 0;
-#define CHECK(c)                                                        \
-  do {                                                                  \
-    if (!(c)) {                                                         \
-      std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
-      ++fails;                                                          \
-    }                                                                   \
+#define CHECK(c)                                                              \
+  do {                                                                        \
+    if (!(c)) {                                                               \
+      (void)std::fprintf(stderr, "%s:%d: FAIL %s\n", __FILE__, __LINE__, #c); \
+      ++fails;                                                                \
+    }                                                                         \
   } while (0)
 
 using namespace enh;
@@ -38,10 +39,10 @@ static Rgb8 pattern(int w, int h) {
   Rgb8 img;
   img.w = w;
   img.h = h;
-  img.px.resize(size_t(w) * h * 3);
+  img.px.resize(sz(w) * sz(h) * 3);
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
-      uint8_t* p = img.row(y) + x * 3;
+      uint8_t* p = img.row(y) + sz(x) * 3;
       p[0] = uint8_t(x * 7 + y);
       p[1] = uint8_t(y * 5);
       p[2] = uint8_t((x ^ y) * 3);
@@ -80,7 +81,7 @@ static void test_exif() {
 
 static void test_orientation() {
   Rgb8 img = pattern(3, 2);
-  auto at = [](const Rgb8& m, int x, int y) { return m.row(y)[x * 3]; };
+  auto at = [](const Rgb8& m, int x, int y) { return m.row(y)[sz(x) * 3]; };
   Rgb8 r6 = apply_orientation(img, 6);  // 90 CW: (x,y) -> (H-1-y, x)
   CHECK(r6.w == 2 && r6.h == 3);
   CHECK(at(r6, 1, 0) == at(img, 0, 0) && at(r6, 0, 2) == at(img, 2, 1));
@@ -117,7 +118,7 @@ static void test_jpeg(const std::string& dir) {
   CHECK(back.w == 97 && back.h == 61);
   long err = 0;
   for (size_t i = 0; i < img.px.size(); ++i) err += std::abs(int(img.px[i]) - int(back.px[i]));
-  CHECK(double(err) / img.px.size() < 12.0);  // lossy, but the same picture
+  CHECK(double(err) / double(img.px.size()) < 12.0);  // lossy, but the same picture
   fs::write_atomic(fs::join(dir, "bad.jpg"), std::string("\xFF\xD8\xFF garbage"));
   bool threw = false;
   try {
@@ -155,14 +156,14 @@ static void test_gpu_gate() {
   CHECK(same.pass && same.psnr == 99.0 && same.bad_frac == 0);
   ncnn::Mat inv = ref.clone();  // silent garbage
   for (int c = 0; c < 3; ++c)
-    for (int i = 0; i < 64 * 48; ++i) inv.channel(c)[i] = 1.f - inv.channel(c)[i];
+    for (size_t i = 0; i < size_t{64} * 48; ++i) inv.channel(c)[i] = 1.f - inv.channel(c)[i];
   CHECK(!compare_tiles(inv, ref).pass);
   ncnn::Mat nan = ref.clone();  // a single NaN fails even at high PSNR (S3)
   nan.channel(1)[100] = NAN;
   CHECK(!compare_tiles(nan, ref).pass);
   ncnn::Mat block = ref.clone();  // one corrupted 32x32 block: PSNR may pass, bad_frac must not
   for (int y = 0; y < 32; ++y)
-    for (int x = 0; x < 32; ++x) block.channel(0)[y * 64 + x] = 0.f;
+    for (int x = 0; x < 32; ++x) block.channel(0)[index2d(x, y, 64)] = 0.f;
   CHECK(!compare_tiles(block, ref).pass);
   ncnn::Mat small(32, 48, 3);  // shape mismatch
   CHECK(!compare_tiles(small, ref).pass);
@@ -200,7 +201,7 @@ static void test_jpeg_clean() {
     Rgb8 img;
     img.w = w;
     img.h = h;
-    img.px.resize(size_t(w) * h * 3);
+    img.px.resize(sz(w) * sz(h) * 3);
     for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 31 % 253);
     IdentityNet net;
     int ticks = 0;
@@ -288,9 +289,9 @@ static void test_scratches() {
   Rgb8 img;
   img.w = 900;
   img.h = 600;
-  img.px.assign(size_t(img.w) * img.h * 3, 90);
+  img.px.assign(sz(img.w) * sz(img.h) * 3, 90);
   for (int y = 0; y < img.h; ++y)
-    for (int x = 118; x < 122; ++x) std::fill_n(img.row(y) + x * 3, 3, uint8_t(250));
+    for (int x = 118; x < 122; ++x) std::fill_n(img.row(y) + sz(x) * 3, 3, uint8_t(250));
   BrightNet det;
   const Mask8 m = detect_scratches(det, img, kScratchThreshold, 1);
   CHECK(det.w % kScratchMultiple == 0 && det.h == kScratchShortSide);
@@ -313,8 +314,8 @@ static void test_scratches() {
   CHECK(fill.bad_shape == 0 && fill.bad_input == 0);
   CHECK(fill.calls == 2 && ticks == 2);  // 900 x 600 in 384 px cores: the column of x 110
   CHECK(out.w == img.w && out.h == img.h);
-  CHECK(out.row(300)[120 * 3] >= 124);  // the hole: mostly the fill (0 in [-1, 1])
-  CHECK(out.row(300)[60 * 3] == 90 && out.row(300)[200 * 3] == 90);  // kept exactly
+  CHECK(out.row(300)[size_t{120} * 3] >= 124);  // the hole: mostly the fill (0 in [-1, 1])
+  CHECK(out.row(300)[size_t{60} * 3] == 90 && out.row(300)[size_t{200} * 3] == 90);  // kept exactly
   // No hole: nothing runs, the photo comes back.
   Mask8 none = m;
   std::fill(none.px.begin(), none.px.end(), uint8_t(0));
@@ -330,25 +331,26 @@ static void test_scratches() {
   dot.h = 5;
   dot.px.assign(35, 0);
   for (int y = 1; y < 4; ++y)
-    for (int x = 2; x < 5; ++x) dot.px[size_t(y) * 7 + x] = 255;
+    for (int x = 2; x < 5; ++x) dot.px[index2d(x, y, 7)] = 255;
   GreyFill small;
   const Rgb8 t = inpaint(small, tiny, dot);
-  CHECK(small.calls == 1 && small.bad_shape == 0 && t.row(2)[3 * 3] < 128 && t.row(2)[3 * 3] > 40);
+  CHECK(small.calls == 1 && small.bad_shape == 0 && t.row(2)[size_t{3} * 3] < 128 &&
+        t.row(2)[size_t{3} * 3] > 40);
 
   // The blend weight is made per tile: it matches upstream's on the whole photo, holes at the
   // photo's edges and across the tiles' seams included.
   Rgb8 wide;
   wide.w = 1100;
   wide.h = 700;
-  wide.px.resize(size_t(wide.w) * wide.h * 3);
+  wide.px.resize(sz(wide.w) * sz(wide.h) * 3);
   for (size_t i = 0; i < wide.px.size(); ++i) wide.px[i] = uint8_t(i * 7 % 251);
   Mask8 holes;
   holes.w = wide.w;
   holes.h = wide.h;
-  holes.px.assign(size_t(wide.w) * wide.h, 0);
+  holes.px.assign(sz(wide.w) * sz(wide.h), 0);
   auto box = [&](int x0, int y0, int x1, int y1) {
     for (int y = y0; y < y1; ++y)
-      for (int x = x0; x < x1; ++x) holes.px[size_t(y) * holes.w + x] = 255;
+      for (int x = x0; x < x1; ++x) holes.px[index2d(x, y, holes.w)] = 255;
   };
   box(0, 0, 3, 700);                // left edge
   box(1095, 0, 1100, 50);           // right edge
@@ -365,7 +367,7 @@ static void test_scratches() {
           const int xx = x + dx, yy = y + dy;
           any |= xx >= 0 && yy >= 0 && xx < holes.w && yy < holes.h && !holes.at(xx, yy);
         }
-      known[size_t(y) * holes.w + x] = any ? 1.f : 0.f;
+      known[index2d(x, y, holes.w)] = any ? 1.f : 0.f;
     }
   float k[5], ksum = 0;
   for (int i = 0; i < 5; ++i) ksum += k[i] = std::exp(-float((i - 2) * (i - 2)) / 2.f);
@@ -374,8 +376,8 @@ static void test_scratches() {
     for (int x = 0; x < holes.w; ++x) {
       float v = 0;
       for (int i = 0; i < 5; ++i)
-        v += k[i] * known[size_t(y) * holes.w + reflect101(x + i - 2, holes.w)];
-      tmp[size_t(y) * holes.w + x] = v;
+        v += k[i] * known[index2d(reflect101(x + i - 2, holes.w), y, holes.w)];
+      tmp[index2d(x, y, holes.w)] = v;
     }
   GreyFill seams;
   const Rgb8 got = inpaint(seams, wide, holes);
@@ -384,11 +386,11 @@ static void test_scratches() {
     for (int x = 0; x < holes.w; ++x) {
       float v = 0;
       for (int i = 0; i < 5; ++i)
-        v += k[i] * tmp[size_t(reflect101(y + i - 2, holes.h)) * holes.w + x];
-      const float a = std::lround(std::clamp(v, 0.f, 1.f) * 255.f) * (1.f / 255.f);
+        v += k[i] * tmp[index2d(x, reflect101(y + i - 2, holes.h), holes.w)];
+      const float a = float(std::lround(std::clamp(v, 0.f, 1.f) * 255.f)) * (1.f / 255.f);
       for (int c = 0; c < 3; ++c) {
         const int src = wide.row(y)[x * 3 + c];
-        const int want = a == 1.f ? src : int(std::lround(src * a + 127.5f * (1 - a)));
+        const int want = a == 1.f ? src : int(std::lround(float(src) * a + 127.5f * (1 - a)));
         mismatches += got.row(y)[x * 3 + c] != want;
       }
     }
@@ -428,7 +430,8 @@ static void test_lowlight() {
     for (int g = 0; g < 256; g += 17)
       for (int b = 0; b < 256; b += 13) {
         float rr, gg, bb;
-        rgb_of_hvi(hvi_of_rgb(r / 255.f, g / 255.f, b / 255.f, k), k, rr, gg, bb);
+        rgb_of_hvi(hvi_of_rgb(float(r) / 255.f, float(g) / 255.f, float(b) / 255.f, k), k, rr, gg,
+                   bb);
         worst = std::max({worst, std::abs(int(std::lround(rr * 255)) - r),
                           std::abs(int(std::lround(gg * 255)) - g),
                           std::abs(int(std::lround(bb * 255)) - b)});
@@ -439,7 +442,7 @@ static void test_lowlight() {
   Rgb8 img;
   img.w = 1001;
   img.h = 333;
-  img.px.resize(size_t(img.w) * img.h * 3);
+  img.px.resize(sz(img.w) * sz(img.h) * 3);
   for (size_t i = 0; i < img.px.size(); ++i) img.px[i] = uint8_t(i * 37 % 251);
   SameNet net;
   const Rgb8 out = enhance_low_light(net, img, k);
@@ -471,6 +474,6 @@ int main(int argc, char** argv) {
   test_jpeg_clean();
   test_scratches();
   test_lowlight();
-  std::printf("test_pipeline: %d failures\n", fails);
+  (void)std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;
 }

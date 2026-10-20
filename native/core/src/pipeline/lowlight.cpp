@@ -10,6 +10,7 @@
 #include "image/ops.hpp"
 #include "pipeline/geometry.hpp"
 #include "util/error.hpp"
+#include "util/size.hpp"
 
 namespace enh {
 
@@ -90,7 +91,7 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
   for (int y = 0; y < nh; ++y) {
     const uint8_t* row = small.row(reflect101(y, sh));
     for (int x = 0; x < nw; ++x) {
-      const uint8_t* p = row + reflect101(x, sw) * 3;
+      const uint8_t* p = row + sz(reflect101(x, sw)) * 3;
       const Hvi c = hvi_of_rgb(p[0] / 255.f, p[1] / 255.f, p[2] / 255.f, k);
       in.channel(0).row(y)[x] = c.h;
       in.channel(1).row(y)[x] = c.v;
@@ -104,11 +105,12 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
   if (out.w != nw || out.h != nh || out.c != 3)
     fail(ENH_E_BACKEND, "low light: unexpected output shape");
   // The correction on the downscale.
-  std::vector<float> d(size_t(sw) * sh * 3);
+  std::vector<float> d(sz(sw) * sz(sh) * 3);
   for (int c = 0; c < 3; ++c)
     for (int y = 0; y < sh; ++y)
       for (int x = 0; x < sw; ++x)
-        d[(size_t(y) * sw + x) * 3 + c] = out.channel(c).row(y)[x] - in.channel(c).row(y)[x];
+        d[(sz(y) * sz(sw) + sz(x)) * 3 + sz(c)] =
+            out.channel(c).row(y)[x] - in.channel(c).row(y)[x];
 
   Rgb8 res;
   res.w = img.w;
@@ -117,30 +119,34 @@ Rgb8 enhance_low_light(InferenceBackend& be, const Rgb8& img, float k, int max_s
   auto u8 = [](float v) { return uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f)); };
   for (int y = 0; y < img.h; ++y) {
     // Bilinear, pixel centres aligned (align_corners=False), edges clamped.
-    const float fy = std::clamp((y + 0.5f) * sh / img.h - 0.5f, 0.f, float(sh - 1));
+    const float fy =
+        std::clamp((float(y) + 0.5f) * float(sh) / float(img.h) - 0.5f, 0.f, float(sh - 1));
     const int y0 = int(fy), y1 = std::min(y0 + 1, sh - 1);
-    const float ay = fy - y0;
+    const float ay = fy - float(y0);
     const uint8_t* src = img.row(y);
     uint8_t* dst = res.row(y);
     for (int x = 0; x < img.w; ++x) {
-      const float fx = std::clamp((x + 0.5f) * sw / img.w - 0.5f, 0.f, float(sw - 1));
+      const float fx =
+          std::clamp((float(x) + 0.5f) * float(sw) / float(img.w) - 0.5f, 0.f, float(sw - 1));
       const int x0 = int(fx), x1 = std::min(x0 + 1, sw - 1);
-      const float ax = fx - x0;
+      const float ax = fx - float(x0);
       float delta[3];
       for (int c = 0; c < 3; ++c) {
-        auto at = [&](int yy, int xx) { return d[(size_t(yy) * sw + xx) * 3 + c]; };
+        auto at = [&](int yy, int xx) { return d[(sz(yy) * sz(sw) + sz(xx)) * 3 + sz(c)]; };
         delta[c] = (at(y0, x0) * (1 - ax) + at(y0, x1) * ax) * (1 - ay) +
                    (at(y1, x0) * (1 - ax) + at(y1, x1) * ax) * ay;
       }
-      Hvi c = hvi_of_rgb(src[x * 3] / 255.f, src[x * 3 + 1] / 255.f, src[x * 3 + 2] / 255.f, k);
+      const uint8_t* sp = src + sz(x) * 3;
+      Hvi c = hvi_of_rgb(sp[0] / 255.f, sp[1] / 255.f, sp[2] / 255.f, k);
       c.h += delta[0];
       c.v += delta[1];
       c.i += delta[2];
       float r, g, b;
       rgb_of_hvi(c, k, r, g, b);
-      dst[x * 3] = u8(r);
-      dst[x * 3 + 1] = u8(g);
-      dst[x * 3 + 2] = u8(b);
+      uint8_t* o = dst + sz(x) * 3;
+      o[0] = u8(r);
+      o[1] = u8(g);
+      o[2] = u8(b);
     }
   }
   return res;

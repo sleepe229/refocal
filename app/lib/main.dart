@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,7 +65,9 @@ class RefocalApp extends ConsumerWidget {
     // First run: the introduction once settings are read (FR-ONB-001).
     ref.listen(settingsProvider, (prev, next) {
       final s = next.value;
-      if (prev?.value == null && s != null && !s.onboardingDone) _router.push('/onboarding');
+      if (prev?.value == null && s != null && !s.onboardingDone) {
+        unawaited(_router.push('/onboarding'));
+      }
     });
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
