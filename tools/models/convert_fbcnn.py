@@ -13,7 +13,15 @@ and qf_report.json: the QF each tile predicts on photos saved at known qualities
 96..256 px), against the whole-image prediction.
 Needs torch, pnnx and Pillow (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, io, json, pathlib, subprocess, sys, urllib.request
+
+import argparse
+import hashlib
+import io
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
 
 import numpy as np
 import torch
@@ -76,7 +84,7 @@ def test_photo() -> Image.Image:
     img = np.stack([0.5 + 0.4 * np.sin(9 * x + 3 * y), 0.4 + 0.4 * y, 0.6 - 0.5 * x], -1)
     for _ in range(12):  # rectangles: hard edges, where blocking shows
         y0, x0 = rng.integers(0, h - 64), rng.integers(0, w - 64)
-        img[y0:y0 + rng.integers(16, 64), x0:x0 + rng.integers(16, 64)] = rng.random(3)
+        img[y0 : y0 + rng.integers(16, 64), x0 : x0 + rng.integers(16, 64)] = rng.random(3)
     img += rng.normal(0, 0.04, img.shape)
     return Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
 
@@ -96,26 +104,47 @@ def qf_report(est: Estimate) -> dict:
             whole = float(est(x).flatten()[0])
             per_tile = {}
             for t in (96, 128, 256):
-                qs = [float(est(x[:, :, i:i + t, j:j + t]).flatten()[0])
-                      for i in range(0, x.shape[2] - t + 1, t)
-                      for j in range(0, x.shape[3] - t + 1, t)]
-                per_tile[t] = {"mean": float(np.mean(qs)), "std": float(np.std(qs)),
-                               "min": float(np.min(qs)), "max": float(np.max(qs)), "n": len(qs)}
+                qs = [
+                    float(est(x[:, :, i : i + t, j : j + t]).flatten()[0])
+                    for i in range(0, x.shape[2] - t + 1, t)
+                    for j in range(0, x.shape[3] - t + 1, t)
+                ]
+                per_tile[t] = {
+                    "mean": float(np.mean(qs)),
+                    "std": float(np.std(qs)),
+                    "min": float(np.min(qs)),
+                    "max": float(np.max(qs)),
+                    "n": len(qs),
+                }
         out[quality] = {"true": 1 - quality / 100, "whole": whole, "tiles": per_tile}
-        print(f"  q{quality}: true {1 - quality / 100:.2f} whole {whole:.3f} "
-              + " ".join(f"t{t} {v['mean']:.3f}±{v['std']:.3f}" for t, v in per_tile.items()))
+        print(
+            f"  q{quality}: true {1 - quality / 100:.2f} whole {whole:.3f} "
+            + " ".join(f"t{t} {v['mean']:.3f}±{v['std']:.3f}" for t, v in per_tile.items())
+        )
     return out
 
 
-def pnnx_convert(pnnx: str, ts: pathlib.Path, shapes: list[str], dst: pathlib.Path, name: str,
-                 work: pathlib.Path) -> None:
+def pnnx_convert(
+    pnnx: str, ts: pathlib.Path, shapes: list[str], dst: pathlib.Path, name: str, work: pathlib.Path
+) -> None:
     subprocess.run(
-        [pnnx, str(ts), *shapes, "fp16=1",
-         f"ncnnparam={dst / (name + '.ncnn.param')}", f"ncnnbin={dst / (name + '.ncnn.bin')}",
-         f"pnnxparam={work / (name + '.pnnx.param')}", f"pnnxbin={work / (name + '.pnnx.bin')}",
-         f"pnnxpy={work / (name + '_pnnx.py')}", f"pnnxonnx={work / (name + '.pnnx.onnx')}",
-         f"ncnnpy={work / (name + '_ncnn.py')}"],
-        check=True, cwd=work, stdout=subprocess.DEVNULL)
+        [
+            pnnx,
+            str(ts),
+            *shapes,
+            "fp16=1",
+            f"ncnnparam={dst / (name + '.ncnn.param')}",
+            f"ncnnbin={dst / (name + '.ncnn.bin')}",
+            f"pnnxparam={work / (name + '.pnnx.param')}",
+            f"pnnxbin={work / (name + '.pnnx.bin')}",
+            f"pnnxpy={work / (name + '_pnnx.py')}",
+            f"pnnxonnx={work / (name + '.pnnx.onnx')}",
+            f"ncnnpy={work / (name + '_ncnn.py')}",
+        ],
+        check=True,
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+    )
 
 
 def main() -> int:
@@ -145,8 +174,10 @@ def main() -> int:
     (dst / "qf_report.json").write_text(json.dumps(qf_report(est), indent=2) + "\n")
 
     rng = np.random.default_rng(20261017)
-    tile = (rng.random((1, 3, GOLDEN, GOLDEN)) * 0.2 + as_tensor(test_photo())[
-        :, :, :GOLDEN, :GOLDEN].numpy() * 0.8).astype(np.float32)
+    tile = (
+        rng.random((1, 3, GOLDEN, GOLDEN)) * 0.2
+        + as_tensor(test_photo())[:, :, :GOLDEN, :GOLDEN].numpy() * 0.8
+    ).astype(np.float32)
     qf = np.array([[0.7]], np.float32)  # quality 30
     with torch.no_grad():
         ref_q = est(torch.from_numpy(tile)).numpy()
@@ -158,12 +189,24 @@ def main() -> int:
     with torch.no_grad():
         torch.jit.trace(est, torch.rand(1, 3, 128, 128)).save(str(work / "estimate.pt"))
         torch.jit.trace(res, (torch.rand(1, 3, 128, 128), torch.rand(1, 1))).save(
-            str(work / "restore.pt"))
-    pnnx_convert(a.pnnx, work / "estimate.pt",
-                 ["inputshape=[1,3,128,128]", "inputshape2=[1,3,192,192]"], dst, "estimate", work)
-    pnnx_convert(a.pnnx, work / "restore.pt",
-                 ["inputshape=[1,3,128,128],[1,1]", "inputshape2=[1,3,192,192],[1,1]"], dst,
-                 "restore", work)
+            str(work / "restore.pt")
+        )
+    pnnx_convert(
+        a.pnnx,
+        work / "estimate.pt",
+        ["inputshape=[1,3,128,128]", "inputshape2=[1,3,192,192]"],
+        dst,
+        "estimate",
+        work,
+    )
+    pnnx_convert(
+        a.pnnx,
+        work / "restore.pt",
+        ["inputshape=[1,3,128,128],[1,1]", "inputshape2=[1,3,192,192],[1,1]"],
+        dst,
+        "restore",
+        work,
+    )
     (dst / "model.json").write_text(json.dumps({"scale": 1, "pad": 16, "multiple": 8}) + "\n")
     for f in sorted(dst.iterdir()):
         print(f"  jpeg.fbcnn/{f.name} {f.stat().st_size} {sha256(f)}")

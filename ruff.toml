@@ -1,0 +1,8 @@
+# Python (tools, spikes): lint and format, checked in CI (pr.yml "scripts").
+line-length = 100
+target-version = "py312"
+extend-exclude = ["flutter", "native/third_party", "build"]
+
+[lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade.
+select = ["E", "F", "W", "I", "B", "UP"]

@@ -45,7 +45,9 @@ def problems(name: str, d: bytes) -> list[str]:
             for j in range(0, p_filesz, 16):
                 tag, val = struct.unpack_from("<qQ", d, p_offset + j)
                 relocs |= tag in DT_RELOCS
-                if (tag == DT_FLAGS and val & DF_BIND_NOW) or (tag == DT_FLAGS_1 and val & DF_1_NOW):
+                if (tag == DT_FLAGS and val & DF_BIND_NOW) or (
+                    tag == DT_FLAGS_1 and val & DF_1_NOW
+                ):
                     now = True
     if relocs and not relro:
         out.append(f"{name}: no RELRO")

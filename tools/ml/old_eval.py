@@ -9,28 +9,34 @@ little blur and film grain (the reference: the aged print without damage), then 
 (bright and dark, 1-3 px, slightly bent) and dust. Each goes through refocal-cli at scale 1
 twice: plain, and with --scratch-model old.scratch. Both are compared with the undamaged aged
 print by PSNR / SSIM (luma) over the whole photo and PSNR inside the damage, and scored
-without a reference by MUSIQ, CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA of the scratch removal
->= the plain pipeline (S9).
+without a reference by MUSIQ, CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA
+of the scratch removal >= the plain pipeline (S9).
 
 Writes WORK_DIR/old.json and prints a Markdown table. Needs numpy, pillow (pyiqa, torch).
 """
-import argparse, json, pathlib, sys
+
+import argparse
+import json
+import pathlib
+import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
-
 from jpeg_eval import IMAGES, NR_METRICS, fetch, luma, nr_ok, psnr, run, ssim
+from PIL import Image, ImageDraw, ImageFilter
 
 
 def age(src: pathlib.Path, seed: int) -> tuple[Image.Image, Image.Image, np.ndarray]:
     """(aged print, the same with scratches and dust, the damage mask)."""
     rng = np.random.default_rng(seed)
-    grey = np.asarray(Image.open(src).convert("L").filter(ImageFilter.GaussianBlur(0.8)),
-                      np.float32) / 255
+    grey = (
+        np.asarray(Image.open(src).convert("L").filter(ImageFilter.GaussianBlur(0.8)), np.float32)
+        / 255
+    )
     grey = np.clip(0.08 + 0.84 * grey + rng.normal(0, 0.025, grey.shape), 0, 1)
     tone = np.array([1.0, 0.86, 0.68], np.float32)  # sepia
-    aged = Image.fromarray((np.clip(grey[..., None] * tone + [0.04, 0.03, 0.02], 0, 1) * 255)
-                           .astype(np.uint8))
+    aged = Image.fromarray(
+        (np.clip(grey[..., None] * tone + [0.04, 0.03, 0.02], 0, 1) * 255).astype(np.uint8)
+    )
     h, w = grey.shape
     damaged = aged.copy()
     mask = Image.new("L", (w, h), 0)
@@ -38,8 +44,12 @@ def age(src: pathlib.Path, seed: int) -> tuple[Image.Image, Image.Image, np.ndar
     for i in range(12):
         pts = [(int(rng.integers(0, w)), int(rng.integers(0, h)))]
         for _ in range(3):
-            pts.append((int(np.clip(pts[-1][0] + rng.integers(-150, 150), 0, w - 1)),
-                        int(np.clip(pts[-1][1] + rng.integers(-150, 150), 0, h - 1))))
+            pts.append(
+                (
+                    int(np.clip(pts[-1][0] + rng.integers(-150, 150), 0, w - 1)),
+                    int(np.clip(pts[-1][1] + rng.integers(-150, 150), 0, h - 1)),
+                )
+            )
         width = int(rng.integers(1, 4))
         colour = (235, 230, 220) if i % 3 else (30, 25, 20)
         dd.line(pts, fill=colour, width=width)
@@ -63,7 +73,9 @@ def main() -> None:
         (work / d).mkdir(parents=True, exist_ok=True)
     iqa = None
     if not a.no_iqa:
-        import pyiqa, torch
+        import pyiqa
+        import torch
+
         iqa = {m: pyiqa.create_metric(m, device=torch.device("cpu")) for m in NR_METRICS}
 
     rows = []
@@ -77,10 +89,14 @@ def main() -> None:
         ref = luma(ref_p)
         row = {"image": name, "damage": float(mask.mean())}
         for kind, path, extra in [
-                ("input", dmg_p, None),
-                ("plain", work / "out" / f"kodim{name}_plain.png", []),
-                ("scratches", work / "out" / f"kodim{name}_scratches.png",
-                 ["--scratch-model", "old.scratch"])]:
+            ("input", dmg_p, None),
+            ("plain", work / "out" / f"kodim{name}_plain.png", []),
+            (
+                "scratches",
+                work / "out" / f"kodim{name}_scratches.png",
+                ["--scratch-model", "old.scratch"],
+            ),
+        ]:
             if extra is not None:
                 row[f"{kind}_s"] = run(a.cli, a.models, work, dmg_p, path, extra)
             y = luma(path)
@@ -95,7 +111,10 @@ def main() -> None:
     (work / "old.json").write_text(json.dumps(rows, indent=1))
     kinds = ["input", "plain", "scratches"]
     metrics = ["psnr", "psnr_damage", "ssim"] + ([] if iqa is None else NR_METRICS)
-    mean = lambda key: sum(r[key] for r in rows) / len(rows)
+
+    def mean(key):
+        return sum(r[key] for r in rows) / len(rows)
+
     print("\n| Metric | " + " | ".join(kinds) + " |")
     print("|---" * (1 + len(kinds)) + "|")
     for m in metrics:

@@ -2,13 +2,13 @@
 
 Runs on Linux: conversion works, prediction requires macOS/iOS (done on device in a follow-up).
 """
+
 import collections
 import time
 from pathlib import Path
 
 import coremltools as ct
 import torch
-
 from gfpgan_model import load_gfpgan
 
 HERE = Path(__file__).resolve().parent
@@ -38,8 +38,14 @@ def main() -> None:
     prog = mlmodel._mil_program
     ops = collections.Counter(op.op_type for f in prog.functions.values() for op in f.operations)
     print("MIL ops:", ", ".join(f"{k}={v}" for k, v in sorted(ops.items(), key=lambda kv: -kv[1])))
-    dyn = [op.name for f in prog.functions.values() for op in f.operations
-           if op.op_type == "conv" and op.inputs["weight"].op is not None and op.inputs["weight"].op.op_type != "const"]
+    dyn = [
+        op.name
+        for f in prog.functions.values()
+        for op in f.operations
+        if op.op_type == "conv"
+        and op.inputs["weight"].op is not None
+        and op.inputs["weight"].op.op_type != "const"
+    ]
     print(f"conv ops with non-constant weights: {len(dyn)}")
 
 

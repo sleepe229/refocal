@@ -14,7 +14,14 @@ fp32), and hole_report.json: PSNR inside the holes on a seeded synthetic photo (
 mean fill) and hole_result.png, the photo with the holes filled.
 Needs onnx, onnxruntime, pnnx, numpy and Pillow (spikes/s1-gfpgan/requirements.lock).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
 
 import numpy as np
 import onnx
@@ -92,7 +99,9 @@ def main() -> int:
     gen = work / "generator.onnx"
     onnx.utils.extract_model(str(full), str(gen), [GEN_IN], [GEN_OUT])
     sess = ort.InferenceSession(str(gen), providers=["CPUExecutionProvider"])
-    run = lambda x: sess.run(None, {GEN_IN: x})[0]
+
+    def run(x):
+        return sess.run(None, {GEN_IN: x})[0]
 
     img, mask = photo_and_holes()
     x = gen_input(img, mask)
@@ -100,25 +109,41 @@ def main() -> int:
     assert y.shape == (1, 3, RES, RES), y.shape
     res = np.clip(y[0].transpose(1, 2, 0) * 0.5 + 0.5, 0, 1)
     hole = mask < 0.5
-    report = {"hole_fraction": float(hole.mean()),
-              "psnr_hole": psnr(res[hole], img[hole]),
-              "psnr_known_raw": psnr(res[~hole], img[~hole]),  # the core keeps these
-              "psnr_hole_mean_fill": psnr(np.broadcast_to(img[~hole].mean(0), img[hole].shape),
-                                          img[hole])}
+    report = {
+        "hole_fraction": float(hole.mean()),
+        "psnr_hole": psnr(res[hole], img[hole]),
+        "psnr_known_raw": psnr(res[~hole], img[~hole]),  # the core keeps these
+        "psnr_hole_mean_fill": psnr(
+            np.broadcast_to(img[~hole].mean(0), img[hole].shape), img[hole]
+        ),
+    }
     print("holes:", " ".join(f"{k} {v:.3f}" for k, v in report.items()))
     (dst / "hole_report.json").write_text(json.dumps(report, indent=2) + "\n")
-    comp = img * mask[..., None] + res * (1 - mask[..., None])  # as the core blends (without feather)
+    comp = img * mask[..., None] + res * (
+        1 - mask[..., None]
+    )  # as the core blends (without feather)
     Image.fromarray((comp * 255).astype(np.uint8)).save(dst / "hole_result.png")
     x.tofile(dst / f"golden_in_4x{RES}x{RES}.f32")
     y.astype(np.float32).tofile(dst / f"golden_out_3x{RES}x{RES}.f32")
 
     subprocess.run(
-        [a.pnnx, str(gen), f"inputshape=[1,4,{RES},{RES}]", "fp16=1",
-         f"ncnnparam={dst / 'model.ncnn.param'}", f"ncnnbin={dst / 'model.ncnn.bin'}",
-         f"pnnxparam={work / 'gen.pnnx.param'}", f"pnnxbin={work / 'gen.pnnx.bin'}",
-         f"pnnxpy={work / 'gen_pnnx.py'}", f"pnnxonnx={work / 'gen.pnnx.onnx'}",
-         f"ncnnpy={work / 'gen_ncnn.py'}"],
-        check=True, cwd=work, stdout=subprocess.DEVNULL)
+        [
+            a.pnnx,
+            str(gen),
+            f"inputshape=[1,4,{RES},{RES}]",
+            "fp16=1",
+            f"ncnnparam={dst / 'model.ncnn.param'}",
+            f"ncnnbin={dst / 'model.ncnn.bin'}",
+            f"pnnxparam={work / 'gen.pnnx.param'}",
+            f"pnnxbin={work / 'gen.pnnx.bin'}",
+            f"pnnxpy={work / 'gen_pnnx.py'}",
+            f"pnnxonnx={work / 'gen.pnnx.onnx'}",
+            f"ncnnpy={work / 'gen_ncnn.py'}",
+        ],
+        check=True,
+        cwd=work,
+        stdout=subprocess.DEVNULL,
+    )
     (dst / "model.json").write_text(json.dumps({"scale": 1, "size": RES}) + "\n")
     for f in sorted(dst.iterdir()):
         print(f"  old.inpaint-migan/{f.name} {f.stat().st_size} {sha256(f)}")

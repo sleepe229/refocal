@@ -2,8 +2,10 @@
 
 Two variants per face:
   * "<name>_fNN.png"      — aligned crop from the original (real old-photo degradation);
-  * "<name>_fNN_lq.png"   — synthetic low quality: face downscaled to ~96 px + JPEG q35, then aligned.
+  * "<name>_fNN_lq.png"   — synthetic low quality: face downscaled to ~96 px + JPEG q35, then
+    aligned.
 """
+
 from pathlib import Path
 
 import cv2
@@ -16,19 +18,29 @@ YUNET = HERE / "weights" / "face_detection_yunet_2023mar.onnx"
 
 # FFHQ 512 five-point template (facexlib face_restoration_helper.py).
 FFHQ_512 = np.array(
-    [[192.98138, 239.94708], [318.90277, 240.19366], [256.63416, 314.01935],
-     [201.26117, 371.41043], [313.08905, 371.15118]], dtype=np.float32)
+    [
+        [192.98138, 239.94708],
+        [318.90277, 240.19366],
+        [256.63416, 314.01935],
+        [201.26117, 371.41043],
+        [313.08905, 371.15118],
+    ],
+    dtype=np.float32,
+)
 
 MAX_FACES_PER_IMAGE = 4
 
 
 def detect(img: np.ndarray, analyze_side: int = 640) -> np.ndarray:
-    """Detect on a copy downscaled to `analyze_side` (as in the spec's Analyze stage), return full-res coords."""
+    """Detect on a copy downscaled to `analyze_side` (as in the spec's Analyze stage), return
+    full-res coords."""
     h, w = img.shape[:2]
     s = min(1.0, analyze_side / max(h, w))
     small = cv2.resize(img, None, fx=s, fy=s, interpolation=cv2.INTER_AREA) if s < 1 else img
     sh, sw = small.shape[:2]
-    det = cv2.FaceDetectorYN.create(str(YUNET), "", (sw, sh), score_threshold=0.7, nms_threshold=0.3)
+    det = cv2.FaceDetectorYN.create(
+        str(YUNET), "", (sw, sh), score_threshold=0.7, nms_threshold=0.3
+    )
     _, faces = det.detect(small)
     if faces is None:
         return np.zeros((0, 15), np.float32)
@@ -45,7 +57,9 @@ def landmarks(face: np.ndarray) -> np.ndarray:
 
 def align(img: np.ndarray, lm: np.ndarray) -> np.ndarray:
     m, _ = cv2.estimateAffinePartial2D(lm, FFHQ_512, method=cv2.LMEDS)
-    return cv2.warpAffine(img, m, (512, 512), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT_101)
+    return cv2.warpAffine(
+        img, m, (512, 512), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT_101
+    )
 
 
 def degrade(img: np.ndarray, face_w: float, target_face_w: float = 96.0) -> np.ndarray:

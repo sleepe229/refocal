@@ -14,13 +14,15 @@ ART=${3:-$ROOT/native/build-fuzz/findings}
 TARGETS=${TARGETS:-metaio decode zip heif}
 # At most 4 by default: each worker may take -rss_limit_mb below.
 FORK=${FORK:-$(n=$(nproc); echo $((n < 4 ? n : 4)))}
+read -ra cmake_extra <<< "${CMAKE_EXTRA:-}"  # more -D options
+read -ra targets <<< "$TARGETS"
 CC=${CC:-clang-18} CXX=${CXX:-clang++-18} cmake -S "$ROOT/native" -B "$ROOT/native/build-fuzz" \
   -DENH_SANITIZE=address -DENH_BUILD_FUZZ=ON -DENH_NCNN_RUNTIME_CPU=OFF \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo ${CMAKE_EXTRA:-} >/dev/null
-cmake --build "$ROOT/native/build-fuzz" -j"$(nproc)" --target $(printf 'fuzz_%s ' $TARGETS)
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo "${cmake_extra[@]}" >/dev/null
+cmake --build "$ROOT/native/build-fuzz" -j"$(nproc)" --target "${targets[@]/#/fuzz_}"
 mkdir -p "$ART"
 status=0
-for t in $TARGETS; do
+for t in "${targets[@]}"; do
   mkdir -p "$CORPUS/$t"
   cp -n "$ROOT/native/tests/fuzz/corpus/$t/"* "$CORPUS/$t/" 2>/dev/null || true
   echo "== fuzz_$t for ${SECS}s, $FORK workers"

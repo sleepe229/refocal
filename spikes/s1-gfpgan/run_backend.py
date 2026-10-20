@@ -4,6 +4,7 @@ Usage: run_backend.py <backend> [--runs N]
 Backends: torch_fp32, ort_fp32, ncnn_cpu_fp32, ncnn_cpu_fp16, ncnn_vk<dev>_fp16, ncnn_vk<dev>_fp32
 Each backend runs in its own process so that ru_maxrss is per-backend.
 """
+
 import argparse
 import json
 import resource
@@ -33,23 +34,29 @@ def make_runner(backend: str, threads: int, model_name: str):
     if backend == "torch_fp32":
         import torch
         from gfpgan_model import load_gfpgan
+
         torch.set_num_threads(threads)
         model = load_gfpgan(static_modconv=model_name.endswith("s"))
 
         def run(x):
             with torch.no_grad():
                 return model(torch.from_numpy(x)[None]).numpy()[0]
+
         return run
 
     if backend == "ort_fp32":
         import onnxruntime as ort
+
         so = ort.SessionOptions()
         so.intra_op_num_threads = threads
-        sess = ort.InferenceSession(str(MODELS / f"{model_name}.onnx"), so, providers=["CPUExecutionProvider"])
+        sess = ort.InferenceSession(
+            str(MODELS / f"{model_name}.onnx"), so, providers=["CPUExecutionProvider"]
+        )
         return lambda x: sess.run(None, {"input": x[None]})[0][0]
 
     if backend.startswith("ncnn_"):
         import ncnn
+
         _, dev, prec = backend.split("_")
         net = ncnn.Net()
         fp16 = prec == "fp16"
@@ -58,6 +65,7 @@ def make_runner(backend: str, threads: int, model_name: str):
         net.opt.use_fp16_arithmetic = fp16
         net.opt.num_threads = threads
         import os
+
         lowmem = os.environ.get("NCNN_LOWMEM", "")
         if "nowino" in lowmem:
             net.opt.use_winograd_convolution = False
@@ -76,6 +84,7 @@ def make_runner(backend: str, threads: int, model_name: str):
             ex.input("in0", ncnn.Mat(x).clone())
             _, out = ex.extract("out0")
             return np.array(out).copy()
+
         return run
 
     raise SystemExit(f"unknown backend {backend}")
@@ -84,9 +93,13 @@ def make_runner(backend: str, threads: int, model_name: str):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("backend")
-    ap.add_argument("--runs", type=int, default=3, help="timed runs on the first face (after 1 warm-up)")
+    ap.add_argument(
+        "--runs", type=int, default=3, help="timed runs on the first face (after 1 warm-up)"
+    )
     ap.add_argument("--threads", type=int, default=8)
-    ap.add_argument("--model", default="gfpgan14", help="gfpgan14 (original) or gfpgan14s (static modconv)")
+    ap.add_argument(
+        "--model", default="gfpgan14", help="gfpgan14 (original) or gfpgan14s (static modconv)"
+    )
     args = ap.parse_args()
 
     paths, batch = load_faces()
@@ -107,7 +120,10 @@ def main() -> None:
     outputs = np.stack([run(x) for x in batch]).astype(np.float32)
     RESULTS.mkdir(parents=True, exist_ok=True)
     import os
-    tag = f"{args.model}__{args.backend}" + (f"__{os.environ['NCNN_LOWMEM']}" if os.environ.get("NCNN_LOWMEM") else "")
+
+    tag = f"{args.model}__{args.backend}" + (
+        f"__{os.environ['NCNN_LOWMEM']}" if os.environ.get("NCNN_LOWMEM") else ""
+    )
     np.save(RESULTS / f"{tag}.npy", outputs)
     stats = {
         "model": args.model,

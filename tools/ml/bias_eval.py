@@ -2,14 +2,16 @@
 """Per-subgroup quality of the face packs (ML-BIAS-001, TEST-ML-008): how well a restored face
 keeps the person's identity, by skin tone, age, gender and head pose.
 
-  <venv>/bin/python tools/ml/bias_eval.py WORK_DIR [--per-group 100] [--packs face.gfpgan-1.4,face.codeformer]
+  <venv>/bin/python tools/ml/bias_eval.py WORK_DIR [--per-group 100] \
+      [--packs face.gfpgan-1.4,face.codeformer]
 
 Data: FairFace validation (CC BY 4.0, Kärkkäinen & Joo 2021) from Hugging Face, sampled evenly
-over its 7 race groups (seeded). Each face (448 px crop, ~200 px face) is degraded as an old/small photo would be
-(×4 down, Gaussian noise σ 6, JPEG q 50), brought back to the 512 px aligned crop the app feeds
-the face model, restored with the **shipped ncnn packs** (ncnn CPU defaults, from the signed
-manifest's URLs; one pack per run, results merged by face), and compared with the original by ArcFace cosine similarity (insightface w600k_r50 from
-buffalo_l: research-only weights, used here for evaluation, never shipped).
+over its 7 race groups (seeded). Each face (448 px crop, ~200 px face) is degraded as an
+old/small photo would be (×4 down, Gaussian noise σ 6, JPEG q 50), brought back to the 512 px
+aligned crop the app feeds the face model, restored with the **shipped ncnn packs** (ncnn CPU
+defaults, from the signed manifest's URLs; one pack per run, results merged by face), and
+compared with the original by ArcFace cosine similarity (insightface w600k_r50 from buffalo_l:
+research-only weights, used here for evaluation, never shipped).
 
 Subgroups:
 - skin tone: the Monk scale (MST 1..10) estimated from the individual typology angle (ITA) of
@@ -21,23 +23,52 @@ Glasses are not annotated in FairFace and are not reported.
 Writes WORK_DIR/bias.json and prints a Markdown table per pack.
 Needs numpy, opencv (FaceDetectorYN), onnxruntime, ncnn, pyarrow, pillow.
 """
-import argparse, hashlib, io, json, math, pathlib, sys, urllib.request, zipfile
+
+import argparse
+import hashlib
+import io
+import json
+import math
+import pathlib
+import sys
+import urllib.request
+import zipfile
 
 import cv2
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-FAIRFACE = "https://huggingface.co/api/datasets/HuggingFaceM4/FairFace/parquet/1.25/validation/0.parquet"
+FAIRFACE = (
+    "https://huggingface.co/api/datasets/HuggingFaceM4/FairFace/parquet/1.25/validation/0.parquet"
+)
 ARCFACE_ZIP = "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip"
 YUNET = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
 # Report order; the parquet's own class names map its integer labels (read from its metadata).
-RACES = ["White", "Black", "Latino_Hispanic", "East Asian", "Southeast Asian", "Indian", "Middle Eastern"]
+RACES = [
+    "White",
+    "Black",
+    "Latino_Hispanic",
+    "East Asian",
+    "Southeast Asian",
+    "Indian",
+    "Middle Eastern",
+]
 AGES = ["0-2", "3-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "more than 70"]
 # FFHQ-512 alignment template (5 points), as the core uses (pipeline/faces.cpp).
-FFHQ = np.array([[192.98, 239.95], [318.90, 240.19], [256.63, 314.02], [201.26, 371.41],
-                 [313.09, 371.15]], np.float32)
-ARC = np.array([[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366], [41.5493, 92.3655],
-                [70.7299, 92.2041]], np.float32)
+FFHQ = np.array(
+    [[192.98, 239.95], [318.90, 240.19], [256.63, 314.02], [201.26, 371.41], [313.09, 371.15]],
+    np.float32,
+)
+ARC = np.array(
+    [
+        [38.2946, 51.6963],
+        [73.5318, 51.5014],
+        [56.0252, 71.7366],
+        [41.5493, 92.3655],
+        [70.7299, 92.2041],
+    ],
+    np.float32,
+)
 
 
 def fetch(url: str, dst: pathlib.Path) -> pathlib.Path:
@@ -60,8 +91,8 @@ def ita_monk(img: np.ndarray, lm: np.ndarray) -> tuple[float, int]:
         r = max(2, int(0.08 * abs(lm[1, 0] - lm[0, 0])))
         patch = (slice(max(cy - r, 0), cy + r), slice(max(cx - r, 0), cx + r))
         vals.append((np.median(L[patch]), np.median(b[patch])))
-    l, bb = np.mean(vals, axis=0)
-    ita = math.degrees(math.atan2(l - 50, bb if abs(bb) > 1e-3 else 1e-3))
+    lum, bb = np.mean(vals, axis=0)
+    ita = math.degrees(math.atan2(lum - 50, bb if abs(bb) > 1e-3 else 1e-3))
     # ITA bands (Chardon 1991) spread over MST 1..10: > 55 very light ... < -30 dark.
     edges = [55, 48, 41, 28, 19, 10, 0, -15, -30]
     return ita, 1 + sum(ita < e for e in edges)
@@ -91,17 +122,22 @@ def similarity(src, dst):
 
 
 def warp(img, lm, tmpl, size):
-    return cv2.warpAffine(img, similarity(lm, tmpl), (size, size), borderMode=cv2.BORDER_REFLECT_101)
+    return cv2.warpAffine(
+        img, similarity(lm, tmpl), (size, size), borderMode=cv2.BORDER_REFLECT_101
+    )
 
 
 class Arc:
     def __init__(self, work):
         import onnxruntime as ort
+
         z = fetch(ARCFACE_ZIP, work / "buffalo_l.zip")
         with zipfile.ZipFile(z) as f:
             name = next(n for n in f.namelist() if n.endswith("w600k_r50.onnx"))
             (work / "w600k_r50.onnx").write_bytes(f.read(name))
-        self.s = ort.InferenceSession(str(work / "w600k_r50.onnx"), providers=["CPUExecutionProvider"])
+        self.s = ort.InferenceSession(
+            str(work / "w600k_r50.onnx"), providers=["CPUExecutionProvider"]
+        )
 
     def emb(self, face112):
         x = (face112.astype(np.float32) - 127.5) / 127.5
@@ -114,6 +150,7 @@ class Pack:
 
     def __init__(self, pid, work):
         import ncnn
+
         m = json.loads((ROOT / "tools/models/manifest.json").read_text(encoding="utf-8"))
         p = next(x for x in m["packs"] if x["id"] == pid)
         d = work / pid
@@ -123,7 +160,7 @@ class Pack:
             assert hashlib.sha256(dst.read_bytes()).hexdigest() == f["sha256"], f["path"]
         self.split = (d / "encoder.ncnn.param").exists()
         self.nets = []
-        for name in (["encoder", "generator"] if self.split else ["model"]):
+        for name in ["encoder", "generator"] if self.split else ["model"]:
             n = ncnn.Net()
             n.opt.use_vulkan_compute = False
             n.load_param(str(d / f"{name}.ncnn.param"))
@@ -154,7 +191,9 @@ def degrade(img, rng):
     h, w = img.shape[:2]
     small = cv2.resize(img, (w // 4, h // 4), interpolation=cv2.INTER_AREA).astype(np.float32)
     small = np.clip(small + rng.normal(0, 6, small.shape), 0, 255).astype(np.uint8)
-    ok, enc = cv2.imencode(".jpg", cv2.cvtColor(small, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 50])
+    ok, enc = cv2.imencode(
+        ".jpg", cv2.cvtColor(small, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 50]
+    )
     lq = cv2.cvtColor(cv2.imdecode(enc, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     return cv2.resize(lq, (w, h), interpolation=cv2.INTER_CUBIC)
 
@@ -204,8 +243,15 @@ def main() -> int:
             lq512 = warp(lq, lm, FFHQ, 512)
             # In the 512 crop the landmarks sit on the FFHQ template: FFHQ -> ArcFace 112.
             base = float(arc.emb(warp(lq512, FFHQ, ARC, 112)) @ ref)
-            r = {"race": race, "age": names["age"][it["age"]], "gender": names["gender"][it["gender"]],
-                 "ita": round(ita, 1), "mst": mst, "pose": pose(lm), "lq": round(base, 4)}
+            r = {
+                "race": race,
+                "age": names["age"][it["age"]],
+                "gender": names["gender"][it["gender"]],
+                "ita": round(ita, 1),
+                "mst": mst,
+                "pose": pose(lm),
+                "lq": round(base, 4),
+            }
             for pid, pk in packs.items():
                 out = pk.restore(lq512)
                 r[pid] = round(float(arc.emb(warp(out, FFHQ, ARC, 112)) @ ref), 4)
@@ -221,8 +267,10 @@ def main() -> int:
     for f in sorted(work.glob("bias-*.json")):
         for i, r in enumerate(json.loads(f.read_text())):
             merged.setdefault(i, {}).update(r)
-    allpacks = sorted({k for r in merged.values() for k in r if k.startswith("face.")},
-                      key=lambda k: (k.split("@")[0], "@" in k))
+    allpacks = sorted(
+        {k for r in merged.values() for k in r if k.startswith("face.")},
+        key=lambda k: (k.split("@")[0], "@" in k),
+    )
     report([merged[i] for i in sorted(merged) if all(p in merged[i] for p in allpacks)], allpacks)
     return 0
 
@@ -238,15 +286,20 @@ def report(rows, packs):
             cells += [f"{np.mean([r[p] for r in sel]):.3f}" for p in packs]
             out.append(f"| {key}: {g} | {len(sel)} | " + " | ".join(cells) + " |")
         return out
+
     mst_bands = {r["mst"] for r in rows}
-    lines = ["| Group | n | degraded input | " + " | ".join(packs) + " |",
-             "|---|---|---|" + "---|" * len(packs)]
+    lines = [
+        "| Group | n | degraded input | " + " | ".join(packs) + " |",
+        "|---|---|---|" + "---|" * len(packs),
+    ]
     lines += group("race", RACES)
     lines += group("mst", sorted(mst_bands))
     lines += group("age", AGES)
     lines += group("gender", ["Male", "Female"])
     lines += group("pose", ["frontal", "three-quarter", "profile"])
-    allc = [f"{np.mean([r['lq'] for r in rows]):.3f}"] + [f"{np.mean([r[p] for r in rows]):.3f}" for p in packs]
+    allc = [f"{np.mean([r['lq'] for r in rows]):.3f}"] + [
+        f"{np.mean([r[p] for r in rows]):.3f}" for p in packs
+    ]
     lines.append(f"| all | {len(rows)} | " + " | ".join(allc) + " |")
     print("\n".join(lines))
 

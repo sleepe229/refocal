@@ -10,11 +10,19 @@ usage; pinned by SHA-256 below), saved by Pillow (IJG tables, 4:2:0) at each qua
 goes through refocal-cli at scale 1 (SR x4, area /4: the size stays) twice: the plain pipeline
 and the same with --jpeg-model jpeg.fbcnn, the QF read from the file's own tables as in the app.
 Both are compared with the original by PSNR / SSIM (Y) and scored without a reference by MUSIQ,
-CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA of the cleanup >= the plain pipeline (S9).
+CLIP-IQA and MANIQA (pyiqa; --no-iqa skips them). Exit: NR-IQA of the cleanup >= the plain
+pipeline (S9).
 
 Writes WORK_DIR/jpeg.json and prints a Markdown table. Needs numpy, pillow (pyiqa, torch).
 """
-import argparse, hashlib, json, pathlib, subprocess, sys, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+import urllib.request
 
 import numpy as np
 from PIL import Image
@@ -76,10 +84,32 @@ def ssim(a: np.ndarray, b: np.ndarray) -> float:
     return float(s.mean())
 
 
-def run(cli: str, models: str, work: pathlib.Path, src: pathlib.Path, out: pathlib.Path,
-        extra: list[str]) -> float:
-    cmd = [cli, "run", "--models", models, "--work", str(work / "jobs"), "--input", str(src),
-           "--out", str(out), "--scale", "1", "--backend", "cpu", "--job-id", out.stem]
+def run(
+    cli: str,
+    models: str,
+    work: pathlib.Path,
+    src: pathlib.Path,
+    out: pathlib.Path,
+    extra: list[str],
+) -> float:
+    cmd = [
+        cli,
+        "run",
+        "--models",
+        models,
+        "--work",
+        str(work / "jobs"),
+        "--input",
+        str(src),
+        "--out",
+        str(out),
+        "--scale",
+        "1",
+        "--backend",
+        "cpu",
+        "--job-id",
+        out.stem,
+    ]
     cmd += extra
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
@@ -100,7 +130,9 @@ def main() -> None:
         (work / d).mkdir(parents=True, exist_ok=True)
     iqa = None
     if not a.no_iqa:
-        import pyiqa, torch
+        import pyiqa
+        import torch
+
         iqa = {m: pyiqa.create_metric(m, device=torch.device("cpu")) for m in NR_METRICS}
 
     rows = []
@@ -111,12 +143,20 @@ def main() -> None:
             Image.open(src).convert("RGB").save(jpg, quality=q)
             ref = luma(src)
             row = {"image": name, "quality": q}
-            for kind, path in [("input", jpg),
-                               ("plain", work / "out" / f"kodim{name}_q{q}_plain.png"),
-                               ("jpeg", work / "out" / f"kodim{name}_q{q}_jpeg.png")]:
+            for kind, path in [
+                ("input", jpg),
+                ("plain", work / "out" / f"kodim{name}_q{q}_plain.png"),
+                ("jpeg", work / "out" / f"kodim{name}_q{q}_jpeg.png"),
+            ]:
                 if kind != "input":
-                    row[f"{kind}_s"] = run(a.cli, a.models, work, jpg, path,
-                                         ["--jpeg-model", "jpeg.fbcnn"] if kind == "jpeg" else [])
+                    row[f"{kind}_s"] = run(
+                        a.cli,
+                        a.models,
+                        work,
+                        jpg,
+                        path,
+                        ["--jpeg-model", "jpeg.fbcnn"] if kind == "jpeg" else [],
+                    )
                 y = luma(path)
                 row[f"{kind}_psnr"], row[f"{kind}_ssim"] = psnr(ref, y), ssim(ref, y)
                 if iqa is not None:
@@ -128,17 +168,27 @@ def main() -> None:
     (work / "jpeg.json").write_text(json.dumps(rows, indent=1))
     kinds = ["input", "plain", "jpeg"]
     metrics = ["psnr", "ssim"] + ([] if iqa is None else NR_METRICS)
-    print("\n| Quality | " + " | ".join(f"{m.upper()} {k}" for m in metrics for k in kinds) +
-          " | s plain | s jpeg |")
+    print(
+        "\n| Quality | "
+        + " | ".join(f"{m.upper()} {k}" for m in metrics for k in kinds)
+        + " | s plain | s jpeg |"
+    )
     print("|---" * (1 + len(metrics) * len(kinds) + 2) + "|")
     ok = True
     for q in sorted({r["quality"] for r in rows}):
         rs = [r for r in rows if r["quality"] == q]
-        mean = lambda k: sum(r[k] for r in rs) / len(rs)
-        cells = [f"{mean(f'{k}_{m}'):.3f}" if m == "ssim" else f"{mean(f'{k}_{m}'):.2f}"
-                 for m in metrics for k in kinds]
-        print(f"| {q} | " + " | ".join(cells) +
-              f" | {mean('plain_s'):.1f} | {mean('jpeg_s'):.1f} |")
+
+        def mean(k, rs=rs):
+            return sum(r[k] for r in rs) / len(rs)
+
+        cells = [
+            f"{mean(f'{k}_{m}'):.3f}" if m == "ssim" else f"{mean(f'{k}_{m}'):.2f}"
+            for m in metrics
+            for k in kinds
+        ]
+        print(
+            f"| {q} | " + " | ".join(cells) + f" | {mean('plain_s'):.1f} | {mean('jpeg_s'):.1f} |"
+        )
         if iqa is not None and not nr_ok(mean, "jpeg", "plain"):
             ok = False
     if not ok:

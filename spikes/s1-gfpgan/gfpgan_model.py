@@ -3,6 +3,7 @@
 The upstream architecture (third_party/GFPGAN, Apache-2.0) imports two tiny helpers
 from basicsr; we stub them so the spike depends only on torch.
 """
+
 import sys
 import types
 from pathlib import Path
@@ -47,7 +48,8 @@ def _install_basicsr_stubs() -> None:
 
 def _import_clean_arch():
     _install_basicsr_stubs()
-    # Import the arch modules directly, bypassing gfpgan/__init__.py (which pulls in basicsr/facexlib).
+    # Import the arch modules directly, bypassing gfpgan/__init__.py (which pulls in
+    # basicsr/facexlib).
     import importlib.util
 
     pkg = types.ModuleType("gfpgan_archs")
@@ -96,7 +98,9 @@ def _patch_static_modconv(net: nn.Module) -> int:
     n = 0
     for m in net.modules():
         if isinstance(m, mod_cls):
-            m.register_buffer("weight_sq", m.weight[0].detach().pow(2).sum([2, 3]), persistent=False)
+            m.register_buffer(
+                "weight_sq", m.weight[0].detach().pow(2).sum([2, 3]), persistent=False
+            )
             m.forward = types.MethodType(_static_modconv_forward, m)
             n += 1
     return n

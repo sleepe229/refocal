@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Final S3 runs (after run_detection.sh): garbage -> gpu_fp32 routing, app-like probe, budget guard.
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 P=build/refocal-probe
 L="flock /tmp/refocal-bench.lock"
 rm -rf data/runs/garbage2

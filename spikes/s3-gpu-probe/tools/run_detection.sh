@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # S3 detection experiments (desktop). Every timed run is serialized with the shared bench lock.
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 P=build/refocal-probe
 L="flock /tmp/refocal-bench.lock"
 mkdir -p data/runs

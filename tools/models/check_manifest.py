@@ -8,7 +8,17 @@ MODELS.md row for every pack and every bundled model (ML-REG-001, TEST-COMP-004)
 
 GitHub release URLs of this (private) repository are fetched with `gh release download`.
 """
-import argparse, hashlib, json, pathlib, re, subprocess, sys, tempfile, time, urllib.request
+
+import argparse
+import hashlib
+import json
+import pathlib
+import re
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GH = re.compile(r"^https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/(.+)$")
@@ -19,9 +29,23 @@ def fetch(url: str, dst: pathlib.Path, attempts: int = 3) -> None:
         try:
             m = GH.match(url)
             if m:
-                subprocess.run(["gh", "release", "download", m[2], "--repo", m[1], "--pattern",
-                                m[3], "--output", str(dst), "--clobber"], check=True,
-                               capture_output=True)
+                subprocess.run(
+                    [
+                        "gh",
+                        "release",
+                        "download",
+                        m[2],
+                        "--repo",
+                        m[1],
+                        "--pattern",
+                        m[3],
+                        "--output",
+                        str(dst),
+                        "--clobber",
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
             else:
                 with urllib.request.urlopen(url, timeout=60) as r, open(dst, "wb") as f:
                     while chunk := r.read(1 << 16):
@@ -29,7 +53,7 @@ def fetch(url: str, dst: pathlib.Path, attempts: int = 3) -> None:
             return
         except (subprocess.CalledProcessError, OSError) as e:
             if i + 1 == attempts:
-                raise SystemExit(f"cannot download {url}: {e}")
+                raise SystemExit(f"cannot download {url}: {e}") from e
             time.sleep(2 * (i + 1))
 
 
@@ -45,7 +69,9 @@ def unregistered(m: dict) -> list[str]:
     """Pack and bundled model ids without a `| `id` |` row in MODELS.md."""
     rows = set(re.findall(r"^\| `([^`]+)` \|", (ROOT / "MODELS.md").read_text(), re.M))
     lock = (ROOT / "tools/models/models.lock").read_text().splitlines()
-    ids = [p["id"] for p in m["packs"]] + [l.split()[0] for l in lock if l.strip() and l[0] != "#"]
+    ids = [p["id"] for p in m["packs"]] + [
+        line.split()[0] for line in lock if line.strip() and line[0] != "#"
+    ]
     return sorted({i for i in ids if i not in rows})
 
 
@@ -54,6 +80,7 @@ def main() -> int:
     ap.add_argument("--published")
     a = ap.parse_args()
     import jsonschema
+
     schema = json.loads((ROOT / "docs/spec/appendix/manifest.schema.json").read_text())
     m = json.loads((ROOT / "tools/models/manifest.json").read_text())
     jsonschema.validate(m, schema)
