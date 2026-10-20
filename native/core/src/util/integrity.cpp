@@ -24,7 +24,7 @@ File open(const std::string& path) {
 
 // Streams [path] into [sink] in 64 KiB blocks.
 template <class Sink>
-int64_t stream(const std::string& path, Sink&& sink) {
+int64_t stream(const std::string& path, const Sink& sink) {
   File f = open(path);
   std::vector<uint8_t> buf(size_t(1) << 16);
   int64_t total = 0;
@@ -76,8 +76,9 @@ std::vector<uint8_t> base64_decode(const std::string& s) {
       if (c == '=' && i + 4 == s.size() && k >= 2) {
         v[k] = 0;
         ++pad;
-      } else if (pad > 0 || (v[k] = b64(c)) < 0) {
-        fail(ENH_E_INVALID, "bad base64");
+      } else {
+        v[k] = pad > 0 ? -1 : b64(c);
+        if (v[k] < 0) fail(ENH_E_INVALID, "bad base64");
       }
     }
     const uint32_t x =
@@ -104,7 +105,7 @@ void verify_file_sha256(const std::string& path, const std::string& sha256_hex) 
 MinisignKey parse_minisign_key(const std::string& base64) {
   const auto raw = base64_decode(base64);
   if (raw.size() != 42 || raw[0] != 'E' || raw[1] != 'd') fail(ENH_E_INVALID, "not a minisign key");
-  MinisignKey k;
+  MinisignKey k{};
   std::memcpy(k.id, raw.data() + 2, 8);
   std::memcpy(k.key, raw.data() + 10, 32);
   return k;
@@ -130,7 +131,7 @@ std::string verify_minisign(const std::string& msg_path, const std::string& sig,
   if (!key) fail(ENH_E_SIGNATURE, "signed with an unknown key");
   const uint8_t* signature = s.data() + 10;
 
-  bool ok;
+  bool ok = false;
   if (prehashed) {
     crypto_blake2b_ctx ctx;
     crypto_blake2b_init(&ctx, 64);

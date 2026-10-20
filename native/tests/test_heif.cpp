@@ -18,7 +18,15 @@ using namespace heif_fixture;
 
 namespace {
 
-const Bytes kTile2(100, 0xA2), kTile3(57, 0xB3);
+// Function statics: built on first use, not before main (cert-err58-cpp).
+const Bytes& tile2() {
+  static const Bytes b(100, 0xA2);
+  return b;
+}
+const Bytes& tile3() {
+  static const Bytes b(57, 0xB3);
+  return b;
+}
 
 OutputMeta sample_meta() {
   OutputMeta m;
@@ -40,17 +48,17 @@ bool throws_invalid(const Bytes& b) {
 }  // namespace
 
 TEST("synthetic input reads back as written") {
-  const Bytes in = make_heif(kTile2, kTile3);
+  const Bytes in = make_heif(tile2(), tile3());
   const auto info = heif_read_meta(in.data(), in.size());
   CHECK_EQ(info.primary, 1u);
   CHECK_EQ(info.items, size_t(2));
   CHECK(info.icc.empty() && info.exif_tiff.empty() && info.xmp.empty());
-  CHECK(heif_item_data(in.data(), in.size(), 2) == kTile2);
-  CHECK(heif_item_data(in.data(), in.size(), 3) == kTile3);
+  CHECK(heif_item_data(in.data(), in.size(), 2) == tile2());
+  CHECK(heif_item_data(in.data(), in.size(), 3) == tile3());
 }
 
 TEST("ICC, EXIF and XMP attached; tiles still resolve") {
-  const Bytes in = make_heif(kTile2, kTile3);
+  const Bytes in = make_heif(tile2(), tile3());
   const OutputMeta m = sample_meta();
   const Bytes out = heif_attach_meta(in, m);
   const auto info = heif_read_meta(out.data(), out.size());
@@ -60,15 +68,15 @@ TEST("ICC, EXIF and XMP attached; tiles still resolve") {
   CHECK_EQ(info.xmp, m.xmp);
   CHECK_EQ(info.items, size_t(4));
   CHECK_EQ(info.icc_items, (std::vector<uint32_t>{1, 2, 3}));
-  CHECK(heif_item_data(out.data(), out.size(), 2) == kTile2);
-  CHECK(heif_item_data(out.data(), out.size(), 3) == kTile3);
+  CHECK(heif_item_data(out.data(), out.size(), 2) == tile2());
+  CHECK(heif_item_data(out.data(), out.size(), 3) == tile3());
   // ftyp and mdat are copied as they were.
   CHECK(std::equal(in.begin(), in.begin() + 24, out.begin()));
   CHECK(std::equal(in.end() - 165, in.end(), out.end() - 165));
 }
 
 TEST("attaching again replaces, not duplicates") {
-  const Bytes once = heif_attach_meta(make_heif(kTile2, kTile3), sample_meta());
+  const Bytes once = heif_attach_meta(make_heif(tile2(), tile3()), sample_meta());
   OutputMeta m2 = sample_meta();
   m2.icc = Bytes(200, 0x22);
   m2.xmp = "<x:xmpmeta>second</x:xmpmeta>";
@@ -78,24 +86,24 @@ TEST("attaching again replaces, not duplicates") {
   CHECK_EQ(info.xmp, m2.xmp);
   CHECK_EQ(info.items, size_t(4));  // 2 tiles + new Exif + new XMP
   CHECK_EQ(info.icc_items, (std::vector<uint32_t>{1, 2, 3}));
-  CHECK(heif_item_data(twice.data(), twice.size(), 3) == kTile3);
+  CHECK(heif_item_data(twice.data(), twice.size(), 3) == tile3());
 }
 
 TEST("only what is given is written") {
   OutputMeta m;
   m.xmp = "<x/>";
-  const Bytes out = heif_attach_meta(make_heif(kTile2, kTile3), m);
+  const Bytes out = heif_attach_meta(make_heif(tile2(), tile3()), m);
   const auto info = heif_read_meta(out.data(), out.size());
   CHECK(info.icc.empty() && info.icc_items.empty() && info.exif_tiff.empty());
   CHECK_EQ(info.xmp, std::string("<x/>"));
-  CHECK(heif_item_data(out.data(), out.size(), 2) == kTile2);
+  CHECK(heif_item_data(out.data(), out.size(), 2) == tile2());
 }
 
 TEST("moov, truncation and garbage are refused, never crash") {
-  CHECK(throws_invalid(make_heif(kTile2, kTile3, true)));
+  CHECK(throws_invalid(make_heif(tile2(), tile3(), true)));
   CHECK(throws_invalid(Bytes{}));
   CHECK(throws_invalid(Bytes(64, 0xFF)));
-  const Bytes in = make_heif(kTile2, kTile3);
+  const Bytes in = make_heif(tile2(), tile3());
   // A property box of size 0 ("to the end of ipco") would swallow the appended colr (fuzzer).
   Bytes zero = in;
   const Bytes nclx = {'c', 'o', 'l', 'r', 'n', 'c', 'l', 'x'};
@@ -111,7 +119,8 @@ TEST("moov, truncation and garbage are refused, never crash") {
   for (size_t n = 32; n < in.size() - 165; n += 7) {
     try {
       (void)heif_attach_meta(Bytes(in.data(), in.data() + n), sample_meta());
-    } catch (const Error&) {
+    } catch (const Error& e) {
+      CHECK(e.status() == ENH_E_INVALID);  // a cut file is refused, never accepted half-read
     }
   }
 }
@@ -119,7 +128,7 @@ TEST("moov, truncation and garbage are refused, never crash") {
 TEST("a uuid box in iref is refused (it would be written back without its usertype)") {
   // fuzz-ga (heif shard 4): attaching kept the reference but dropped the 16-byte usertype, and
   // the result no longer parsed. The dimg reference becomes a uuid box of the same content.
-  Bytes in = make_heif(kTile2, kTile3);
+  Bytes in = make_heif(tile2(), tile3());
   auto be32 = [&](size_t at) {
     return uint32_t(in[at]) << 24 | uint32_t(in[at + 1]) << 16 | uint32_t(in[at + 2]) << 8 |
            in[at + 3];
@@ -152,7 +161,7 @@ TEST("a uuid box in iref is refused (it would be written back without its userty
 // [seed_dir]: also writes the synthetic file before and after attaching (fuzz seed corpus).
 int main(int argc, char** argv) {
   if (argc > 1) {
-    const Bytes in = make_heif(kTile2, kTile3);
+    const Bytes in = make_heif(tile2(), tile3());
     const Bytes out = heif_attach_meta(in, sample_meta());
     for (const auto& [name, b] : {std::pair{"grid.heic", in}, std::pair{"grid-meta.heic", out}}) {
       FILE* f = std::fopen((std::string(argv[1]) + "/" + name).c_str(), "wb");

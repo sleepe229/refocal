@@ -13,7 +13,7 @@
 namespace enh {
 
 // Severity order matters: merge() keeps the strongest action.
-enum class Action { None = 0, GpuFp32 = 1, Cpu = 2, Disable = 3 };
+enum class Action : uint8_t { None = 0, GpuFp32 = 1, Cpu = 2, Disable = 3 };
 
 const char* action_name(Action a);
 std::optional<Action> parse_action(const std::string& s);

@@ -49,6 +49,10 @@ struct Demux {
     d = WebPDemux(&wd);
   }
   ~Demux() { WebPDemuxDelete(d); }
+  Demux(const Demux&) = delete;
+  Demux& operator=(const Demux&) = delete;
+  Demux(Demux&&) = delete;
+  Demux& operator=(Demux&&) = delete;
 };
 
 }  // namespace
@@ -204,14 +208,19 @@ void WebpWriter::finish() {
   const WebPEncodingError err = pic.error_code;
   WebPPictureFree(&pic);
   struct Out {
-    WebPMemoryWriter* mw;
+    WebPMemoryWriter* mw = nullptr;
     WebPData assembled{};
     WebPMux* mux = nullptr;
+    explicit Out(WebPMemoryWriter* w) : mw(w) {}
     ~Out() {
       WebPMemoryWriterClear(mw);
       WebPDataClear(&assembled);
       WebPMuxDelete(mux);
     }
+    Out(const Out&) = delete;
+    Out& operator=(const Out&) = delete;
+    Out(Out&&) = delete;
+    Out& operator=(Out&&) = delete;
   } out{&mw};
   if (!ok) {
     fail(err == VP8_ENC_ERROR_OUT_OF_MEMORY || err == VP8_ENC_ERROR_BITSTREAM_OUT_OF_MEMORY

@@ -18,6 +18,9 @@ linter:
     - close_sinks
     - discarded_futures
     - literal_only_boolean_expressions
+    # Two string literals in a row inside a list are one element. A missing comma
+    # between list items looks the same, so concatenation has to be written with '+'.
+    - no_adjacent_strings_in_list
     - prefer_final_locals
     - prefer_final_in_for_each
     - test_types_in_equals

@@ -32,8 +32,10 @@ Rgb8 resize_bilinear(const Rgb8& src, int w, int h) {
       const int x0 = int(fx), x1 = std::min(x0 + 1, src.w - 1);
       const float ax = fx - float(x0);
       for (int c = 0; c < 3; ++c) {
-        const float top = src.row(y0)[x0 * 3 + c] * (1 - ax) + src.row(y0)[x1 * 3 + c] * ax;
-        const float bot = src.row(y1)[x0 * 3 + c] * (1 - ax) + src.row(y1)[x1 * 3 + c] * ax;
+        const float top =
+            float(src.row(y0)[x0 * 3 + c]) * (1 - ax) + float(src.row(y0)[x1 * 3 + c]) * ax;
+        const float bot =
+            float(src.row(y1)[x0 * 3 + c]) * (1 - ax) + float(src.row(y1)[x1 * 3 + c]) * ax;
         out.row(y)[x * 3 + c] = uint8_t(std::lround(top * (1 - ay) + bot * ay));
       }
     }
@@ -231,9 +233,9 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
         const float k = mask.at(sx, sy) ? 0.f : 1.f;
         const uint8_t* p = row + sz(sx) * 3;
         m[xx] = k - 0.5f;
-        r[xx] = (p[0] * (2.f / 255.f) - 1.f) * k;
-        gr[xx] = (p[1] * (2.f / 255.f) - 1.f) * k;
-        bl[xx] = (p[2] * (2.f / 255.f) - 1.f) * k;
+        r[xx] = (float(p[0]) * (2.f / 255.f) - 1.f) * k;
+        gr[xx] = (float(p[1]) * (2.f / 255.f) - 1.f) * k;
+        bl[xx] = (float(p[2]) * (2.f / 255.f) - 1.f) * k;
       }
     }
     ncnn::Mat o;
@@ -250,7 +252,7 @@ Rgb8 inpaint(InferenceBackend& be, const Rgb8& img, const Mask8& mask,
         const float a = float(kw) * (1.f / 255.f);
         for (int c = 0; c < 3; ++c) {
           const float fill = std::clamp(o.channel(c).row(yy)[xx] * 0.5f + 0.5f, 0.f, 1.f) * 255.f;
-          dst[x * 3 + c] = uint8_t(std::lround(src[x * 3 + c] * a + fill * (1 - a)));
+          dst[x * 3 + c] = round_u8(float(src[x * 3 + c]) * a + fill * (1 - a));
         }
       }
     }

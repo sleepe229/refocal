@@ -6,16 +6,16 @@
 # input, export metadata), test_codecs (PNG/WebP, metaio EXIF rewrite + mutation fuzz).
 # clang-format check; libFuzzer targets 5 min (fuzz job, 1 h in nightly.yml).
 # Golden on the real model (TEST-ML-001, test_golden: ncnn CPU vs PyTorch fp32).
-# TODO(0.1): clang-tidy, license check, size gate,
+# clang-tidy (native job). TODO(0.1): license check, size gate,
 # iOS build without signing (needs enh.xcframework, see packages/refocal_ffi/ios).
 name: pr
 
+# No paths filter here: "ci-ok" is the required check of main and must report on every PR,
+# docs included. The "changes" job decides what runs.
 on:
   pull_request:
-    paths-ignore: ["docs/**", "**/*.md"]
   push:
     branches: [main]
-    paths-ignore: ["docs/**", "**/*.md"]
 
 permissions:
   contents: read
@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       native: ${{ steps.f.outputs.native }}
+      code: ${{ steps.f.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,9 +39,17 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then echo "native=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            { echo "native=true"; echo "code=true"; } >> "$GITHUB_OUTPUT"; exit 0
+          fi
           files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
           echo "$files"
+          # Anything but docs: the app, scripts and workflows are checked.
+          if echo "$files" | grep -qvE '^docs/|\.md$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
           if echo "$files" | grep -qE '^(native/|spikes/s6-ffi/|tools/refocal-cli/|tools/fuzz/|tools/models/|\.clang-format|\.github/workflows/pr\.yml|\.gitmodules)'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
@@ -49,6 +58,8 @@ jobs:
 
   # Scripts and workflows: shellcheck, ruff (lint + format, ruff.toml), actionlint.
   scripts:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -62,6 +73,8 @@ jobs:
         run: PATH="$HOME/.local/bin:$PATH" actionlint
 
   dart:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -206,8 +219,14 @@ jobs:
           -DENH_BUILD_TESTS=ON -DENH_BUILD_CLI=ON -DENH_SANITIZE=${{ matrix.sanitize }} -DENH_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           -DENH_NCNN_RUNTIME_CPU=OFF
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - run: cmake --build native/build-ci -j"$(nproc)"
+      - name: clang-tidy (native/.clang-tidy)
+        if: matrix.sanitize == ''
+        run: |
+          sudo apt-get install -y --no-install-recommends clang-tidy-18 >/dev/null
+          git ls-files 'native/core/src/*.cpp' 'native/tests/*.cpp' 'tools/refocal-cli/*.cpp' \
+            | xargs run-clang-tidy-18 -p native/build-ci -j "$(nproc)" -quiet -warnings-as-errors='*'
       - run: ctest --test-dir native/build-ci --output-on-failure
       - name: S6 event-bridge stress
         run: |
@@ -241,6 +260,8 @@ jobs:
           path: native/build-fuzz/findings
 
   android:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -336,3 +357,18 @@ jobs:
           name: apk-preview
           path: preview/*.apk
           retention-days: 14
+
+  # The one required check of main (branch ruleset): green only when every job above passed or
+  # was skipped by "changes". Jobs can be added or renamed without touching the ruleset.
+  ci-ok:
+    if: always()
+    needs: [changes, scripts, dart, native, fuzz, android]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) echo "::error::a job ended: $r"; exit 1 ;; esac
+          done

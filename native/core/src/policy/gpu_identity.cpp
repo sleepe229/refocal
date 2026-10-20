@@ -21,7 +21,7 @@ GpuIdentity gpu_identity(int index) {
   g.platform = "ios";
 #else
   g.platform = "linux";
-  utsname u;
+  utsname u{};
   if (uname(&u) == 0) g.os_version = u.release;
 #endif
 #if NCNN_VULKAN

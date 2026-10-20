@@ -30,6 +30,8 @@ class RgbaWriter {
   ~RgbaWriter();
   RgbaWriter(const RgbaWriter&) = delete;
   RgbaWriter& operator=(const RgbaWriter&) = delete;
+  RgbaWriter(RgbaWriter&&) = delete;
+  RgbaWriter& operator=(RgbaWriter&&) = delete;
   void write_rows(const uint8_t* rgb, int rows);
   void finish();
 
@@ -46,6 +48,8 @@ class PngWriter {
   ~PngWriter();
   PngWriter(const PngWriter&) = delete;
   PngWriter& operator=(const PngWriter&) = delete;
+  PngWriter(PngWriter&&) = delete;
+  PngWriter& operator=(PngWriter&&) = delete;
   void write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha = nullptr);
   void finish();
 
@@ -64,6 +68,8 @@ class WebpWriter {
   ~WebpWriter();
   WebpWriter(const WebpWriter&) = delete;
   WebpWriter& operator=(const WebpWriter&) = delete;
+  WebpWriter(WebpWriter&&) = delete;
+  WebpWriter& operator=(WebpWriter&&) = delete;
   void write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha = nullptr);
   void finish();
 

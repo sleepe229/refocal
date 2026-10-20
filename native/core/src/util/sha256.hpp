@@ -10,7 +10,7 @@ namespace enh {
 
 class Sha256 {
  public:
-  Sha256() { reset(); }
+  Sha256() { reset(); }  // members start zero; reset() writes the IV
   void reset() {
     static const uint32_t init[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
@@ -60,9 +60,12 @@ class Sha256 {
     if (!f) return {};
     Sha256 h;
     char buf[1 << 16];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) h.update(buf, n);
-    const bool ok = !ferror(f);  // fread() returns 0 on an error too: not the whole file
+    size_t n = sizeof(buf);
+    while (n == sizeof(buf)) {  // a short read is the end or an error: never read past it
+      n = fread(buf, 1, sizeof(buf), f);
+      h.update(buf, n);
+    }
+    const bool ok = !ferror(f);  // the end, not an error: the whole file
     (void)fclose(f);             // read only
     return ok ? h.hex() : std::string();
   }
@@ -117,9 +120,9 @@ class Sha256 {
     h_[6] += g;
     h_[7] += hh;
   }
-  uint32_t h_[8];
-  uint64_t len_;
-  uint8_t buf_[64];
-  size_t buf_len_;
+  uint32_t h_[8]{};
+  uint64_t len_ = 0;
+  uint8_t buf_[64]{};
+  size_t buf_len_ = 0;
 };
 }  // namespace enh

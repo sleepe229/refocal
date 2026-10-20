@@ -12,7 +12,7 @@
 
 namespace enh {
 
-enum Stage : int32_t {
+enum Stage : int32_t {  // NOLINT(performance-enum-size): the event wire format (int32)
   kStageQueued = 0,
   kStageDecode = 1,
   kStageUpscale = 2,

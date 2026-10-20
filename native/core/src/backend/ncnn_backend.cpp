@@ -125,6 +125,7 @@ class NcnnBackend final : public InferenceBackend {
     }
     std::vector<ncnn::Mat> outs;
     std::vector<const char*> out_names;
+    out_names.reserve(outputs.size());
     for (const auto& o : outputs) out_names.push_back(o.c_str());
     if (out_names.empty()) out_names = net_.output_names();
     for (const char* name : out_names) {

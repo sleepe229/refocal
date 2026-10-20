@@ -39,6 +39,8 @@ class JpegWriter {
   ~JpegWriter();
   JpegWriter(const JpegWriter&) = delete;
   JpegWriter& operator=(const JpegWriter&) = delete;
+  JpegWriter(JpegWriter&&) = delete;
+  JpegWriter& operator=(JpegWriter&&) = delete;
   void write_rows(const uint8_t* rgb, int rows);
   void finish();
 

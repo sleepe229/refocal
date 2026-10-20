@@ -65,9 +65,9 @@ std::vector<Face> detect_faces(InferenceBackend& yunet, const Rgb8& img, float m
                                float nms_iou) {
   if (img.w <= 0 || img.h <= 0) return {};
   const double s = std::min(1.0, double(kYunetSide) / std::max(img.w, img.h));
-  Rgb8 small =
-      s < 1 ? resize_area(img, std::max(1, int(img.w * s + 0.5)), std::max(1, int(img.h * s + 0.5)))
-            : img;
+  Rgb8 small = s < 1 ? resize_area(img, std::max(1, round_int(img.w * s, 0, img.w)),
+                                   std::max(1, round_int(img.h * s, 0, img.h)))
+                     : img;
   // BGR 0..255, padded to 640x640 at the right and bottom (zeros).
   ncnn::Mat in(kYunetSide, kYunetSide, 3);
   in.fill(0.f);
@@ -166,8 +166,10 @@ std::vector<Face> detect_small_faces(InferenceBackend& yunet, const Rgb8& img, f
           const int x0 = int(fx), x1 = std::min(x0 + 1, img.w - 1);
           const float ax = fx - float(x0);
           for (int c = 0; c < 3; ++c) {
-            const float top = img.row(y0)[x0 * 3 + c] * (1 - ax) + img.row(y0)[x1 * 3 + c] * ax;
-            const float bot = img.row(y1)[x0 * 3 + c] * (1 - ax) + img.row(y1)[x1 * 3 + c] * ax;
+            const float top =
+                float(img.row(y0)[x0 * 3 + c]) * (1 - ax) + float(img.row(y0)[x1 * 3 + c]) * ax;
+            const float bot =
+                float(img.row(y1)[x0 * 3 + c]) * (1 - ax) + float(img.row(y1)[x1 * 3 + c]) * ax;
             d[x * 3 + c] = uint8_t(std::lround(top * (1 - ay) + bot * ay));
           }
         }
@@ -266,7 +268,7 @@ Rgb8 warp_affine(const Rgb8& src, const Affine& m, int w, int h) {
   for (int y = 0; y < h; ++y) {
     uint8_t* o = out.row(y);
     for (int x = 0; x < w; ++x) {
-      double sx, sy;
+      double sx = 0, sy = 0;
       inv.apply(x, y, &sx, &sy);
       const int x0 = int(std::floor(sx)), y0 = int(std::floor(sy));
       const double fx = sx - x0, fy = sy - y0;
@@ -294,7 +296,7 @@ ncnn::Mat face_to_mat(const Rgb8& aligned) {
     const uint8_t* p = aligned.row(y);
     for (int ch = 0; ch < 3; ++ch) {
       float* d = in.channel(ch).row(y);
-      for (int x = 0; x < kFaceSide; ++x) d[x] = p[3 * x + ch] / 127.5f - 1.f;
+      for (int x = 0; x < kFaceSide; ++x) d[x] = float(p[3 * x + ch]) / 127.5f - 1.f;
     }
   }
   return in;
@@ -433,9 +435,9 @@ void lab_to_rgb(const double lab[3], uint8_t* p) {
   const double r = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
   const double g = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
   const double b = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
-  p[0] = uint8_t(linear_to_srgb(r) + 0.5);
-  p[1] = uint8_t(linear_to_srgb(g) + 0.5);
-  p[2] = uint8_t(linear_to_srgb(b) + 0.5);
+  p[0] = round_u8(linear_to_srgb(r));
+  p[1] = round_u8(linear_to_srgb(g));
+  p[2] = round_u8(linear_to_srgb(b));
 }
 
 }  // namespace
@@ -486,7 +488,7 @@ RestoredFace prepare_paste(const Affine& align, Rgb8 restored, int scale, float 
                               {double(kFaceSide), 0.0},
                               {0.0, double(kFaceSide)},
                               {double(kFaceSide), double(kFaceSide)}}) {
-    double ox, oy;
+    double ox = 0, oy = 0;
     back.apply(fx, fy, &ox, &oy);
     x0 = std::min(x0, ox);
     y0 = std::min(y0, oy);
@@ -507,7 +509,7 @@ void paste_faces(uint8_t* band, int w, int y, int rows, const std::vector<Restor
     for (int oy = ya; oy < yb; ++oy) {
       uint8_t* row = band + sz(oy - y) * sz(w) * 3;
       for (int ox = f.x0; ox < xb; ++ox) {
-        double fx, fy;
+        double fx = 0, fy = 0;
         f.to_face.apply(ox + 0.5, oy + 0.5, &fx, &fy);
         fx -= 0.5;
         fy -= 0.5;

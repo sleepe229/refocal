@@ -93,7 +93,7 @@ std::string redact(const std::string& in) {
     if (token_start && in[i] == '/' && i + 1 < in.size() && !is_delim(in[i + 1]) &&
         in[i + 1] != '/') {
       size_t e = i + 1;
-      const char quote = i > 0 && (in[i - 1] == '"' || in[i - 1] == '\'') ? in[i - 1] : 0;
+      const char quote = i > 0 && (in[i - 1] == '"' || in[i - 1] == '\'') ? in[i - 1] : '\0';
       if (quote) {  // a quoted path may contain spaces: up to the closing quote
         while (e < in.size() && in[e] != quote) ++e;
       } else {
@@ -145,6 +145,7 @@ static void emit(int level, const char* msg) {
   sink().write(std::string(ts) + " " + kTag[level] + " " + line + "\n");
 }
 
+// NOLINTNEXTLINE(cert-dcl50-cpp): printf-style by design; the ENH_LOG* macros pass literals
 void log(LogLevel level, const char* fmt, ...) {
   if (static_cast<int>(level) < g_min.load(std::memory_order_relaxed)) return;
   va_list ap;

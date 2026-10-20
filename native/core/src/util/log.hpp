@@ -8,7 +8,7 @@
 
 namespace enh {
 
-enum class LogLevel { debug, info, warn, error };
+enum class LogLevel : uint8_t { debug, info, warn, error };
 
 void log(LogLevel level, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 void set_log_level(LogLevel min);

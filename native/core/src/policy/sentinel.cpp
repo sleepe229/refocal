@@ -59,9 +59,12 @@ bool read_file(const std::string& path, std::string& out) {
   if (!f) return false;
   out.clear();
   char buf[65536];
-  size_t n;
-  while ((n = std::fread(buf, 1, sizeof buf, f)) > 0) out.append(buf, n);
-  const bool ok = !std::ferror(f);  // fread() returns 0 on an error too: not the whole file
+  size_t n = sizeof buf;
+  while (n == sizeof buf) {  // a short read is the end or an error: never read past it
+    n = std::fread(buf, 1, sizeof buf, f);
+    out.append(buf, n);
+  }
+  const bool ok = !std::ferror(f);  // the end, not an error: the whole file
   (void)std::fclose(f);             // read only
   return ok;
 }

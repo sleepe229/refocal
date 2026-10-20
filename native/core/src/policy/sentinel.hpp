@@ -22,7 +22,7 @@
 
 namespace enh {
 
-enum class ExitReason { Unknown, NativeCrash, OsKill };
+enum class ExitReason : uint8_t { Unknown, NativeCrash, OsKill };
 ExitReason parse_exit_reason(const std::string& s);
 const char* exit_reason_name(ExitReason r);
 

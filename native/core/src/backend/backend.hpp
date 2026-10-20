@@ -13,7 +13,7 @@ class Mat;
 
 namespace enh {
 
-enum class BackendKind { cpu, vulkan };
+enum class BackendKind : uint8_t { cpu, vulkan };
 
 struct BackendConfig {
   BackendKind kind = BackendKind::cpu;
@@ -33,7 +33,12 @@ ModelInfo resolve_model(const std::string& models_dir, const std::string& id);
 
 class InferenceBackend {
  public:
+  InferenceBackend() = default;
   virtual ~InferenceBackend() = default;
+  InferenceBackend(const InferenceBackend&) = delete;
+  InferenceBackend& operator=(const InferenceBackend&) = delete;
+  InferenceBackend(InferenceBackend&&) = delete;
+  InferenceBackend& operator=(InferenceBackend&&) = delete;
   virtual std::string name() const = 0;
   virtual const BackendConfig& config() const = 0;
   // Throws enh::Error: ENH_E_MODEL (load), ENH_E_BACKEND (run), ENH_E_NUMERIC (NaN/Inf output).

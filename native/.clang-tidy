@@ -1,9 +1,16 @@
 # Bug-finding checks for our code (core, CLI, tests, fuzzers), run in CI (pr.yml native job).
 # Style checks (naming, trailing return types, magic numbers, braces) are left to .clang-format
 # and review: they do not find bugs and fight the project's style.
+#
+# bugprone-easily-swappable-parameters is off. The findings are every adjacent pair of
+# the same or convertible type: port/token, path/content, score/threshold, r/g/b, and
+# float beside int (the check treats those as swappable). Width and height types would
+# cover only the geometric pairs, and they do not fit the C API in enh.h. Wrapping
+# every adjacent parameter would be ceremony, not a defect fix.
 Checks: >
   -*,
   bugprone-*,
+  -bugprone-easily-swappable-parameters,
   cert-*,
   clang-analyzer-*,
   performance-*,

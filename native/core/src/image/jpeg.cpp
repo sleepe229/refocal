@@ -27,6 +27,7 @@ struct ErrMgr {
 void on_error(j_common_ptr c) {
   auto* e = reinterpret_cast<ErrMgr*>(c->err);
   (*c->err->format_message)(c, e->msg);
+  // NOLINTNEXTLINE(cert-err52-cpp): libjpeg errors arrive only by longjmp
   longjmp(e->jb, 1);
 }
 
@@ -38,16 +39,25 @@ struct File {
   ~File() {
     if (f) (void)std::fclose(f);  // read only
   }
+  File(const File&) = delete;
+  File& operator=(const File&) = delete;
+  File(File&&) = delete;
+  File& operator=(File&&) = delete;
 };
 
 // Shared decode prologue. Returns false (with msg) on libjpeg error.
 struct Decoder {
+  Decoder() = default;
   jpeg_decompress_struct cinfo{};
   ErrMgr err{};
   bool created = false;
   ~Decoder() {
     if (created) jpeg_destroy_decompress(&cinfo);
   }
+  Decoder(const Decoder&) = delete;
+  Decoder& operator=(const Decoder&) = delete;
+  Decoder(Decoder&&) = delete;
+  Decoder& operator=(Decoder&&) = delete;
 };
 
 int orientation_of(jpeg_decompress_struct& cinfo) {
@@ -101,6 +111,7 @@ static Rgb8 decode_impl(const std::string& path, JpegInfo* info, bool header_onl
   d->err.pub.output_message = on_message;
   auto img = std::make_unique<Rgb8>();
   auto ji = std::make_unique<JpegInfo>();
+  // NOLINTNEXTLINE(cert-err52-cpp): libjpeg errors arrive only by longjmp
   if (setjmp(d->err.jb)) fail(ENH_E_INVALID, std::string("JPEG decode failed: ") + d->err.msg);
   jpeg_create_decompress(&d->cinfo);
   d->created = true;
@@ -158,6 +169,7 @@ Rgb8 jpeg_decode(const std::string& path, JpegInfo* info, SourceMeta* meta) {
 }
 
 struct JpegWriter::Impl {
+  Impl() = default;
   jpeg_compress_struct cinfo{};
   ErrMgr err{};
   FILE* f = nullptr;
@@ -167,6 +179,10 @@ struct JpegWriter::Impl {
     if (created) jpeg_destroy_compress(&cinfo);
     if (f) (void)std::fclose(f);  // not finished: the output is abandoned
   }
+  Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(Impl&&) = delete;
 };
 
 JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const OutputMeta* meta)
@@ -190,6 +206,7 @@ JpegWriter::JpegWriter(const std::string& path, int w, int h, int quality, const
     xmp_seg.assign(kXmpNamespace, kXmpNamespace + ns);
     xmp_seg.insert(xmp_seg.end(), meta->xmp.begin(), meta->xmp.end());
   }
+  // NOLINTNEXTLINE(cert-err52-cpp): libjpeg errors arrive only by longjmp
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   jpeg_create_compress(&m.cinfo);
   m.created = true;
@@ -218,6 +235,7 @@ JpegWriter::~JpegWriter() = default;
 
 void JpegWriter::write_rows(const uint8_t* rgb, int rows) {
   Impl& m = *impl_;
+  // NOLINTNEXTLINE(cert-err52-cpp): libjpeg errors arrive only by longjmp
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   for (int i = 0; i < rows; ++i) {
     JSAMPROW r = const_cast<uint8_t*>(rgb + sz(i) * sz(m.w) * 3);
@@ -228,6 +246,7 @@ void JpegWriter::write_rows(const uint8_t* rgb, int rows) {
 void JpegWriter::finish() {
   Impl& m = *impl_;
   if (m.finished) return;
+  // NOLINTNEXTLINE(cert-err52-cpp): libjpeg errors arrive only by longjmp
   if (setjmp(m.err.jb)) fail(ENH_E_IO, std::string("JPEG encode failed: ") + m.err.msg);
   jpeg_finish_compress(&m.cinfo);
   m.finished = true;
