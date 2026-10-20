@@ -146,17 +146,40 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (mounted) await context.push('/queue');
   }
 
-  Future<void> _discard(JobEntry j) async {
+  /// Jobs deleted from the list, hidden while their Undo is on screen (06 §1 (8)).
+  final _hidden = <String>{};
+
+  /// Hides [j] at once; its files go when the snack bar does, unless Undo was tapped. A
+  /// process killed meanwhile keeps the job: the list shows it again.
+  void _discard(JobEntry j) {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
-    await ref.read(startupProvider.future);
-    final jobs = await ref.read(jobStoreProvider.future);
-    try {
-      await jobs.discard(j.dir);
-    } on FileSystemException catch (e, stack) {
-      showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
-    }
-    ref.invalidate(jobListProvider);
+    final store = ref.read(startupProvider.future).then((_) => ref.read(jobStoreProvider.future));
+    setState(() => _hidden.add(j.dir));
+    messenger.hideCurrentSnackBar();
+    final bar = messenger.showSnackBar(
+      SnackBar(
+        content: Text(l10n.jobDeleted),
+        persist: false,
+        action: SnackBarAction(
+          label: l10n.undo,
+          onPressed: () {
+            if (mounted) setState(() => _hidden.remove(j.dir));
+          },
+        ),
+      ),
+    );
+    bar.closed.then((reason) async {
+      if (reason == SnackBarClosedReason.action) return;
+      try {
+        await (await store).discard(j.dir);
+      } on FileSystemException catch (e, stack) {
+        showError(messenger, l10n, 'discard job', e, stack, l10n.historyDeleteFailed);
+      }
+      if (!mounted) return;
+      _hidden.remove(j.dir);
+      ref.invalidate(jobListProvider);
+    });
   }
 
   /// FR-MODEL-008: updates found by the opt-in check (FR-SET-005).
@@ -178,8 +201,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final engine = ref.watch(startupProvider);
-    final jobs = ref.watch(jobListProvider).value ?? const <JobEntry>[];
     final queued = ref.watch(queueItemsProvider).value?.length ?? 0;
+    final jobs = [
+      for (final j in ref.watch(jobListProvider).value ?? const <JobEntry>[])
+        if (!_hidden.contains(j.dir)) j,
+    ];
+    final empty = jobs.isEmpty && queued == 0 && (ref.watch(historyProvider).value ?? []).isEmpty;
     final ready = engine.value?.modelReady ?? false;
     final title = Theme.of(context).textTheme.titleMedium;
     return Scaffold(
@@ -232,6 +259,22 @@ class _HomePageState extends ConsumerState<HomePage> {
               const SizedBox(height: 16),
             ],
             const _Recent(),
+            // 06 §6: an empty screen says what to do, in one line.
+            if (empty && e.modelReady)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 96, horizontal: 24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.photo_outlined,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(l10n.homeEmpty, textAlign: TextAlign.center, style: title),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

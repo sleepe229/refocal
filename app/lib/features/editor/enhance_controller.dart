@@ -113,6 +113,9 @@ class EnhanceController extends Notifier<EnhanceState> {
   /// The look the result starts with (a preset's; else none).
   Look? _look;
 
+  /// The job being run, until its end is shown.
+  Future<void>? _current;
+
   @override
   EnhanceState build() {
     listenSelf((_, next) => _last = next);
@@ -151,13 +154,13 @@ class EnhanceController extends Notifier<EnhanceState> {
     AppLog.info(
       'job ${request.id}: ${request.srModel} scale ${request.scale}${request.fast2 ? ' fast' : ''}',
     );
-    await _run(input, (e) => e.session.start(request.toJson()));
+    await (_current = _run(input, (e) => e.session.start(request.toJson())));
   }
 
   /// Continues a paused or interrupted job (FR-BATCH-007, TEST-INT-003).
   Future<void> resume(String jobDir, String input) {
     AppLog.info('job resume');
-    return _run(input, (e) => e.session.resume(jobDir));
+    return _current = _run(input, (e) => e.session.resume(jobDir));
   }
 
   /// Shows a job that finished earlier but was not saved, at [recipe]'s strength and look (the
@@ -218,9 +221,10 @@ class EnhanceController extends Notifier<EnhanceState> {
             }
           case FallbackEvent():
             AppLog.warn('fallback ${e.kind.name} ${e.from} -> ${e.to} (${e.reason})');
-            // FR-ENH-013: every rung of the ladder is visible.
+            // FR-ENH-013: a skipped stage is told; a smaller tile or another backend gives the
+            // same result, only slower, and stays in the log (06 §3.5).
             note = switch (e) {
-              FallbackEvent(kind: FallbackKind.tile) => l10n.noteTileSmaller,
+              FallbackEvent(kind: FallbackKind.tile || FallbackKind.backend) => note,
               FallbackEvent(kind: FallbackKind.face, faceIndex: final i?) => l10n.noteFaceSkipped(
                 i + 1,
               ),
@@ -228,7 +232,6 @@ class EnhanceController extends Notifier<EnhanceState> {
               FallbackEvent(kind: FallbackKind.jpeg) => l10n.noteJpegSkipped,
               FallbackEvent(kind: FallbackKind.scratches) => l10n.noteScratchesSkipped,
               FallbackEvent(kind: FallbackKind.lowlight) => l10n.noteLowLightSkipped,
-              FallbackEvent(kind: FallbackKind.backend) => l10n.noteSwitchedTo(e.to),
             };
             state = Running(stage, progress, null, note: note);
           case WarningEvent(code: 'alpha_kept'):
@@ -299,6 +302,15 @@ class EnhanceController extends Notifier<EnhanceState> {
   void cancel() => _job?.cancel();
 
   void pause() => _job?.pause();
+
+  /// Pauses the job ([pause]) or cancels it, and waits until it has ended: the screen may close
+  /// then without its dispose cancelling a pause halfway. A cancelled job leaves the editor
+  /// as it was before Enhance.
+  Future<void> stop({required bool pause}) async {
+    pause ? _job?.pause() : _job?.cancel();
+    await _current;
+    if (state case Failed(status: EnhStatus.cancelled)) await reset();
+  }
 
   void setStrength(double v) {
     final s = state;

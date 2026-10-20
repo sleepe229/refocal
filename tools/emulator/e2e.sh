@@ -166,16 +166,22 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
 adb_ shell input tap $xy
 echo "  picked photo at $xy"
 if [[ -n "$SCALE" ]]; then
+  # The scale is under Adjust (06 §3.2), its sheet lists every scale with the size it gives.
+  tap_text "Adjust" 30
+  tap_text "Scale" 30
   tap_text "$SCALE" 30
+  tap_text "Done" 10
 else
   wait_text "denoise" 60 || { echo "FAIL: no Auto explanation"; exit 1; }  # "4×, ..., denoise medium"
   shot auto
   tap_text "Adjust" 30
   shot adjust
   tap_text "Done" 10
-  # FR-ENH-015: a part of the photo first, in a sheet, then back to the editor ("…" menu).
+  # FR-ENH-015: a part of the photo first ("…" menu: its frame on the photo, then Preview),
+  # in a sheet, then back to the editor.
   tap_text "More" 30
   tap_text "Preview a part" 30
+  tap_text "Preview" 30
   wait_text "px in" 300 || { echo "FAIL: no fragment preview"; exit 1; }  # "Part 512 × 512 px in 1.2 s"
   shot fragment
   tap_text "Close" 10

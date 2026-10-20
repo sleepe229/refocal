@@ -7,7 +7,7 @@
 <li>Restores faces in old and blurry photos (optional model, downloaded separately)</li>
 <li>"Auto" picks the scale, denoise and face restoration for each photo and says why</li>
 <li>Batch processing in the background, which survives a restart</li>
-<li>Before/after comparison: slider, side by side, zoom to real pixels, loupe</li>
+<li>Before/after comparison: slider, hold to see the original, side by side, zoom to real pixels</li>
 <li>Preview a part of the photo before processing the whole of it</li>
 <li>Saves JPEG, PNG and WebP; keeps transparency, removes the location by default</li>
 <li>Presets, history, "Share to" and "Edit with" from other apps</li>

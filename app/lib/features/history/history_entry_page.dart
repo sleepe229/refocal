@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../ui_kit/labels.dart';
 import '../../ui_kit/errors.dart';
 import '../editor/editor_page.dart';
+import '../models/pack_offer.dart';
 import 'history_page.dart';
 
 /// One history entry: preview, recipe, sizes; process again (FR-HIST-003), delete (FR-HIST-004).
@@ -48,7 +49,9 @@ class HistoryEntryPage extends ConsumerWidget {
     final out = r.output!;
     final input = store.absolute(e.inputPath);
     final inputExists = ref.watch(fileExistsProvider(input)).value ?? false;
-    final canRun = inputExists && ref.watch(availableModelsProvider).contains(r.srModel);
+    // 06 §3.3: a model the device no longer has is offered here, the download shown below.
+    final srMissing = !ref.watch(availableModelsProvider).contains(r.srModel);
+    final download = packsProgress(ref, [r.srModel]);
     final mono = Theme.of(context).textTheme.bodySmall;
     Widget row(String label, String value) =>
         ListTile(dense: true, title: Text(label), trailing: Text(value));
@@ -96,21 +99,28 @@ class HistoryEntryPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FilledButton(
-                onPressed: canRun
-                    ? () => context.push(
-                        '/editor',
-                        extra: EditorArgs(input, recipe: r.copyWith(output: () => null)),
-                      )
+                onPressed: inputExists && download == null
+                    ? () async {
+                        if (srMissing) {
+                          final title = l10n.historyProcessAgain;
+                          if (!await offerPacks(context, ref, [r.srModel], title: title)) return;
+                        }
+                        if (!context.mounted) return;
+                        await context.push(
+                          '/editor',
+                          extra: EditorArgs(input, recipe: r.copyWith(output: () => null)),
+                        );
+                      }
                     : null,
                 child: Text(l10n.historyProcessAgain),
               ),
-              if (!canRun) ...[
+              if (download != null) ...[
                 const SizedBox(height: 8),
-                Text(
-                  inputExists ? l10n.presetModelMissing : l10n.historyOriginalGone,
-                  textAlign: TextAlign.center,
-                  style: mono,
-                ),
+                LinearProgressIndicator(value: download),
+              ],
+              if (!inputExists) ...[
+                const SizedBox(height: 8),
+                Text(l10n.historyOriginalGone, textAlign: TextAlign.center, style: mono),
               ],
               const SizedBox(height: 8),
               OutlinedButton.icon(

@@ -127,20 +127,22 @@ void main() {
     expect(find.byType(InteractiveViewer), findsOneWidget);
   });
 
-  testWidgets('a long press shows the loupe while held (FR-CMP-006)', (tester) async {
+  testWidgets('holding a finger shows the original until it is lifted (FR-CMP-002)', (
+    tester,
+  ) async {
     final img = MemoryImage(_png1x1);
     await tester.pumpWidget(app(CompareSlider(before: img, after: img, aspectRatio: 2)));
+    String value() =>
+        tester.getSemantics(find.bySemanticsLabel('Before and after comparison')).value;
+    expect(value(), '50% original');
     final g = await tester.startGesture(
       tester.getTopLeft(find.byType(InteractiveViewer)) + const Offset(80, 120),
     );
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(RawMagnifier), findsOneWidget);
-    await g.moveBy(const Offset(30, 0));
-    await tester.pump();
-    expect(find.byType(RawMagnifier), findsOneWidget);
+    expect(value(), '100% original');
     await g.up();
     await tester.pump();
-    expect(find.byType(RawMagnifier), findsNothing);
+    expect(value(), '50% original');
   });
 
   test('scale choices follow ADR-0014', () {

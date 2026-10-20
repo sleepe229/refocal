@@ -4,7 +4,7 @@
   "homeModelMissing": "This build has no model.",
   "homeChoosePhoto": "Choose a photo",
   "homeNotFinished": "Not finished",
-  "homeCoreUnavailable": "Native core unavailable: {error}",
+  "homeCoreUnavailable": "Refocal cannot start on this phone: {error}",
   "@homeCoreUnavailable": {
     "placeholders": {
       "error": {
@@ -107,14 +107,6 @@
   },
   "continueAction": "Continue",
   "continueLater": "Continue later",
-  "noteSwitchedTo": "Switched to {backend}",
-  "@noteSwitchedTo": {
-    "placeholders": {
-      "backend": {
-        "type": "String"
-      }
-    }
-  },
   "noteAlphaKept": "Transparency is kept in PNG and WebP",
   "noteFirstFrame": "Only the first frame is enhanced",
   "strength": "Strength",
@@ -129,7 +121,7 @@
   "strengthNeedsOriginal": "The original is deleted, so only 100% can be saved.",
   "saveToGallery": "Save to gallery",
   "saveAsFile": "Save as file…",
-  "savedToGallery": "Saved to Pictures/Refocal",
+  "savedToGallery": "Saved to the gallery, album Refocal",
   "savedToFile": "Saved",
   "saveFailed": "Save failed: {error}",
   "@saveFailed": {
@@ -305,7 +297,6 @@
       }
     }
   },
-  "presetModelMissing": "This needs a model that isn't installed.",
   "presetName": "Name",
   "presetNameTooLong": "At most {max} characters",
   "@presetNameTooLong": {
@@ -613,8 +604,6 @@
   "scratchesHint": "For old prints.",
   "faces": "Enhance faces",
   "facesHint": "Makes faces sharper.",
-  "faceModelGfpgan": "GFPGAN",
-  "faceModelCodeFormer": "CodeFormer",
   "faceFidelityDetail": "Detail",
   "faceFidelityLikeness": "Likeness",
   "faceFidelityValue": "{value}",
@@ -622,8 +611,6 @@
   "faceFidelitySemantics": "Likeness {value} of 1",
   "@faceFidelitySemantics": {"placeholders": {"value": {"type": "String"}}},
   "facesStrength": "Face strength",
-  "facesNeedPack": "Needs the face model, about 177 MB.",
-  "facesGetPack": "Download",
   "facesNoticeTitle": "About faces",
   "facesNoticeBody": "AI redraws faces. They get sharper but may look less like the person, especially in old or small photos. It's an interpretation, not the original.",
   "facesNoticeOk": "Got it",
@@ -699,7 +686,6 @@
   "autoDenoiseNone": "no denoise",
   "autoDenoiseStandard": "denoise",
   "autoDenoiseStrong": "strong denoise",
-  "noteTileSmaller": "Low on memory: processing in smaller pieces, slower",
   "noteFaceSkipped": "Couldn't enhance face {number}",
   "@noteFaceSkipped": {
     "placeholders": {
@@ -732,9 +718,6 @@
   },
   "modelsErrorNotAPack": "Not a Refocal model file.",
   "modelsErrorStorage": "The file could not be read",
-  "faceOfferTitle": "Face model",
-  "faceOfferBody": "About 177 MB, for non-commercial use.",
-  "faceOfferOpen": "Models",
   "faceOfferLater": "Not now",
   "facesTapHint": "Tap a face to leave it alone",
   "faceToggle": "Face {number}: restore",
@@ -844,5 +827,23 @@
   "lookLeaks": "Light leaks",
   "@lookLeaks": {"description": "Look switch: soft warm glows near the photo's edges, as on film (FR-LOOK-003)."},
   "presetLookAfter": "Filter: {look}",
-  "@presetLookAfter": {"placeholders": {"look": {"type": "String"}}}
+  "@presetLookAfter": {"placeholders": {"look": {"type": "String"}}},
+  "homeEmpty": "Choose a photo to make it sharper.",
+  "jobDeleted": "Deleted",
+  "undo": "Undo",
+  "stopTitle": "Stop enhancing?",
+  "stopBodyResumable": "You can continue later from the home screen.",
+  "stopBodyLost": "What is done so far is lost.",
+  "stopKeep": "Keep going",
+  "stopConfirm": "Stop",
+  "retry": "Try again",
+  "editorRedo": "Change",
+  "fragmentPickHint": "Tap the photo to choose the part",
+  "fragmentShow": "Preview",
+  "packOfferBody": "This needs a model, {size}.",
+  "@packOfferBody": {"placeholders": {"size": {"type": "String"}}},
+  "packOfferBodyNoSize": "This needs a model from the internet.",
+  "packOfferNonCommercial": "For non-commercial use only.",
+  "packUnavailable": "The model is not available right now.",
+  "packTooSlow": "This phone is too slow for this model."
 }
