@@ -1,4 +1,6 @@
-include: package:lints/recommended.yaml
+include:
+  - package:lints/recommended.yaml
+  - ../../analysis_rules.yaml
 
 formatter:
   page_width: 100

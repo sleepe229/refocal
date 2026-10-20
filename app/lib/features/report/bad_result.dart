@@ -129,7 +129,7 @@ class _BadResultSheetState extends ConsumerState<_BadResultSheet> {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
     try {
-      ref.read(platformApiProvider).openUrl(badResultIssue(_kind, body).toString());
+      await ref.read(platformApiProvider).openUrl(badResultIssue(_kind, body).toString());
       if (mounted) Navigator.pop(context);
     } on PlatformException catch (e) {
       AppLog.warn('open issue: ${e.code}');
@@ -158,7 +158,7 @@ class _BadResultSheetState extends ConsumerState<_BadResultSheet> {
     final engine = await ref.read(engineProvider.future);
     final dir = await Directory('${engine.dirs.cache}/share').create(recursive: true);
     final copy = await File(widget.result.previewPath).copy('${dir.path}/refocal-result.jpg');
-    ref.read(platformApiProvider).shareFile(copy.path, 'image/jpeg', l10n.reportPhotoOk);
+    await ref.read(platformApiProvider).shareFile(copy.path, 'image/jpeg', l10n.reportPhotoOk);
   }
 
   @override

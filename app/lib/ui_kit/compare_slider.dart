@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -503,17 +504,19 @@ class _TileCache extends ChangeNotifier {
     }
     if (_loading.add(key)) {
       final gen = _generation;
-      load().then(
-        (image) {
-          _loading.remove(key);
-          if (gen != _generation) return image.dispose();
-          _images[key] = image;
-          while (_images.length > capacity) {
-            _images.remove(_images.keys.first)!.dispose();
-          }
-          notifyListeners();
-        },
-        onError: (Object _) => _loading.remove(key), // drawn from the preview meanwhile
+      unawaited(
+        load().then(
+          (image) {
+            _loading.remove(key);
+            if (gen != _generation) return image.dispose();
+            _images[key] = image;
+            while (_images.length > capacity) {
+              _images.remove(_images.keys.first)!.dispose();
+            }
+            notifyListeners();
+          },
+          onError: (Object _) => _loading.remove(key), // drawn from the preview meanwhile
+        ),
       );
     }
     return null;
