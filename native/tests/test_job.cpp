@@ -192,6 +192,10 @@ struct Session {
     CHECK(enh_session_create(&cfg, &s) == ENH_OK);
   }
   ~Session() { enh_session_destroy(s); }
+  Session(const Session&) = delete;
+  Session& operator=(const Session&) = delete;
+  Session(Session&&) = delete;
+  Session& operator=(Session&&) = delete;
 };
 
 struct RunResult {
@@ -1378,7 +1382,7 @@ static void test_errors(Session& se) {
   enh_job_destroy(j);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
   g_root = argc > 1 ? argv[1] : "test-work-job";
   fs::remove_tree(g_root);
   g_models = fs::join(g_root, "models");
@@ -1416,4 +1420,7 @@ int main(int argc, char** argv) {
   }
   (void)std::printf("test_job: %d failures\n", fails);
   return fails ? 1 : 0;
+} catch (const std::exception& e) {
+  (void)std::fprintf(stderr, "uncaught: %s\n", e.what());
+  return 1;
 }

@@ -28,6 +28,14 @@ String badResultBody({
   required JobRequest? request,
 }) {
   final r = request;
+  // One row, split so the line fits. Built outside the list: adjacent strings
+  // inside a list are indistinguishable from a missing comma.
+  final String? faceRow = switch (r?.faceModel) {
+    final f? =>
+      '| Faces | $f, strength ${(r!.faceStrength * 100).round()}%'
+          '${r.facesOnly ? ', only faces' : ''}${r.facesOff.isEmpty ? '' : ', ${r.facesOff.length} off'} |',
+    null => null,
+  };
   return [
     '**Category:** ${kind.name}',
     if (comment.trim().isNotEmpty) '\n${comment.trim()}\n',
@@ -38,10 +46,7 @@ String badResultBody({
     '| Device | $device ($tier) |',
     '| Model | ${result.model} |',
     '| Mode | ${result.scale}x${result.fast2 ? ' fast' : ''} |',
-    if (r?.faceModel case final f?) ...[
-      '| Faces | $f, strength ${(r!.faceStrength * 100).round()}%'
-          '${r.facesOnly ? ', only faces' : ''}${r.facesOff.isEmpty ? '' : ', ${r.facesOff.length} off'} |',
-    ],
+    ?faceRow,
     '| Backend | ${result.backend} |',
     if (result.fallbacks.isNotEmpty) '| Fallbacks | ${result.fallbacks.join(', ')} |',
     '| Input | ${result.inputWidth}x${result.inputHeight} |',

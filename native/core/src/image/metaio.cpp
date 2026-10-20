@@ -104,8 +104,8 @@ class Tiff {
       if (is_ifd_pointer(en.tag) && en.count == 1 && (en.type == kTypeLong || en.type == 13)) {
         try {
           out->subs[en.tag] = ifd(u32(e + 8), depth + 1);
-        } catch (const Bad&) {  // a broken sub-IFD costs that IFD, not the whole EXIF
-        }
+        } catch (const Bad&) {  // NOLINT(bugprone-empty-catch): a broken sub-IFD costs that
+        }  // IFD, not the whole EXIF
         continue;
       }
       const size_t ts = type_size(en.type);
@@ -144,6 +144,7 @@ class Writer {
       const Entry* e;  // null: sub-IFD pointer
     };
     std::vector<Item> items;
+    items.reserve(ifd.entries.size() + ifd.subs.size());
     for (const auto& e : ifd.entries) items.push_back({e.tag, &e});
     for (const auto& [tag, sub] : ifd.subs) items.push_back({tag, nullptr});
     std::sort(items.begin(), items.end(),
@@ -278,6 +279,7 @@ int exif_orientation(const uint8_t* exif, size_t n) {
       }
     }
   } catch (const Bad&) {
+    return 1;  // broken EXIF: as if there were no orientation
   }
   return 1;
 }
@@ -323,6 +325,7 @@ int64_t exif_get(const std::vector<uint8_t>& tiff, uint16_t ifd_tag, uint16_t ta
     for (const Entry& e : ifd->entries)
       if (e.tag == tag) return read_int(e, t.le());
   } catch (const Bad&) {
+    return -1;  // broken EXIF: as if the tag were missing
   }
   return -1;
 }

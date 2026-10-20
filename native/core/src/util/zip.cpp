@@ -35,8 +35,7 @@ bool valid_name(const std::string& n) {
 
 }  // namespace
 
-FileZipSource::FileZipSource(const std::string& path) {
-  f_ = std::fopen(path.c_str(), "rb");
+FileZipSource::FileZipSource(const std::string& path) : f_(std::fopen(path.c_str(), "rb")) {
   if (!f_) fail(ENH_E_IO, "cannot open rfpack");
   if (fseeko(f_, 0, SEEK_END) != 0) {
     (void)std::fclose(f_);  // read only
@@ -168,7 +167,12 @@ void zip_extract(const ZipSource& src, const ZipEntry& e,
     if (inflateInit2(&z, -MAX_WBITS) != Z_OK) fail(ENH_E_OOM, "inflate");
     struct Guard {
       z_stream& z;
+      explicit Guard(z_stream& s) : z(s) {}
       ~Guard() { inflateEnd(&z); }
+      Guard(const Guard&) = delete;
+      Guard& operator=(const Guard&) = delete;
+      Guard(Guard&&) = delete;
+      Guard& operator=(Guard&&) = delete;
     } guard{z};
     int st = Z_OK;
     while (st != Z_STREAM_END) {

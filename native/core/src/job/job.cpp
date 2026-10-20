@@ -18,6 +18,7 @@
 #include <optional>
 #include <regex>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "backend/backend.hpp"
@@ -478,6 +479,10 @@ class SentinelGuard {
     }
   }
   ~SentinelGuard() { disarm(); }
+  SentinelGuard(const SentinelGuard&) = delete;
+  SentinelGuard& operator=(const SentinelGuard&) = delete;
+  SentinelGuard(SentinelGuard&&) = delete;
+  SentinelGuard& operator=(SentinelGuard&&) = delete;
   std::string key() const { return rec_.key(); }
 
  private:
@@ -526,7 +531,7 @@ bool enh_job::on_ladder(const JobRequest& rq, const std::string& id, int stage, 
     try {
       auto be = make_ncnn_backend(lad.rungs[rung]);
       be->load(m);
-      f(*be);
+      std::forward<F>(f)(*be);
       return true;
     } catch (const Error& e) {
       if (e.status() == ENH_E_CANCELLED && stop()) throw Stopped{};
@@ -665,7 +670,15 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& rq, const Rgb
       }
     }
   };
+  try {
+    load();
+  } catch (const Error& e) {
+    if (!recoverable(e.status())) throw;
+    skip(e.status(), -1);
+    return {};
+  }
   // The next rung after a failure; false on the last one.
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores): false positive, read in the loop below
   auto next_rung = [&](enh_status st) {
     if (rung + 1 >= lad.rungs.size()) return false;
     const std::string from = backend_kind_name(lad.rungs[rung]);
@@ -679,13 +692,6 @@ std::vector<RestoredFace> enh_job::restore_faces(const JobRequest& rq, const Rgb
     load();
     return true;
   };
-  try {
-    load();
-  } catch (const Error& e) {
-    if (!recoverable(e.status())) throw;
-    skip(e.status(), -1);
-    return {};
-  }
   for (size_t i = 0; i < found.size(); ++i) {
     if (stop()) throw Stopped{};
     const Affine align = face_alignment(found[i]);
@@ -736,6 +742,9 @@ void enh_job::run() {
     try {
       run_impl(result);
     } catch (const Stopped&) {
+      // cancel, pause, or a recorded failure. continue runs retry_smaller(), which
+      // retries an out-of-memory job and refuses the other two.
+      continue;
     } catch (const Error& e) {
       record_error(e.status(), e.what());
     } catch (const std::bad_alloc&) {
@@ -1196,9 +1205,9 @@ void enh_job::run_impl(nlohmann::json& result) {
             float* bl = t.in.channel(2).row(yy);
             for (int xx = 0; xx < itw; ++xx) {
               const uint8_t* p = row + sz(colidx[sz(xx)]) * 3;
-              r[xx] = p[0] * (1.f / 255.f);
-              gg[xx] = p[1] * (1.f / 255.f);
-              bl[xx] = p[2] * (1.f / 255.f);
+              r[xx] = float(p[0]) * (1.f / 255.f);
+              gg[xx] = float(p[1]) * (1.f / 255.f);
+              bl[xx] = float(p[2]) * (1.f / 255.f);
             }
           }
           if (!q1.push(std::move(t))) return;
@@ -1235,7 +1244,10 @@ void enh_job::run_impl(nlohmann::json& result) {
                        {"from", from},
                        {"to", to},
                        {"reason", fallback_reason(e.status())}});
-            fallbacks.push_back(from + "->" + to);
+            std::string edge = from;
+            edge += "->";
+            edge += to;
+            fallbacks.push_back(std::move(edge));
             if (ladder[rung].kind != BackendKind::vulkan) sentinel.disarm();  // GPU stage over
             be.reset();
             be = make_ncnn_backend(ladder[rung]);
@@ -1257,7 +1269,7 @@ void enh_job::run_impl(nlohmann::json& result) {
       std::vector<uint8_t> band, down_buf;
       auto q = [](float v) -> uint8_t {
         v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
-        return uint8_t(v * 255.f + 0.5f);
+        return round_u8(v * 255.f);
       };
       while (auto t = q2.pop()) {
         if (stop()) break;
@@ -1395,7 +1407,7 @@ enh_status create_job(enh_session* s, const JobRequest& r, bool resume, enh_job*
 template <class F>
 enh_status guard(F&& f) {
   try {
-    return f();
+    return std::forward<F>(f)();
   } catch (const Error& e) {
     ENH_LOGW("%s", e.what());
     return e.status();
@@ -1413,7 +1425,7 @@ enh_status start_job(enh_job* j, Attach&& attach) {
   bool expected = false;
   if (!j->started.compare_exchange_strong(expected, true)) return ENH_E_INVALID;
   try {
-    attach();
+    std::forward<Attach>(attach)();
   } catch (...) {
     j->started = false;
     throw;

@@ -1,6 +1,7 @@
 // Ported from spike S3 (spikes/s3-gpu-probe/tests).
 #include <unistd.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 
@@ -15,7 +16,12 @@ static std::string tmpdir() {
   std::string t =
       std::string(base && *base ? base : (access("/tmp", W_OK) == 0 ? "/tmp" : "/data/local/tmp")) +
       "/refocal-sentinel-XXXXXX";
-  return mkdtemp(t.data());
+  const char* dir = mkdtemp(t.data());
+  if (!dir) {
+    std::perror("mkdtemp");
+    std::exit(1);
+  }
+  return dir;
 }
 
 static SentinelRecord rec(const std::string& model = "face.gfpgan-1.4",

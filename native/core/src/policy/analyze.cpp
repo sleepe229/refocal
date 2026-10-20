@@ -21,7 +21,8 @@ double estimate_noise(const Rgb8& img) {
   for (int r = 0; r < img.h; ++r) {
     const uint8_t* p = img.row(r);
     for (int c = 0; c < img.w; ++c, p += 3) {
-      y[sz(r) * sz(img.w) + sz(c)] = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+      y[sz(r) * sz(img.w) + sz(c)] =
+          0.299f * float(p[0]) + 0.587f * float(p[1]) + 0.114f * float(p[2]);
     }
   }
   // M = [1 -2 1; -2 4 -2; 1 -2 1]: zero on locally linear image content.
@@ -48,9 +49,9 @@ nlohmann::json analyze_image(enh_session& s, const std::string& path,
   // the estimate comparable between photos (and fast).
   constexpr int kNoiseSide = 1024;
   const double s1 = std::min(1.0, double(kNoiseSide) / std::max(w, h));
-  const Rgb8 small =
-      s1 < 1 ? resize_area(img, std::max(3, int(w * s1 + 0.5)), std::max(3, int(h * s1 + 0.5)))
-             : img;
+  const Rgb8 small = s1 < 1 ? resize_area(img, std::max(3, round_int(w * s1, 0, w)),
+                                          std::max(3, round_int(h * s1, 0, h)))
+                            : img;
   nlohmann::json faces = {
       {"count", 0}, {"largest_px", 0}, {"detector", false}, {"boxes", nlohmann::json::array()}};
   if (fs::exists(fs::join(fs::join(s.models_dir, det_model), "model.ncnn.bin"))) {

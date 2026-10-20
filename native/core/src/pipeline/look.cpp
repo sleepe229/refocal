@@ -144,8 +144,8 @@ void LeakOverlay::blend_rows(int y0, int rows, uint8_t* rgb) {
       const int gx0 = x0_[sz(x)], gx1 = std::min(gx0 + 1, grid_.w - 1);
       const float fx = fx_[sz(x)];
       for (int c = 0; c < 3; ++c) {
-        const float top = a[gx0 * 3 + c] + fx * (a[gx1 * 3 + c] - a[gx0 * 3 + c]);
-        const float bot = b[gx0 * 3 + c] + fx * (b[gx1 * 3 + c] - b[gx0 * 3 + c]);
+        const float top = float(a[gx0 * 3 + c]) + fx * float(a[gx1 * 3 + c] - a[gx0 * 3 + c]);
+        const float bot = float(b[gx0 * 3 + c]) + fx * float(b[gx1 * 3 + c] - b[gx0 * 3 + c]);
         const float l = top + fy * (bot - top);
         const float p = out[x * 3 + c];
         out[x * 3 + c] = uint8_t(std::lround(p + l - p * l / 255));  // screen

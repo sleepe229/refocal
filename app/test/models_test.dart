@@ -39,16 +39,11 @@ String _rfpack(String path, Map<String, List<int>> entries) {
   for (final e in entries.entries) {
     File('${dir.path}/${e.key}').writeAsBytesSync(e.value);
   }
-  final r = Process.runSync('python3', [
-    '-I',
-    '-c',
-    'import sys,zipfile,os\n'
-        'with zipfile.ZipFile(sys.argv[1],"w",zipfile.ZIP_DEFLATED) as z:\n'
-        '  [z.write(os.path.join(sys.argv[2],n),n) for n in sys.argv[3:]]',
-    path,
-    dir.path,
-    ...entries.keys,
-  ]);
+  const script =
+      'import sys,zipfile,os\n'
+      'with zipfile.ZipFile(sys.argv[1],"w",zipfile.ZIP_DEFLATED) as z:\n'
+      '  [z.write(os.path.join(sys.argv[2],n),n) for n in sys.argv[3:]]';
+  final r = Process.runSync('python3', ['-I', '-c', script, path, dir.path, ...entries.keys]);
   expect(r.exitCode, 0, reason: '${r.stderr}');
   dir.deleteSync(recursive: true);
   return path;

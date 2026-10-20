@@ -17,7 +17,7 @@ constexpr int64_t kProgressIntervalNs = 33'000'000;  // 30 Hz
 }  // namespace
 
 int64_t now_ns() {
-  timespec ts;
+  timespec ts{};
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return int64_t(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
 }

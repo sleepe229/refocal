@@ -241,7 +241,7 @@ std::pair<std::vector<uint8_t>, std::string> job(enh_session* s, const std::stri
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
   if (argc < 2) return kSkip;
   const std::string dir = fs::join(argv[1], "sr.general-x4v3");
   const auto in = read_f32(fs::join(dir, "golden_in_3x160x160.f32"), size_t(3) * kIn * kIn);
@@ -325,4 +325,7 @@ int main(int argc, char** argv) {
   }
   (void)std::printf("%d checks, %d failures\n", mini::checks(), mini::failures());
   return mini::failures() ? 1 : 0;
+} catch (const std::exception& e) {
+  (void)std::fprintf(stderr, "uncaught: %s\n", e.what());
+  return 1;
 }

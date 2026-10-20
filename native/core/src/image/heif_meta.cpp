@@ -15,8 +15,8 @@ namespace {
 
 // Bounds-checked big-endian reader over [p, p + n).
 struct Reader {
-  const uint8_t* p;
-  size_t n, o = 0;
+  const uint8_t* p = nullptr;
+  size_t n = 0, o = 0;
   void need(size_t k) const {
     if (k > n - o) bad("truncated box");
   }

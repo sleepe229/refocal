@@ -30,7 +30,10 @@ TEST("redact: paths and URIs, nothing else") {
 
 TEST("file sink: lines, levels, rotation") {
   char tmpl[] = "/tmp/enh-log-XXXXXX";
-  const std::string dir = mkdtemp(tmpl);
+  const char* made = mkdtemp(tmpl);
+  CHECK(made != nullptr);
+  if (!made) return;
+  const std::string dir = made;
   const std::string path = fs::join(dir, "core.log");
   CHECK(enh_log_open(path.c_str(), 100) == ENH_E_INVALID);
   CHECK(enh_log_open(path.c_str(), 4096) == ENH_OK);

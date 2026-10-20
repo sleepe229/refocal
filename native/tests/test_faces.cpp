@@ -59,7 +59,7 @@ TEST("alignment recovers a similarity from the five landmarks") {
   const Affine inv = m.inverse();
   Face f;
   for (size_t i = 0; i < 5; ++i) {
-    double x, y;
+    double x = 0, y = 0;
     inv.apply(tmpl[2 * i], tmpl[2 * i + 1], &x, &y);
     f.lm[2 * i] = float(x);
     f.lm[2 * i + 1] = float(y);
@@ -76,7 +76,7 @@ TEST("warp by the identity is the image; inverse undoes") {
   m.tx = 3;
   m.ty = -2;
   const Affine back = m.inverse();
-  double x, y;
+  double x = 0, y = 0;
   back.apply(13, 7, &x, &y);
   CHECK(std::abs(x - 10) < 1e-12 && std::abs(y - 9) < 1e-12);
 }
@@ -478,6 +478,7 @@ TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4
   unsetenv("ENH_FAULT");
   CHECK(enh_job_status(j) == ENH_OK);
   enh_job_destroy(j);
+  gf = nullptr;  // the callback is gone: no pointer to this frame outlives it
   CHECK(fb.evs.size() == 2);
   if (fb.evs.size() == 2) {
     CHECK(fb.evs[0]["kind"] == "backend" && fb.evs[0]["to"] == "cpu_fp32");
@@ -545,6 +546,7 @@ TEST("a job with the face pack restores the face (nightly: needs face.gfpgan-1.4
   CHECK(enh_job_status(j) == ENH_OK);
   CHECK(seen.faces == 1);
   enh_job_destroy(j);
+  g = nullptr;  // the callback is gone: no pointer to this frame outlives it
   const auto res = nlohmann::json::parse(fs::read_text(fs::join(g_work, "faces_only/result.json")));
   CHECK(res["backend"] == "lanczos");
   CHECK(res["width"] == 675 * 2 && res["height"] == 900 * 2);

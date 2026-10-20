@@ -33,7 +33,7 @@ Rgb8 apply_orientation(Rgb8 src, int o) {
   for (int y = 0; y < H; ++y) {
     const uint8_t* s = src.row(y);
     for (int x = 0; x < W; ++x) {
-      int dx, dy;
+      int dx = 0, dy = 0;
       switch (o) {
         case 2:
           dx = W - 1 - x;
@@ -215,9 +215,9 @@ const float* LanczosResampler::hrow(int sy) {
       float a = 0, b = 0, c = 0;
       for (int t = 0; t < T; ++t) {
         const uint8_t* p = s + sz(ix[t]) * 3;
-        a += wx[t] * p[0];
-        b += wx[t] * p[1];
-        c += wx[t] * p[2];
+        a += wx[t] * float(p[0]);
+        b += wx[t] * float(p[1]);
+        c += wx[t] * float(p[2]);
       }
       r[sz(x) * 3] = a;
       r[sz(x) * 3 + 1] = b;
@@ -249,13 +249,13 @@ void LanczosResampler::rows(int y0, int rows, uint8_t* dst) {
     uint8_t* d = dst + sz(r) * stride;
     for (size_t i = 0; i < stride; ++i) {
       const float v = acc[i] < 0.f ? 0.f : (acc[i] > 255.f ? 255.f : acc[i]);
-      d[i] = uint8_t(v + 0.5f);
+      d[i] = round_u8(v);
     }
   }
 }
 
 void blend(const uint8_t* base, const uint8_t* sr, size_t n, float strength, uint8_t* out) {
-  const int s = int(strength * 256.f + 0.5f), k = 256 - s;
+  const int s = round_int(double(strength) * 256.0, 0, 256), k = 256 - s;
   for (size_t i = 0; i < n; ++i) out[i] = uint8_t((sr[i] * s + base[i] * k + 128) >> 8);
 }
 
@@ -286,7 +286,7 @@ Rgb8 resize_area(const Rgb8& src, int w, int h) {
     float* d = rows.data() + sz(y) * sz(w) * 3;
     for (int x = 0; x < w; ++x) {
       for (const auto& [k, wt] : wx[sz(x)]) {
-        for (int c = 0; c < 3; ++c) d[3 * x + c] += wt * s[3 * k + c];
+        for (int c = 0; c < 3; ++c) d[3 * x + c] += wt * float(s[3 * k + c]);
       }
     }
   }

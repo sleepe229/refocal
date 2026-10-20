@@ -61,7 +61,7 @@ struct TiffBuilder {
     b.push_back(0);
     return {tag, 2, uint32_t(b.size()), b};
   }
-  TEntry undef(uint16_t tag, Bytes b) const { return {tag, 7, uint32_t(b.size()), b}; }
+  TEntry undef(uint16_t tag, const Bytes& b) const { return {tag, 7, uint32_t(b.size()), b}; }
   TEntry ptr(uint16_t tag, int sub) const { return {tag, 4, 1, {}, sub}; }
 
   Bytes build() const {
@@ -137,7 +137,7 @@ static void test_exif_rewrite() {
 
     const Bytes out = exif_rewrite(src.data(), src.size(), {4000, 3000, false});
     CHECK(!out.empty());
-    CHECK(out[0] == (le ? 'I' : 'M'));                     // source byte order kept
+    CHECK(out[0] == uint8_t(le ? 'I' : 'M'));              // source byte order kept
     CHECK(exif_orientation(out.data(), out.size()) == 1);  // FR-META-001
     CHECK(exif_get(out, kExifIfd, 0xA002) == 4000);        // FR-META-007
     CHECK(exif_get(out, kExifIfd, 0xA003) == 3000);
@@ -202,6 +202,7 @@ static void write_png_meta(const std::string& path, int w, int h, const Bytes& e
   FILE* f = std::fopen(path.c_str(), "wb");
   png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
   png_infop info = png_create_info_struct(png);
+  // NOLINTNEXTLINE(cert-err52-cpp): libpng errors arrive only by longjmp
   if (setjmp(png_jmpbuf(png))) {
     CHECK(false);
     png_destroy_write_struct(&png, &info);
@@ -396,15 +397,18 @@ static void test_webp(const std::string& dir) {
     CHECK(m.exif == exif && m.icc == icc);
   }
   {
+    // A WebP header (sniffed as WebP) over junk: refused by the WebP decoder itself, not by
+    // the sniffing. The bytes hold NULs, hence the explicit length.
     const std::string p = fs::join(dir, "bad.webp");
-    fs::write_atomic(p, std::string("RIFF\x10\0\0\0WEBPVP8 junk"));
-    bool invalid = false;
+    static constexpr char kBad[] = "RIFF\x10\0\0\0WEBPVP8 junk";
+    fs::write_atomic(p, std::string(kBad, sizeof kBad - 1));
+    std::string why;
     try {
       decode_image(p);
     } catch (const Error& e) {
-      invalid = e.status() == ENH_E_INVALID;
+      if (e.status() == ENH_E_INVALID) why = e.what();
     }
-    CHECK(invalid);
+    CHECK(why.find("WebP") != std::string::npos);
   }
 }
 

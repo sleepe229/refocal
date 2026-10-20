@@ -23,7 +23,12 @@ inline constexpr size_t kZipMaxEntries = 256;
 // read.
 class ZipSource {
  public:
+  ZipSource() = default;
   virtual ~ZipSource() = default;
+  ZipSource(const ZipSource&) = delete;
+  ZipSource& operator=(const ZipSource&) = delete;
+  ZipSource(ZipSource&&) = delete;
+  ZipSource& operator=(ZipSource&&) = delete;
   virtual uint64_t size() const = 0;
   virtual void read(uint64_t offset, void* dst, size_t n) const = 0;
 };
@@ -34,6 +39,8 @@ class FileZipSource : public ZipSource {
   ~FileZipSource() override;
   FileZipSource(const FileZipSource&) = delete;
   FileZipSource& operator=(const FileZipSource&) = delete;
+  FileZipSource(FileZipSource&&) = delete;
+  FileZipSource& operator=(FileZipSource&&) = delete;
   uint64_t size() const override { return size_; }
   void read(uint64_t offset, void* dst, size_t n) const override;
 

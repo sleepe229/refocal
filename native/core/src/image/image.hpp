@@ -1,11 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace enh {
+
+// Half away from zero, then clamped. uint8_t(v + 0.5) is the cast
+// bugprone-incorrect-roundings rejects, and a bare uint8_t(lround(v)) wraps 256 to 0.
+inline uint8_t round_u8(double v) {
+  long r = std::lround(v);
+  if (r < 0) r = 0;
+  if (r > 255) r = 255;
+  return static_cast<uint8_t>(r);
+}
+
+// Same rounding for a coordinate or a count that is known to fit in int once clamped.
+inline int round_int(double v, int lo, int hi) {
+  long r = std::lround(v);
+  if (r < lo) r = lo;
+  if (r > hi) r = hi;
+  return static_cast<int>(r);
+}
 
 // Interleaved RGB8, row-major, no padding.
 struct Rgb8 {

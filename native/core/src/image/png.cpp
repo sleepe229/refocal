@@ -24,6 +24,10 @@ struct File {
   ~File() {
     if (f) (void)std::fclose(f);  // read only
   }
+  File(const File&) = delete;
+  File& operator=(const File&) = delete;
+  File(File&&) = delete;
+  File& operator=(File&&) = delete;
 };
 
 void on_warning(png_structp, png_const_charp) {}
@@ -45,6 +49,7 @@ void read_header(const std::string& path, ImageInfo* info, SourceMeta* meta) {
   if (!png) fail(ENH_E_OOM, "png_create_read_struct");
   png_infop pi = png_create_info_struct(png);
   auto ok = std::make_unique<bool>(false);
+  // NOLINTNEXTLINE(cert-err52-cpp): libpng errors arrive only by longjmp
   if (pi && !setjmp(png_jmpbuf(png))) {
     png_set_chunk_malloc_max(png, kMaxMetaBytes * 2);
     png_init_io(png, f.f);
@@ -119,6 +124,7 @@ namespace {
 }  // namespace
 
 struct PngWriter::Impl {
+  Impl() = default;
   FILE* f = nullptr;
   png_structp png = nullptr;
   png_infop info = nullptr;
@@ -130,6 +136,10 @@ struct PngWriter::Impl {
     if (png) png_destroy_write_struct(&png, info ? &info : nullptr);
     if (f) (void)std::fclose(f);  // not finished: the output is abandoned
   }
+  Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(Impl&&) = delete;
 };
 
 PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* meta, bool alpha)
@@ -146,6 +156,7 @@ PngWriter::PngWriter(const std::string& path, int w, int h, const OutputMeta* me
   m.info = png_create_info_struct(m.png);
   if (!m.info) fail(ENH_E_OOM, "png_create_info_struct");
   png_text xmp{};
+  // NOLINTNEXTLINE(cert-err52-cpp): libpng errors arrive only by longjmp
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   png_init_io(m.png, m.f);
   // A broken source ICC profile must not fail the export: libpng then drops the chunk.
@@ -179,6 +190,7 @@ PngWriter::~PngWriter() = default;
 void PngWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) {
   Impl& m = *impl_;
   if (m.alpha != (alpha != nullptr)) fail(ENH_E_INTERNAL, "PNG: alpha rows expected or not");
+  // NOLINTNEXTLINE(cert-err52-cpp): libpng errors arrive only by longjmp
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   for (int r = 0; r < rows; ++r) {
     if (!m.alpha) {
@@ -202,6 +214,7 @@ void PngWriter::write_rows(const uint8_t* rgb, int rows, const uint8_t* alpha) {
 void PngWriter::finish() {
   Impl& m = *impl_;
   if (m.finished) return;
+  // NOLINTNEXTLINE(cert-err52-cpp): libpng errors arrive only by longjmp
   if (setjmp(png_jmpbuf(m.png))) fail(ENH_E_IO, "PNG encode failed");
   png_write_end(m.png, m.info);
   m.finished = true;

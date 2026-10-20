@@ -53,9 +53,9 @@ Rgb8 jpeg_clean(InferenceBackend& be, const Rgb8& img, float qf, int tile, int p
         float* bl = in.channel(2).row(yy);
         for (int xx = 0; xx < nw; ++xx) {
           const uint8_t* p = row + sz(colidx[sz(xx)]) * 3;
-          r[xx] = p[0] * (1.f / 255.f);
-          gr[xx] = p[1] * (1.f / 255.f);
-          bl[xx] = p[2] * (1.f / 255.f);
+          r[xx] = float(p[0]) * (1.f / 255.f);
+          gr[xx] = float(p[1]) * (1.f / 255.f);
+          bl[xx] = float(p[2]) * (1.f / 255.f);
         }
       }
       // By name: ncnn lists every unconsumed blob as an output, in any order (backend.hpp).

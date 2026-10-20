@@ -24,12 +24,12 @@ namespace {
 }  // namespace
 
 bool exists(const std::string& path) {
-  struct stat st;
+  struct stat st {};
   return ::stat(path.c_str(), &st) == 0;
 }
 
 int64_t file_size(const std::string& path) {
-  struct stat st;
+  struct stat st {};
   return ::stat(path.c_str(), &st) == 0 ? int64_t(st.st_size) : -1;
 }
 
@@ -48,7 +48,7 @@ void remove_tree(const std::string& path) {
     while (dirent* e = ::readdir(d)) {
       if (!std::strcmp(e->d_name, ".") || !std::strcmp(e->d_name, "..")) continue;
       std::string p = join(path, e->d_name);
-      struct stat st;
+      struct stat st {};
       if (::lstat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
         remove_tree(p);
       else
@@ -111,7 +111,7 @@ std::vector<uint8_t> read_all(const std::string& path) {
   int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
   if (fd < 0) io_fail("open", path);
   std::vector<uint8_t> v;
-  struct stat st;
+  struct stat st {};
   if (::fstat(fd, &st) == 0 && st.st_size > 0) v.reserve(size_t(st.st_size));
   uint8_t buf[1 << 16];
   for (;;) {
@@ -152,7 +152,7 @@ void read_exact(const std::string& path, void* dst, size_t n) {
 }
 
 int64_t free_bytes(const std::string& dir) {
-  struct statvfs vs;
+  struct statvfs vs {};
   if (::statvfs(dir.c_str(), &vs) != 0) return -1;
   return int64_t(vs.f_bavail) * int64_t(vs.f_frsize);
 }

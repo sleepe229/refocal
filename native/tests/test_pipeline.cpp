@@ -429,7 +429,7 @@ static void test_lowlight() {
   for (int r = 0; r < 256; r += 15)
     for (int g = 0; g < 256; g += 17)
       for (int b = 0; b < 256; b += 13) {
-        float rr, gg, bb;
+        float rr = 0, gg = 0, bb = 0;
         rgb_of_hvi(hvi_of_rgb(float(r) / 255.f, float(g) / 255.f, float(b) / 255.f, k), k, rr, gg,
                    bb);
         worst = std::max({worst, std::abs(int(std::lround(rr * 255)) - r),

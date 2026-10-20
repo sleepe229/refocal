@@ -1,6 +1,7 @@
 // Tiny dependency-free test runner.
 #pragma once
 #include <cstdio>
+#include <exception>
 #include <functional>
 #include <string>
 #include <vector>
@@ -22,8 +23,17 @@ inline int& checks() {
   static int n = 0;
   return n;
 }
+// Registration runs before main. A throw there would terminate the process anyway;
+// doing it inside a noexcept constructor keeps that explicit (cert-err58-cpp).
 struct Reg {
-  Reg(const char* n, std::function<void()> f) { cases().push_back({n, std::move(f)}); }
+  Reg(const char* n, void (*f)()) noexcept {
+    try {
+      cases().push_back({n, f});
+    } catch (...) {
+      (void)std::fprintf(stderr, "cannot register test %s\n", n ? n : "");
+      std::terminate();
+    }
+  }
 };
 inline int run_all() {
   for (auto& c : cases()) {

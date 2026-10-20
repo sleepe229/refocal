@@ -19,6 +19,7 @@ std::string vstrf(const char* fmt, va_list ap) {
   return s;
 }
 
+// NOLINTNEXTLINE(cert-dcl50-cpp): printf-style by design; [[gnu::format]] checks every call
 std::string strf(const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
