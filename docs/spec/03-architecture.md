@@ -38,7 +38,7 @@
 │  io/: libjpeg-turbo · libpng · libwebp(+mux) · metaio (EXIF/XMP/ICC) ·              │
 │       PlatformCodec ──► AImageDecoder/HeifWriter (JNI) | ImageIO                    │
 ├──────────────────────── InferenceBackend (C++ интерфейс) ───────────────────────────┤
-│ NcnnVulkanBackend │ NcnnCpuBackend │ CoreMLBackend (.mm) │ [R1.3] OrtQnnBackend     │
+│ NcnnVulkanBackend │ NcnnCpuBackend │ CoreMLBackend (.mm) │ [R1.4] OrtQnnBackend     │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 Хранилище: drift SQLite │ AppSupport/models │ AppSupport/jobs/<id> │ AppSupport/inbox │
            AppSupport/history (превью) │ logs/

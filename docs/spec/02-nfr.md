@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | **T0** | MemTotal < 3.3 ГБ, или самый быстрый исправный бэкенд медленнее 80 мс на тайл 128 (05 §6.3) | CPU (ncnn) или медленный GPU | 128 | 8 МП | compact SR; face — CPU, ≤ 1 лица или выкл. |
 | **T1** | Остальные: исправный бэкенд ≤ 80 мс на тайл 128 | Vulkan / Core ML (или быстрый CPU) | 256 | 16 МП | compact SR, GFPGAN fp16 |
-| **T2** | MemTotal ≥ 7.0 ГБ и ≤ 25 мс на тайл 128 (ориентир: Snapdragon 8 Gen 2+, Dimensity 9200+, Apple A16+) | Vulkan / Core ML (+NPU в 1.3) | 256 | 48–100 МП (потоково) | + x4plus, CodeFormer, 8× |
+| **T2** | MemTotal ≥ 7.0 ГБ и ≤ 25 мс на тайл 128 (ориентир: Snapdragon 8 Gen 2+, Dimensity 9200+, Apple A16+) | Vulkan / Core ML (+NPU в 1.4) | 256 | 48–100 МП (потоково) | + x4plus, CodeFormer, 8× |
 
 ### Эталонные устройства
 

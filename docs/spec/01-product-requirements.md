@@ -154,7 +154,7 @@
 | FR-META-003 | GPS удаляется по умолчанию при «Поделиться»; при сохранении — по настройке (по умолчанию удаляется) | Must | R0.3 | Результат share не содержит GPS-тегов | PRIV-META-001 |
 | FR-META-004 | В XMP записывается `Iptc4xmpExt:DigitalSourceType = http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia` и `xmp:CreatorTool` | Must | R0.3 | Проверка exiftool в тесте | COMP-REG-002 |
 | FR-META-005 | AI-маркер можно отключить в настройках с предупреждением | Should | R0.3 | — | [15](15-ethics-responsible-ai.md) |
-| FR-META-006 | Опциональный манифест C2PA (самоподписанный, с честной пометкой о недоверенной подписи) | Could | R1.3 | `c2patool` читает манифест | ADR-0018 |
+| FR-META-006 | Опциональный манифест C2PA (самоподписанный, с честной пометкой о недоверенной подписи) | Could | R1.4 | `c2patool` читает манифест | ADR-0018 |
 | FR-META-007 | Размеры в EXIF (`PixelXDimension/YDimension`) обновлены; миниатюра EXIF удалена или пересоздана | Must | R0.3 | — | TEST-UNIT-004 |
 
 ## 11. Модели и паки (MODEL)
