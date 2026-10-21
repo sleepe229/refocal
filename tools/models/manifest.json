@@ -1,7 +1,7 @@
 {
-  "schema": 1,
-  "serial": 7,
-  "generated_at": "2026-10-18T05:00:00Z",
+  "schema": 2,
+  "serial": 8,
+  "generated_at": "2026-10-21T18:00:00Z",
   "min_app_version": "0.0.6",
   "packs": [
     {
@@ -19,6 +19,7 @@
       "tier_min": "T0",
       "license": {
         "spdx": "BSD-3-Clause",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn0-v1/LICENSE.txt",
         "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
         "commercial": true,
@@ -92,6 +93,7 @@
       "tier_min": "T0",
       "license": {
         "spdx": "BSD-3-Clause",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.general-x4v3-dn100-v1/LICENSE.txt",
         "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
         "commercial": true,
@@ -165,6 +167,7 @@
       "tier_min": "T1",
       "license": {
         "spdx": "LicenseRef-GFPGAN-NC",
+        "class": "noncommercial",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-face.gfpgan-1.4-v1/LICENSE.txt",
         "text_sha256": "f66349c991a8fc9910e921ee483336518d3bf002789ce86cc8368a67ee43ebf2",
         "commercial": false,
@@ -258,6 +261,7 @@
       "tier_min": "T2",
       "license": {
         "spdx": "BSD-3-Clause",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-v1/LICENSE.txt",
         "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
         "commercial": true,
@@ -345,6 +349,7 @@
       "tier_min": "T1",
       "license": {
         "spdx": "BSD-3-Clause",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-sr.x4plus-anime6b-v1/LICENSE.txt",
         "text_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
         "commercial": true,
@@ -432,6 +437,7 @@
       "tier_min": "T2",
       "license": {
         "spdx": "LicenseRef-S-Lab-1.0",
+        "class": "noncommercial",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-face.codeformer-v1/LICENSE.txt",
         "text_sha256": "cfd654022bdc44fdd809670d50239bcb1ebf2f4a661dca7e328f93c269538246",
         "commercial": false,
@@ -559,6 +565,7 @@
       "min_app_version": "0.6.0-beta.1",
       "license": {
         "spdx": "Apache-2.0",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-jpeg.fbcnn-v1/LICENSE.txt",
         "text_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
         "commercial": true,
@@ -659,6 +666,7 @@
       "min_app_version": "0.6.0-beta.1",
       "license": {
         "spdx": "MIT",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-old.scratch-v1/LICENSE.txt",
         "text_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
         "commercial": true,
@@ -750,6 +758,7 @@
       "min_app_version": "0.6.0-beta.1",
       "license": {
         "spdx": "MIT",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-old.inpaint-migan-v1/LICENSE.txt",
         "text_sha256": "674e33456b8d03693b84ab305aa7372d93c91e68b234651b0adad106d518e6eb",
         "commercial": true,
@@ -839,6 +848,7 @@
       "min_app_version": "0.6.0-beta.1",
       "license": {
         "spdx": "MIT",
+        "class": "permissive",
         "url": "https://github.com/sleepe229/refocal/releases/download/model-old.lowlight-cidnet-v1/LICENSE.txt",
         "text_sha256": "e0cf0687956ae87aeca8582874bb9a3539c64401dbcdc50c9c527327ef185be3",
         "commercial": true,

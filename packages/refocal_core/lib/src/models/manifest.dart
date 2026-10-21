@@ -4,7 +4,35 @@ import 'dart:convert';
 // after its signature was verified. Anything the schema does not allow is a FormatException:
 // a manifest this version cannot read is not partially used.
 
-enum PackCategory { sr, face, det, jpeg, old, color, parse }
+enum PackCategory { sr, face, det, jpeg, old, color, parse, denoise }
+
+/// The licence class of a pack's weights (ADR-0026), from manifest schema 2 on.
+enum LicenseClass {
+  /// MIT, BSD, Apache-2.0, CC0: bundled or a pack without consent.
+  permissive('permissive'),
+
+  /// CC-BY-4.0: a pack without consent, credited where the model is shown.
+  attribution('attribution'),
+
+  /// CC-BY-SA-4.0: as [attribution].
+  shareAlike('sharealike'),
+
+  /// Non-commercial (GFPGAN, S-Lab, CC-BY-NC…): a pack with consent (ADR-0022).
+  nonCommercial('noncommercial');
+
+  const LicenseClass(this.wire);
+  final String wire;
+
+  /// Whose work a pack of this class must name next to the model.
+  bool get credited => this == attribution || this == shareAlike;
+}
+
+/// The author and the link a CC-BY pack is credited with (ADR-0026).
+class PackAttribution {
+  const PackAttribution({required this.author, required this.url});
+  final String author;
+  final String url;
+}
 
 /// One downloadable file of a pack for a platform and backend.
 class PackFile {
@@ -41,6 +69,8 @@ class PackLicense {
     required this.textSha256,
     required this.commercial,
     required this.requiresAcceptance,
+    this.licenseClass,
+    this.attribution,
   });
 
   final String spdx;
@@ -52,6 +82,12 @@ class PackLicense {
 
   /// Non-commercial or otherwise restricted (ADR-0022): explicit consent before download.
   final bool requiresAcceptance;
+
+  /// Null in a schema 1 manifest (before ADR-0026).
+  final LicenseClass? licenseClass;
+
+  /// Set exactly when [licenseClass] is credited.
+  final PackAttribution? attribution;
 }
 
 class PackInfo {
@@ -104,7 +140,12 @@ class Manifest {
     required this.generatedAt,
     required this.minAppVersion,
     required this.packs,
+    this.schema = 1,
   });
+
+  /// 1, or 2 from ADR-0026 on (licence classes, the denoise category). The release `models`
+  /// carries both: `manifest.json` in schema 1 for older apps, `manifest.v2.json`.
+  final int schema;
 
   /// Monotonic; a lower one than the last accepted is a rollback (ADR-0011).
   final int serial;
@@ -136,16 +177,20 @@ class Manifest {
       'gpu_blocklist_revoke',
       'packs',
     });
-    if (m['schema'] != 1) throw const FormatException('unsupported manifest schema');
+    final schema = m['schema'];
+    if (schema is! int || schema < 1 || schema > 2) {
+      throw const FormatException('unsupported manifest schema');
+    }
     final serial = _int(m['serial'], 'serial');
     if (serial < 1) throw const FormatException('serial must be >= 1');
     final generated = DateTime.tryParse(_str(m['generated_at'], 'generated_at'));
     if (generated == null) throw const FormatException('bad generated_at');
-    final packs = [for (final p in _list(m['packs'], 'packs')) _pack(p)];
+    final packs = [for (final p in _list(m['packs'], 'packs')) _pack(p, schema)];
     if (packs.map((p) => p.id).toSet().length != packs.length) {
       throw const FormatException('duplicate pack id');
     }
     return Manifest(
+      schema: schema,
       serial: serial,
       generatedAt: generated,
       minAppVersion: _match(m['min_app_version'], _semver, 'min_app_version'),
@@ -153,7 +198,7 @@ class Manifest {
     );
   }
 
-  static PackInfo _pack(Object? j) {
+  static PackInfo _pack(Object? j, int schema) {
     final p = _obj(j, 'pack', const {
       'id',
       'version',
@@ -169,13 +214,14 @@ class Manifest {
       'provenance',
     });
     final id = _match(p['id'], _packId, 'pack id');
-    final l = _obj(p['license'], 'license', const {
+    final l = _obj(p['license'], 'license', {
       'spdx',
       'url',
       'text_sha256',
       'commercial',
       'requires_acceptance',
       'notes_key',
+      if (schema >= 2) ...{'class', 'attribution'},
     });
     final io = _obj(p['io'], 'io', const {'inputs', 'outputs', 'scale', 'tiles', 'pad', 'params'});
     final scale = _int(io['scale'], 'io.scale');
@@ -206,15 +252,45 @@ class Manifest {
       minAppVersion: p['min_app_version'] == null
           ? null
           : _str(p['min_app_version'], 'min_app_version'),
-      license: PackLicense(
-        spdx: _str(l['spdx'], 'license.spdx'),
-        url: _https(l['url'], 'license.url'),
-        textSha256: _match(l['text_sha256'], _sha, 'license.text_sha256'),
-        commercial: _bool(l['commercial'], 'license.commercial'),
-        requiresAcceptance: _bool(l['requires_acceptance'], 'license.requires_acceptance'),
-      ),
+      license: _license(l, id, schema),
       scale: scale,
       files: files,
+    );
+  }
+
+  /// The licence of [id]; in schema 2 its class, consistent with the rest (ADR-0026).
+  static PackLicense _license(Map<String, Object?> l, String id, int schema) {
+    final commercial = _bool(l['commercial'], 'license.commercial');
+    final acceptance = _bool(l['requires_acceptance'], 'license.requires_acceptance');
+    LicenseClass? cls;
+    PackAttribution? credit;
+    if (schema >= 2) {
+      final wire = _str(l['class'], 'license.class');
+      cls =
+          LicenseClass.values.where((c) => c.wire == wire).firstOrNull ??
+          (throw FormatException('bad license class of $id'));
+      final consented = cls == LicenseClass.nonCommercial;
+      if (consented != acceptance || consented == commercial) {
+        throw FormatException('license class of $id disagrees with its flags');
+      }
+      if (cls.credited) {
+        final a = _obj(l['attribution'], 'license.attribution', const {'author', 'url'});
+        credit = PackAttribution(
+          author: _str(a['author'], 'attribution.author'),
+          url: _https(a['url'], 'attribution.url'),
+        );
+      } else if (l.containsKey('attribution')) {
+        throw FormatException('attribution of $id outside the attribution classes');
+      }
+    }
+    return PackLicense(
+      spdx: _str(l['spdx'], 'license.spdx'),
+      url: _https(l['url'], 'license.url'),
+      textSha256: _match(l['text_sha256'], _sha, 'license.text_sha256'),
+      commercial: commercial,
+      requiresAcceptance: acceptance,
+      licenseClass: cls,
+      attribution: credit,
     );
   }
 

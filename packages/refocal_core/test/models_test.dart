@@ -52,13 +52,26 @@ Map<String, Object?> _pack(String id, {bool nc = false, String text = _sha}) => 
   'provenance': {'upstream': 'x', 'upstream_sha256': _sha, 'conversion_commit': 'abc'},
 };
 
-String _manifest({int serial = 3, List<Map<String, Object?>>? packs}) => jsonEncode({
-  'schema': 1,
-  'serial': serial,
-  'generated_at': '2026-10-15T10:00:00Z',
-  'min_app_version': '0.0.6',
-  'packs': packs ?? [_pack('sr.general-x4v3-dn0'), _pack('face.gfpgan-1.4', nc: true)],
-});
+/// [_pack] in schema 2 (ADR-0026): its licence class, and the credit of a CC-BY one.
+Map<String, Object?> _pack2(String id, {String cls = 'permissive', String? category}) {
+  final p = _pack(id, nc: cls == 'noncommercial');
+  final l = (p['license']! as Map<String, Object?>)..['class'] = cls;
+  if (cls == 'attribution' || cls == 'sharealike') {
+    l['spdx'] = 'CC-BY-4.0';
+    l['attribution'] = {'author': 'Phhofm', 'url': 'https://openmodeldb.info/models/x'};
+  }
+  if (category != null) p['category'] = category;
+  return p;
+}
+
+String _manifest({int serial = 3, int schema = 1, List<Map<String, Object?>>? packs}) =>
+    jsonEncode({
+      'schema': schema,
+      'serial': serial,
+      'generated_at': '2026-10-15T10:00:00Z',
+      'min_app_version': '0.0.6',
+      'packs': packs ?? [_pack('sr.general-x4v3-dn0'), _pack('face.gfpgan-1.4', nc: true)],
+    });
 
 void main() {
   group('manifest', () {
@@ -111,7 +124,8 @@ void main() {
       Map<String, Object?> file0(Map<String, Object?> m) =>
           ((pack0(m)['files'] as List).first as Map).cast<String, Object?>();
       final cases = <String, void Function(Map<String, Object?>)>{
-        'schema 2': (m) => m['schema'] = 2,
+        'schema 3': (m) => m['schema'] = 3,
+        'a licence class in schema 1': (m) => (pack0(m)['license'] as Map)['class'] = 'permissive',
         'unknown top field': (m) => m['extra'] = 1,
         'serial 0': (m) => m['serial'] = 0,
         'serial as text': (m) => m['serial'] = '3',
@@ -135,6 +149,81 @@ void main() {
     });
   });
 
+  group('manifest schema 2 (ADR-0026)', () {
+    test('licence classes, the credit of a CC-BY pack, the denoise category', () {
+      final m = Manifest.parse(
+        _manifest(
+          schema: 2,
+          packs: [
+            _pack2('sr.general-x4v3-dn0'),
+            _pack2('sr.lsdir-compact', cls: 'attribution'),
+            _pack2('face.gfpgan-1.4', cls: 'noncommercial'),
+            _pack2('denoise.scunet', category: 'denoise'),
+          ],
+        ),
+      );
+      expect(m.schema, 2);
+      expect(m.pack('sr.general-x4v3-dn0')!.license.licenseClass, LicenseClass.permissive);
+      final cc = m.pack('sr.lsdir-compact')!.license;
+      expect(cc.licenseClass, LicenseClass.attribution);
+      expect(cc.attribution!.author, 'Phhofm');
+      expect(cc.requiresAcceptance, isFalse);
+      expect(m.pack('face.gfpgan-1.4')!.license.licenseClass, LicenseClass.nonCommercial);
+      expect(m.pack('denoise.scunet')!.category, PackCategory.denoise);
+    });
+
+    test('rejects a class that disagrees with the flags, or a missing credit', () {
+      Map<String, Object?> lic(Map<String, Object?> p) => p['license']! as Map<String, Object?>;
+      final cases = <String, Map<String, Object?>>{
+        'no class': _pack2('a.b')..update('license', (l) => (l as Map)..remove('class')),
+        'unknown class': _pack2('a.b', cls: 'unspecified'),
+        'NC without consent': () {
+          final p = _pack2('a.b', cls: 'noncommercial');
+          lic(p)['requires_acceptance'] = false;
+          return p;
+        }(),
+        'permissive with consent': () {
+          final p = _pack2('a.b');
+          lic(p)['requires_acceptance'] = true;
+          return p;
+        }(),
+        'CC-BY without credit': () {
+          final p = _pack2('a.b', cls: 'attribution');
+          lic(p).remove('attribution');
+          return p;
+        }(),
+        'credit on a permissive pack': () {
+          final p = _pack2('a.b');
+          lic(p)['attribution'] = {'author': 'x', 'url': 'https://x.org'};
+          return p;
+        }(),
+      };
+      for (final MapEntry(key: name, value: p) in cases.entries) {
+        expect(
+          () => Manifest.parse(_manifest(schema: 2, packs: [p])),
+          throwsFormatException,
+          reason: name,
+        );
+      }
+    });
+
+    test('the schema 1 projection for older apps drops what they cannot show', () {
+      final r = Process.runSync('python3', [
+        '../../tools/models/manifest_v1.py',
+        '../../tools/models/manifest.json',
+      ]);
+      expect(r.exitCode, 0, reason: '${r.stderr}');
+      final v1 = Manifest.parse(r.stdout as String);
+      final v2 = Manifest.parse(File('../../tools/models/manifest.json').readAsStringSync());
+      expect(v1.schema, 1);
+      expect(v1.serial, v2.serial);
+      expect(v1.packs.map((p) => p.id), [
+        for (final p in v2.packs)
+          if (p.category != PackCategory.denoise && !p.license.licenseClass!.credited) p.id,
+      ]);
+    });
+  });
+
   group('repository', () {
     late RefocalDatabase db;
     late ModelRepository repo;
@@ -155,6 +244,16 @@ void main() {
         throwsA(isA<ManifestRollback>()),
       );
       expect((await repo.current())!.serial, 4);
+    });
+
+    test('the same serial moves from schema 1 to 2, never back', () async {
+      await repo.accept(_manifest(serial: 4));
+      final v2 = _manifest(serial: 4, schema: 2, packs: [_pack2('sr.general-x4v3-dn0')]);
+      await repo.accept(v2);
+      expect((await repo.current())!.schema, 2);
+      expect(() => repo.accept(_manifest(serial: 4)), throwsA(isA<ManifestRollback>()));
+      expect(() => repo.accept(_manifest(serial: 5)), throwsA(isA<ManifestRollback>()));
+      await repo.accept(v2);
     });
 
     test('installed packs and consents for the current license text', () async {

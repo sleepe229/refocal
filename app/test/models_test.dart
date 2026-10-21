@@ -148,7 +148,7 @@ void main() {
         await req.response.close();
         return;
       }
-      final body = path == '/manifest.json.minisig' ? utf8.encode(signature) : files[path];
+      final body = path == '/manifest.v2.json.minisig' ? utf8.encode(signature) : files[path];
       if (body == null) {
         req.response.statusCode = 404;
       } else {
@@ -187,7 +187,7 @@ void main() {
   test(
     'the manifest is used only with a valid signature and a serial that does not go back',
     () async {
-      files['/manifest.json'] = utf8.encode(manifest(2, [pack('sr.a')]));
+      files['/manifest.v2.json'] = utf8.encode(manifest(2, [pack('sr.a')]));
       signature = 'forged';
       await expectLater(
         manager.refresh(),
@@ -196,7 +196,7 @@ void main() {
       expect(await manager.repo.current(), isNull);
       signature = 'good';
       expect((await manager.refresh()).serial, 2);
-      files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
+      files['/manifest.v2.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
       await expectLater(
         manager.refresh(),
         throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.rollback)),
@@ -208,7 +208,7 @@ void main() {
     'install: resumes a partial file, falls back to the next mirror, moves the pack into place',
     () async {
       final p = pack('sr.a', badMirror: true);
-      files['/manifest.json'] = utf8.encode(manifest(1, [p]));
+      files['/manifest.v2.json'] = utf8.encode(manifest(1, [p]));
       final m = await manager.refresh();
       // A download interrupted earlier.
       final staging = Directory('${manager.modelsDir}/.sr.a.partial')..createSync(recursive: true);
@@ -227,9 +227,9 @@ void main() {
   );
 
   test('redirects are followed over https only (PRIV-NET-004)', () async {
-    files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
-    redirects['/m/manifest.json'] = '$base/manifest.json';
-    redirects['/m/manifest.json.minisig'] = '$base/manifest.json.minisig';
+    files['/manifest.v2.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
+    redirects['/m/manifest.v2.json'] = '$base/manifest.v2.json';
+    redirects['/m/manifest.v2.json.minisig'] = '$base/manifest.v2.json.minisig';
     final m = ModelManager(
       repo: manager.repo,
       verifier: _Verifier(),
@@ -241,7 +241,7 @@ void main() {
       manifestBase: ['$base/m'],
     );
     expect((await m.refresh()).serial, 1);
-    redirects['/m/manifest.json'] = 'http://localhost:${server.port}/manifest.json';
+    redirects['/m/manifest.v2.json'] = 'http://localhost:${server.port}/manifest.v2.json';
     await expectLater(
       m.refresh(),
       throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.network)),
@@ -249,12 +249,12 @@ void main() {
   });
 
   test('a response longer than expected is cut off, not written to the end', () async {
-    files['/manifest.json'] = List<int>.filled((1 << 20) + 1, 0x20);
+    files['/manifest.v2.json'] = List<int>.filled((1 << 20) + 1, 0x20);
     await expectLater(
       manager.refresh(),
       throwsA(isA<ModelError>().having((e) => e.kind, 'kind', ModelErrorKind.network)),
     );
-    files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
+    files['/manifest.v2.json'] = utf8.encode(manifest(1, [pack('sr.a')]));
     final m = await manager.refresh();
     files['/bin'] = [...weights, 1, 2, 3];
     await expectLater(
@@ -264,7 +264,7 @@ void main() {
   });
 
   test('a file that does not match its hash is not installed', () async {
-    files['/manifest.json'] = utf8.encode(manifest(1, [pack('sr.a', binSha: 'a' * 64)]));
+    files['/manifest.v2.json'] = utf8.encode(manifest(1, [pack('sr.a', binSha: 'a' * 64)]));
     final m = await manager.refresh();
     await expectLater(
       manager.install(m.pack('sr.a')!),
@@ -275,7 +275,7 @@ void main() {
   });
 
   test('a non-commercial pack needs consent to its verified license text (ADR-0022)', () async {
-    files['/manifest.json'] = utf8.encode(manifest(1, [pack('face.x', nc: true)]));
+    files['/manifest.v2.json'] = utf8.encode(manifest(1, [pack('face.x', nc: true)]));
     final face = (await manager.refresh()).pack('face.x')!;
     expect(() => manager.install(face), throwsStateError);
     expect(await manager.licenseText(face), 'Non-commercial use only.\n');

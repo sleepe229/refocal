@@ -859,5 +859,13 @@
     }
   },
   "bannerDone": "Model ready",
-  "bannerBackToPhoto": "Back to photo"
+  "bannerBackToPhoto": "Back to photo",
+  "modelsBy": "by {author}",
+  "@modelsBy": {
+    "placeholders": {
+      "author": {
+        "type": "String"
+      }
+    }
+  }
 }

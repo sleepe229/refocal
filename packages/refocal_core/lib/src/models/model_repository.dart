@@ -53,9 +53,14 @@ class ModelRepository {
   Future<Manifest> accept(String verifiedJson, {DateTime? now}) => _db.transaction(() async {
     final m = Manifest.parse(verifiedJson);
     final cur = await _db.select(_db.manifestState).getSingleOrNull();
-    if (cur != null &&
-        (m.serial < cur.serial || (m.serial == cur.serial && verifiedJson != cur.json))) {
-      throw ManifestRollback(m.serial, cur.serial);
+    // The same serial is published in schema 1 and 2 (ADR-0011 amendment): an app that had
+    // the schema 1 one moves to schema 2 at that serial; never back.
+    final older = cur == null ? null : Manifest.parse(cur.json);
+    if (older != null &&
+        (m.serial < older.serial ||
+            m.schema < older.schema ||
+            (m.serial == older.serial && m.schema == older.schema && verifiedJson != cur!.json))) {
+      throw ManifestRollback(m.serial, older.serial);
     }
     await _db
         .into(_db.manifestState)
