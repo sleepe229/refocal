@@ -23,9 +23,9 @@
 | `sr.nomos-compact-x2` | Родной 2x (кандидат) | SRVGGNetCompact (2xNomosUni_compact_otf_medium) | ~1.2M | ~2.3 МБ | CC-BY-4.0 [V] | пак; нужен x2-путь в ядре | T0+ | R1.1 (S11) |
 | `sr.webphoto-realplksr` | HQ SR рядом с x4plus (кандидат) | RealPLKSR 64dim/28 блоков, PixelShuffle (4xNomosWebPhoto_RealPLKSR) | ~7.4M [R] | ~15 МБ | CC-BY-4.0 [V] | пак | T2 | R1.2 |
 | `sr.public-realplksr-x2` | HQ 2x, permissive (кандидат) | RealPLKSR + DySample + LayerNorm (2xPublic_realplksr_dysample_layernorm_real) | ~7M [R] | ~14 МБ | Apache-2.0 [V] | пак; нужен Vulkan GridSample | T2 | R1.2 |
-| `face.restoreformerpp` | Лица, лучшая идентичность (кандидат) | RestoreFormer++ | — | — | Apache-2.0 код [V]; веса — лицензия не указана, нужен письменный ответ автора | пак, согласие по ответу | T1+ | R1.3 |
-| `face.vqfr` | Лица с регулятором fidelity (кандидат) | VQFR | — | — | Apache-2.0 код [V]; веса — не указана | пак | T1+ | R1.3 |
-| `denoise.scunet` | Слепое шумоподавление реальных фото (кандидат) | SCUNet `color_real_psnr` / DRUNet | 17.9M / 32.6M [V] | ~36 / ~65 МБ | Apache-2.0 / MIT код [V]; веса — не указана | пак; категория `denoise` в схеме | T1+ | R1.3 |
+| `face.restoreformerpp` | Лица, лучшая идентичность (кандидат) | RestoreFormer++ | — | — | Apache-2.0 код и веса — релиз `v1.0.0` репозитория [V] | пак с согласием (лица, FFHQ; ADR-0022) | T1+ | R1.3 |
+| `face.vqfr` | Лица с регулятором fidelity (кандидат) | VQFR | — | — | Apache-2.0 код и веса — релизы `v1.0.0`/`v2.0.0`, NC-компонентов в LICENSE нет [V] | пак с согласием (лица, FFHQ) | T1+ | R1.3 |
+| `denoise.scunet` | Слепое шумоподавление реальных фото (кандидат) | SCUNet `color_real_psnr` / DRUNet | 17.9M / 32.6M [V] | ~36 / ~65 МБ | веса — релиз `cszn/KAIR` v1.0, MIT [V] | пак; категория `denoise` в схеме | T1+ | R1.3 |
 | `face.gen-*` | Генеративные лица, эксперимент | одношаговая диффузия (OSDFace / PMRF / InterLCM — S12) | 160M–1B | до ~2 ГБ | OSDFace и InterLCM — NC [V]; PMRF — MIT [V] (проверить стадию SwinIR из DifFace) | пак, только явное включение, никогда не Auto | T2 + NPU | R1.5 |
 | `sr.span-real` | Своя permissive SR | SPAN/SPANV2 retrain | ~0.15M | < 1 МБ | Apache-2.0 (своя) | встроена (замена general-x4v3) | T0+ | R2.0 (R&D) |
 
