@@ -9,8 +9,8 @@ New:
   measures how sharp the photo really is and enhances it from a copy at that sharpness, then
   brings it back to the full size. Edges come out crisper, and processing is faster. Auto's
   explanation says so ("blurry: enhanced at its real sharpness").
-- Auto results get a light sharpening of edges, without bright or dark halos; restored faces
-  are not sharpened again.
+- Results get a light sharpening of edges, without bright or dark halos; restored faces are
+  not sharpened again. Portrait, Old photo and Adjust handle blurry photos the same way as Auto.
 - **No denoise** is now built in: Auto uses it for clean photos without a download.
 
 ## 0.8.1-beta.1

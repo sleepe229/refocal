@@ -177,6 +177,13 @@ void main() {
       _auto.decide(blurry(0.45, mp: 12), DeviceTier.t1, _all).reasons,
       contains(AutoReason.blurryPhoto),
     );
+    // The same rule at any scale the editor picks: a property of the photo and the scale.
+    double at(int scale, {bool fast2 = false, bool facesOnly = false}) =>
+        AutoPolicy.preDownFor(blurry(0.7), scale: scale, fast2: fast2, facesOnly: facesOnly);
+    expect(
+      [at(4), at(2), at(1), at(2, fast2: true), at(8), at(4, facesOnly: true)],
+      [0.7, 0.7, 0.7, 1.0, 1.0, 1.0],
+    );
     Map<String, Object?> json(Object? eff) => {
       'schema': 1,
       'width': 10,

@@ -1448,6 +1448,7 @@ void enh_job::run_impl(nlohmann::json& result) {
     std::vector<uint8_t> win;
     int win_y = std::max(0, start_finish * kFinishRows - kUsmMargin), win_n = 0;
     done_tiles = total_tiles - finish_bands + start_finish;
+    const auto t_finish = steady_clock::now();
     for (int b = start_finish; b < finish_bands; ++b) {
       if (stop()) throw Stopped{};
       const int y0 = b * kFinishRows, rows = rows_of(b);
@@ -1474,7 +1475,11 @@ void enh_job::run_impl(nlohmann::json& result) {
       preview.add_rows(band.data(), y0, rows);
       out.commit(b, band.data(), band.size(), ckf);
       const int64_t done = ++done_tiles;
-      sink.progress(kStageUpscale, done, total_tiles, -1, done == total_tiles);
+      // ETA from this pass's own rate (its bands cost unlike SR tiles).
+      const int here = b + 1 - start_finish;
+      const double el = duration<double>(steady_clock::now() - t_finish).count();
+      const int64_t eta = int64_t(el / here * (finish_bands - b - 1) * 1000);
+      sink.progress(kStageUpscale, done, total_tiles, eta, done == total_tiles);
     }
     fs::remove_tree(fs::join(dir, kPreDir));
     for (int b = 0; b < finish_bands; ++b) band_rows.push_back(rows_of(b));

@@ -1581,6 +1581,10 @@ static void test_finish_resume(Session& se) {
         CHECK(e.done >= e.total - finish_bands);
         break;
       }
+    // The finish pass has an ETA of its own (not -1: "unknown").
+    for (const auto& e : c2.evs)
+      if (e.type == ENH_EV_PROGRESS && e.done > e.total - finish_bands)
+        CHECK(e.payload["eta_ms"].get<int64_t>() >= 0);
   }
   CHECK(read_output(fs::join(g_work, "fr")).px == read_output(fs::join(g_work, "fr_ref")).px);
   CHECK(!fs::exists(fs::join(g_work, "fr/pre")));

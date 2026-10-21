@@ -149,14 +149,28 @@ class AutoDecision {
 /// - Effective resolution (ADR-0025): an eff_scale below [blurBelow] runs SR on the input
 ///   downscaled to it, no lower than [minPreDown] (a downscale that is too strong destroys
 ///   small text, so the rule errs on the sharp side), when that is below what SR runs at
-///   anyway (fast 2x: 0.5; region Faces: no SR). Every recipe gets the unsharp mask at
-///   [sharpen].
+///   anyway (fast 2x: 0.5; region Faces: no SR; 8x: not with a downscale) ([preDownFor]).
+///   Every recipe gets the unsharp mask at [sharpen].
 class AutoPolicy {
   const AutoPolicy();
 
   static const cleanSigma = 2.0, noisySigma = 8.0;
   static const jpegCleanBelow = 60;
   static const blurBelow = 0.9, minPreDown = 0.4, sharpen = 1.0;
+
+  /// ADR-0025: the recipe's preDown for photo [a] at [scale] / [fast2] / [facesOnly]; a
+  /// property of the photo and the scale, so the editor applies it in every mode as Auto does.
+  /// 1 (off) unless it lowers the size SR runs at; 2 decimals, so recipes stay readable.
+  static double preDownFor(
+    PhotoAnalysis a, {
+    required int scale,
+    required bool fast2,
+    required bool facesOnly,
+  }) {
+    if (a.effScale >= blurBelow || facesOnly || scale == 8) return 1;
+    final eff = (math.max(minPreDown, a.effScale) * 100).round() / 100;
+    return eff < (fast2 ? 0.5 : 1) ? eff : 1;
+  }
 
   AutoDecision decide(PhotoAnalysis a, DeviceTier tier, AutoModels models) {
     final reasons = <AutoReason>[];
@@ -196,12 +210,8 @@ class AutoPolicy {
         reasons.add(AutoReason.faces);
       }
     }
-    // ADR-0025: set only when it lowers the size SR runs at (fast 2x already halves it, region
-    // Faces runs no SR); 2 decimals, so recipes stay readable.
-    final eff = (math.max(minPreDown, a.effScale) * 100).round() / 100;
-    final blurry = a.effScale < blurBelow && !facesOnly && eff < (fast2 ? 0.5 : 1);
-    final preDown = blurry ? eff : 1.0;
-    if (blurry) reasons.add(AutoReason.blurryPhoto);
+    final preDown = preDownFor(a, scale: scale, fast2: fast2 && !facesOnly, facesOnly: facesOnly);
+    if (preDown < 1) reasons.add(AutoReason.blurryPhoto);
     String? jpeg;
     if (a.jpegQuality > 0 &&
         a.jpegQuality < jpegCleanBelow &&
