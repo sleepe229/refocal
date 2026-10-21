@@ -26,9 +26,13 @@ struct ModelInfo {
   std::string id, param_path, bin_path;
   int scale = 4;  // spatial scale of the network
   int pad = 16;   // tile pad (S2: 16 for compact)
+  // False for a graph whose input cannot shrink (a fixed size, attention over the whole tile):
+  // no "tile / 2" sub-tiles (ADR-0016), an out of memory goes to a smaller scale.
+  bool split_tiles = true;
 };
 
-// Resolves models_dir/<id>/model.ncnn.{param,bin} (+ optional model.json {scale, pad}).
+// Resolves models_dir/<id>/model.ncnn.{param,bin} (+ optional model.json {scale, pad,
+// split_tiles}).
 ModelInfo resolve_model(const std::string& models_dir, const std::string& id);
 
 class InferenceBackend {
