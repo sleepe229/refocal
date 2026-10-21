@@ -1,0 +1,76 @@
+# App self-update feed (ADR-0027): when a maintainer publishes a release, write app-update.json
+# for its `github` APK (stable or, for a pre-release, beta), sign it with key U (secret
+# APP_UPDATE_MINISIGN_KEY; key V is kept offline by the owner for rotation) and upload both to
+# the `app-latest` release, which the app reads. Nothing runs on a draft.
+name: app-update
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-update
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write # the app-latest release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+      PRERELEASE: ${{ github.event.release.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - run: sudo apt-get install -y --no-install-recommends minisign >/dev/null
+      - name: The release's github APK
+        run: |
+          mkdir -p in out
+          apk="refocal-${TAG}-github-arm64-v8a.apk"
+          gh release download "$TAG" -p "$apk" -p SHA256SUMS -D in
+          (cd in && grep " $apk\$" SHA256SUMS | sha256sum -c -)
+          echo "APK=in/$apk" >> "$GITHUB_ENV"
+          echo "URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${apk}" >> "$GITHUB_ENV"
+      - name: The previous feed (checked against U or V)
+        run: |
+          if gh release download app-latest -p 'app-update.json*' -D prev 2>/dev/null; then
+            ok=""
+            for k in tools/release/keys/*.pub; do
+              minisign -Vq -p "$k" -m prev/app-update.json && ok=1 && break
+            done
+            [ -n "$ok" ] || { echo "::error::app-latest feed has no valid signature"; exit 1; }
+            echo "PREV=prev/app-update.json" >> "$GITHUB_ENV"
+          else
+            echo "PREV=-" >> "$GITHUB_ENV"
+          fi
+      - name: Write and sign app-update.json
+        env:
+          KEY: ${{ secrets.APP_UPDATE_MINISIGN_KEY }}
+        run: |
+          code=$(sed -n 's/^version: .*+\([0-9]*\)$/\1/p' app/pubspec.yaml)
+          sdk=$(sed -n 's/^ *minSdk = \([0-9]*\).*/\1/p' app/android/app/build.gradle.kts)
+          pre=""; [ "$PRERELEASE" = true ] && pre=--prerelease
+          tools/release/make_app_update.py --previous "$PREV" --tag "$TAG" --apk "$APK" \
+            --url "$URL" --version-code "$code" --min-sdk "$sdk" $pre \
+            --notes-en "fastlane/metadata/android/en-US/changelogs/$code.txt" \
+            --notes-ru "fastlane/metadata/android/ru-RU/changelogs/$code.txt" out/app-update.json
+          umask 077
+          trap 'rm -f key.minisign' EXIT
+          printf '%s\n' "$KEY" > key.minisign
+          minisign -S -s key.minisign -m out/app-update.json -t "refocal app-update $TAG"
+          minisign -V -p tools/release/keys/U.pub -m out/app-update.json
+      - name: Upload to app-latest
+        run: |
+          gh release view app-latest >/dev/null 2>&1 || gh release create app-latest \
+            --prerelease --latest=false --title "App update feed" \
+            --notes "app-update.json for the app's self-update (ADR-0027). Not a release."
+          gh release upload app-latest out/app-update.json out/app-update.json.minisig --clobber

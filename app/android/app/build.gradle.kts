@@ -35,11 +35,13 @@ android {
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
-    // ADR-0020: flavors differ only in metadata and signing; neither has GMS/Firebase.
+    // ADR-0020: flavors differ only in metadata and signing; none has GMS/Firebase.
+    // ADR-0027: `github` is fdroid plus the self-updater (src/github), same id and key.
     flavorDimensions += "store"
     productFlavors {
         create("play") { dimension = "store" }
         create("fdroid") { dimension = "store" }
+        create("github") { dimension = "store" }
     }
 
     signingConfigs {
@@ -91,4 +93,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // The self-updater's async Pigeon API (the plugin has it too, at the same version).
+    "githubImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }

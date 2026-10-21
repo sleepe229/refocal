@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App self-update, `github` flavor only (ADR-0027); the fdroid and play builds have none
+         of this (CI checks the fdroid APK). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: an update this app installed itself goes through without a dialog. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Android 14+: keep being the app's updater (setRequestUpdateOwnership). -->
+    <uses-permission android:name="android.permission.ENFORCE_UPDATE_OWNERSHIP" />
+    <application>
+        <receiver android:name=".InstallResultReceiver" android:exported="false" />
+    </application>
+</manifest>

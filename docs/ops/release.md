@@ -41,7 +41,21 @@ gh secret set ANDROID_KEY_ALIAS --env release --body refocal
 gh secret set ANDROID_KEY_PASSWORD --env release
 ```
 
-### 3. Model weights (bundled model)
+### 3. App update key (ADR-0027)
+
+Two minisign key pairs sign `app-update.json`, which the `github` APK reads to update itself:
+U in CI, V offline for rotation. The public keys are `tools/release/keys/{U,V}.pub` (the app has
+them as `appUpdateKeys`, a test compares). Generated 2026-10-21; the secret keys were left in
+`~/refocal-keys/` on the owner's machine: move `app-update-V.key` offline, then
+
+```sh
+gh secret set APP_UPDATE_MINISIGN_KEY --env release < ~/refocal-keys/app-update-U.key
+shred -u ~/refocal-keys/app-update-U.key   # the secret is in GitHub now
+```
+
+Rotation: sign with V, ship an app whose `appUpdateKeys` drop U, then make a new pair.
+
+### 4. Model weights (bundled model)
 
 Weights are not in git. Upload the converted files once as assets of a separate release; the
 SHA-256 pins in `tools/models/models.lock` are checked on every download.
@@ -64,5 +78,10 @@ Minor releases also go through [release-checklist.md](release-checklist.md) (OPS
    `fastlane/metadata/android/*/changelogs/<versionCode>.txt` (CHANGELOG text becomes the release
    notes).
 3. `git tag v0.0.2-alpha.1 && git push origin v0.0.2-alpha.1` (the version from step 2)
-4. Approve the `release` environment run; review the draft (APK, symbols, SBOM `*.spdx.json`,
-   SHA256SUMS, notes; attestations once the repository is public); publish.
+4. Approve the `release` environment run; review the draft (two APKs: `fdroid` with the plain
+   name, `github` with `-github-`; symbols, SBOM `*.spdx.json`, SHA256SUMS, notes; attestations
+   once the repository is public); publish.
+5. Publishing starts `app-update.yml` (approve the `release` environment again): it writes and
+   signs `app-update.json` for the `github` APK (a pre-release goes to the beta channel) and
+   uploads it to the `app-latest` release. From then on, `github` installs with the update
+   check on find the version within a week.

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../update/update_ui.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/models.dart';
 import '../../l10n/app_localizations.dart';
@@ -66,6 +67,7 @@ class AboutPage extends ConsumerWidget {
         children: [
           Text('Refocal $version', style: t.titleLarge),
           const SizedBox(height: 16),
+          const AboutUpdateTile(),
           Text(l10n.aboutAlpha),
           const SizedBox(height: 16),
           Text(l10n.aboutPrivacy),

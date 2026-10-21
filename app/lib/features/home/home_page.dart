@@ -8,7 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_platform/refocal_platform.dart';
 
-import '../../bootstrap/app_log.dart';
+import '../update/update_ui.dart';
+import '../../bootstrap/app_update.dart';
+import '../../bootstrap//app_log.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/history.dart';
 import '../../bootstrap/job_store.dart';
@@ -43,6 +45,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       unawaited(_openShared());
       // ADR-0017: benchmark (or its cached result) in the background once the app is up.
       ref.read(tierProvider.future).ignore();
+      // ADR-0027: the app update check starts with the app; "What's new" once after one.
+      ref.read(appUpdateProvider);
+      unawaited(showWhatsNew(context, ref));
     });
   }
 
@@ -234,6 +239,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         data: (e) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
+            const AppUpdateCard(),
             ?_packUpdates(l10n),
             if (!e.modelReady)
               Padding(

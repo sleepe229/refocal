@@ -15,6 +15,7 @@ class MainActivity : FlutterActivity() {
   override fun provideFlutterEngine(context: Context): FlutterEngine =
       FlutterEngineCache.getInstance().get(ENGINE_ID)
           ?: FlutterEngine(context.applicationContext).also {
+            FlavorSetup.register(it, context.applicationContext)
             it.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
             FlutterEngineCache.getInstance().put(ENGINE_ID, it)
           }
