@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <mat.h>
 
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -18,6 +20,7 @@
 #include "pipeline/jpeg_clean.hpp"
 #include "pipeline/lowlight.hpp"
 #include "pipeline/scratches.hpp"
+#include "policy/analyze.hpp"
 #include "policy/gpu_gate.hpp"
 #include "util/error.hpp"
 #include "util/fs.hpp"
@@ -460,6 +463,154 @@ static void test_lowlight() {
         t.h == kLowLightSize);
 }
 
+// ---- effective resolution (ADR-0025) ----
+
+// A synthetic scene with hard edges: shaded background, rectangles, discs and thin bars.
+static Rgb8 edge_scene(int w, int h, uint32_t seed) {
+  Rgb8 img;
+  img.w = w;
+  img.h = h;
+  img.px.resize(sz(w) * sz(h) * 3);
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x) {
+      uint8_t* p = img.row(y) + sz(x) * 3;
+      p[0] = uint8_t(60 + x * 80 / w);
+      p[1] = uint8_t(70 + y * 60 / h);
+      p[2] = 90;
+    }
+  uint32_t r = seed;
+  auto rnd = [&](int n) {
+    r = r * 1664525u + 1013904223u;
+    return int((r >> 8) % uint32_t(n));
+  };
+  for (int k = 0; k < 90; ++k) {
+    const int kind = rnd(3), cx = rnd(w), cy = rnd(h), a = 4 + rnd(w / 8), b = 4 + rnd(h / 8);
+    const uint8_t c[3] = {uint8_t(rnd(256)), uint8_t(rnd(256)), uint8_t(rnd(256))};
+    for (int y = std::max(0, cy - b); y < std::min(h, cy + b); ++y)
+      for (int x = std::max(0, cx - a); x < std::min(w, cx + a); ++x) {
+        const double dx = double(x - cx) / a, dy = double(y - cy) / b;
+        const bool in = kind == 0 ? true : kind == 1 ? dx * dx + dy * dy <= 1 : std::abs(dy) < 0.15;
+        if (in) std::memcpy(img.row(y) + sz(x) * 3, c, 3);
+      }
+  }
+  return img;
+}
+
+// The blur kernels of tools/ml/effscale.py kernel() (gauss sigma, disk radius, motion length at
+// 20 deg).
+static std::vector<double> blur_kernel(char kind, double p, int& n) {
+  if (kind == 'g') {
+    const int rad = int(std::ceil(3 * p));
+    n = 2 * rad + 1;
+    std::vector<double> k(sz(n) * sz(n));
+    double s = 0;
+    for (int y = 0; y < n; ++y)
+      for (int x = 0; x < n; ++x)
+        s += k[sz(y * n + x)] =
+            std::exp(-((x - rad) * (x - rad) + (y - rad) * (y - rad)) / (2 * p * p));
+    for (double& v : k) v /= s;
+    return k;
+  }
+  const int rad = int(std::ceil(kind == 'd' ? p : p / 2)) + 1;
+  n = 2 * rad + 1;
+  std::vector<double> k(sz(n) * sz(n), 0.0);
+  if (kind == 'd') {
+    constexpr int ss = 8;
+    for (int y = 0; y < n * ss; ++y)
+      for (int x = 0; x < n * ss; ++x) {
+        const double fx = (x + 0.5) / ss - 0.5 - rad, fy = (y + 0.5) / ss - 0.5 - rad;
+        if (fx * fx + fy * fy <= p * p) k[sz((y / ss) * n + x / ss)] += 1;
+      }
+  } else {
+    const double a = 20 * M_PI / 180;
+    const int steps = int(p * 8) + 1;
+    for (int i = 0; i < steps; ++i) {
+      const double t = -p / 2 + p * i / (steps - 1);
+      const double x = rad + t * std::cos(a), y = rad + t * std::sin(a);
+      const int x0 = int(std::floor(x)), y0 = int(std::floor(y));
+      const double fx = x - x0, fy = y - y0;
+      const double w4[4] = {(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy};
+      for (int d = 0; d < 4; ++d) {
+        const int xx = x0 + d % 2, yy = y0 + d / 2;
+        if (xx >= 0 && xx < n && yy >= 0 && yy < n) k[sz(yy * n + xx)] += w4[d];
+      }
+    }
+  }
+  double s = 0;
+  for (double v : k) s += v;
+  for (double& v : k) v /= s;
+  return k;
+}
+
+static Rgb8 blurred(const Rgb8& src, char kind, double p) {
+  if (p == 0) return src;
+  int n = 0;
+  const std::vector<double> k = blur_kernel(kind, p, n);
+  const int rad = n / 2;
+  Rgb8 o = src;
+  for (int y = 0; y < src.h; ++y)
+    for (int x = 0; x < src.w; ++x)
+      for (int c = 0; c < 3; ++c) {
+        double a = 0;
+        for (int j = 0; j < n; ++j)
+          for (int i = 0; i < n; ++i)
+            a += k[sz(j * n + i)] *
+                 src.row(reflect_half(y + j - rad,
+                                      src.h))[sz(reflect_half(x + i - rad, src.w)) * 3 + sz(c)];
+        o.row(y)[sz(x) * 3 + sz(c)] = uint8_t(std::lround(std::clamp(a, 0.0, 255.0)));
+      }
+  return o;
+}
+
+static void test_eff_scale() {
+  const Rgb8 scene = edge_scene(512, 512, 2026);
+  struct Case {
+    char kind;
+    double p, ref;  // the reference of tools/ml/effscale.py on the same scene and blur
+  };
+  // Families in increasing blur. The references: python3 tools/ml/effscale.py --test-scene (it
+  // builds this scene and these kernels in numpy and prints the table below).
+  const std::vector<std::vector<Case>> families = {
+      {{'g', 0, 1.000}, {'g', 1.5, 0.704}, {'g', 3, 0.347}, {'g', 5, 0.250}},
+      {{'d', 3, 0.573}, {'d', 6, 0.294}, {'d', 10, 0.250}},
+      {{'m', 5, 0.798}, {'m', 10, 0.551}, {'m', 20, 0.440}}};
+  for (const auto& fam : families) {
+    double prev = 2;
+    for (const Case& c : fam) {
+      const Rgb8 b = blurred(scene, c.kind, c.p);
+      const double e = estimate_eff_scale(b);
+      (void)std::printf("eff_scale %c%g: %.3f (reference %.3f)\n", c.kind, c.p, e, c.ref);
+      CHECK(e > 0 && e <= 1);
+      CHECK(std::abs(e - c.ref) <= 0.08);  // tiles and histograms vs whole image and sorting
+      CHECK(e <= prev + 0.02);             // monotonic in the blur
+      prev = e;
+      CHECK(estimate_eff_scale(b) == e);  // deterministic
+    }
+  }
+  // A long motion blur saturates (the isotropic measure still sees the edges along the motion):
+  // the geometric mean stops at sqrt(1 * 0.25) = 0.5 (reference: 0.500).
+  CHECK(std::abs(estimate_eff_scale(blurred(scene, 'm', 30)) - 0.5) <= 0.08);
+  Rgb8 flat;
+  flat.w = flat.h = 300;
+  flat.px.assign(size_t{300} * 300 * 3, 128);
+  CHECK(estimate_eff_scale(flat) == 1.0);  // no edges: no downscale
+  // Cost on 12 MP (ADR-0025 budget: <= 50 ms on the host).
+  Rgb8 big;
+  big.w = 4000;
+  big.h = 3000;
+  big.px.resize(sz(big.w) * sz(big.h) * 3);
+  for (int y = 0; y < big.h; ++y)
+    for (int x = 0; x < big.w; ++x)
+      std::memcpy(big.row(y) + sz(x) * 3, scene.row(y % 512) + sz(x % 512) * 3, 3);
+  const auto t0 = std::chrono::steady_clock::now();
+  const double e = estimate_eff_scale(big);
+  const double ms =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() * 1000;
+  (void)std::printf("eff_scale 12 MP: %.3f in %.1f ms\n", e, ms);
+  CHECK(e == 1.0);
+  CHECK(ms < 1000);  // a regression guard only: sanitizer builds run several times slower
+}
+
 int main(int argc, char** argv) {
   std::string dir = argc > 1 ? argv[1] : "test-work";
   fs::remove_tree(dir);
@@ -474,6 +625,7 @@ int main(int argc, char** argv) {
   test_jpeg_clean();
   test_scratches();
   test_lowlight();
+  test_eff_scale();
   (void)std::printf("test_pipeline: %d failures\n", fails);
   return fails ? 1 : 0;
 }

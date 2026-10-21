@@ -43,10 +43,10 @@ enum SrModel {
       DenoiseLevel.of(model) != null ? compact : values.where((m) => m.model == model).firstOrNull;
 }
 
-/// Denoise levels (ADR-0015): baked into separate models, 0.5 built in, 0 and 1.0 in the
-/// Compact+ packs.
+/// Denoise levels (ADR-0015): baked into separate models; 0.5 and 0 built in (0 since ADR-0025,
+/// also still a pack), 1.0 in a Compact+ pack.
 enum DenoiseLevel {
-  none('sr.general-x4v3-dn0'),
+  none(bundledNoDenoiseModel),
   standard(bundledSrModel),
   strong('sr.general-x4v3-dn100');
 

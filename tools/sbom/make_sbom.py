@@ -32,7 +32,11 @@ NATIVE = {
     "native/third_party/json": ("nlohmann-json", "MIT"),
     "native/third_party/monocypher": ("Monocypher", "BSD-2-Clause OR CC0-1.0"),
 }
-MODELS = {"sr.general-x4v3": "BSD-3-Clause", "det.yunet-2023mar": "MIT"}
+MODELS = {
+    "sr.general-x4v3": "BSD-3-Clause",
+    "sr.general-x4v3-dn0": "BSD-3-Clause",
+    "det.yunet-2023mar": "MIT",
+}
 
 
 def git(*args: str, cwd: pathlib.Path = ROOT) -> str:

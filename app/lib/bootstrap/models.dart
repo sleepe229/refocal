@@ -478,12 +478,17 @@ final installedPacksProvider = StreamProvider<List<InstalledPack>>((ref) async* 
   yield* repo.watchInstalled();
 });
 
-/// Models the device has now: the bundled SR model, the bundled face detector once installed,
-/// and installed packs.
+/// Models the device has now: the bundled SR model, the bundled face detector and denoise level
+/// 0 once installed, and installed packs.
 final availableModelsProvider = Provider<Set<String>>((ref) {
   final installed = ref.watch(installedPacksProvider).value ?? const <InstalledPack>[];
-  final detector = ref.watch(engineProvider).value?.detectorReady ?? false;
-  return {bundledSrModel, if (detector) bundledDetector, for (final p in installed) p.id};
+  final engine = ref.watch(engineProvider).value;
+  return {
+    bundledSrModel,
+    if (engine?.detectorReady ?? false) bundledDetector,
+    if (engine?.noDenoiseReady ?? false) bundledNoDenoiseModel,
+    for (final p in installed) p.id,
+  };
 });
 
 /// FR-MODEL-008: installed packs the manifest has a newer version of, that [appVersion] can use.

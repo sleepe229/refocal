@@ -5,22 +5,28 @@ import 'package:refocal/l10n/app_localizations.dart';
 import 'package:refocal/ui_kit/labels.dart';
 import 'package:refocal_core/refocal_core.dart';
 
-PhotoAnalysis _photo({int w = 2000, int h = 1500, double noise = 4, int faces = 0}) =>
-    PhotoAnalysis(
-      width: w,
-      height: h,
-      noiseSigma: noise,
-      faces: faces,
-      largestFacePx: faces > 0 ? 120 : 0,
-      detector: true,
-    );
+PhotoAnalysis _photo({
+  int w = 2000,
+  int h = 1500,
+  double noise = 4,
+  int faces = 0,
+  double eff = 1,
+}) => PhotoAnalysis(
+  width: w,
+  height: h,
+  noiseSigma: noise,
+  faces: faces,
+  largestFacePx: faces > 0 ? 120 : 0,
+  detector: true,
+  effScale: eff,
+);
 
 void main() {
   final ru = lookupAppLocalizations(const Locale('ru'));
   const policy = AutoPolicy();
   const all = AutoModels(
     standard: bundledSrModel,
-    none: 'sr.general-x4v3-dn0',
+    none: bundledNoDenoiseModel,
     strong: 'sr.general-x4v3-dn100',
     facePack: 'face.gfpgan-1.4',
   );
@@ -52,5 +58,13 @@ void main() {
       explain(_photo(w: 4000, h: 3000, faces: 1), DeviceTier.t0, all),
       '2×, лиц: 1, только лица, шумоподавление',
     );
+  });
+
+  test('a blurry photo says it is enhanced at its real sharpness (ADR-0025)', () {
+    expect(
+      explain(_photo(noise: 1, eff: 0.5), DeviceTier.t1, all),
+      '4×, нечёткое фото: улучшено по реальной резкости, без шумоподавления',
+    );
+    expect(explain(_photo(noise: 1, eff: 0.95), DeviceTier.t1, all), '4×, без шумоподавления');
   });
 }

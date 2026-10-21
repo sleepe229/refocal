@@ -287,6 +287,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _jpeg = r.jpegModel != null;
     _scratches = r.scratchModel != null;
     _lowLight = r.lowlightModel != null;
+    _preDown = r.preDown;
+    _sharpen = r.sharpen;
   }
 
   /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
@@ -310,7 +312,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               _facesOnly == r.facesOnly)) &&
       _jpeg == (r.jpegModel != null) &&
       _scratches == (r.scratchModel != null) &&
-      _lowLight == (r.lowlightModel != null);
+      _lowLight == (r.lowlightModel != null) &&
+      _preDown == r.preDown &&
+      _sharpen == r.sharpen;
 
   /// FR-FACE-007: faces of this photo the user turned off (boxes from the analysis).
   final _facesOff = <FaceBox>{};
@@ -481,6 +485,10 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// S9: brighten an under-exposed photo before SR.
   bool _lowLight = false;
 
+  /// ADR-0025: the effective resolution and the unsharp mask, as Auto or the opened recipe set
+  /// them (no control of their own in the editor; 8x runs on the full input).
+  double _preDown = 1, _sharpen = 0;
+
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
@@ -491,6 +499,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final r = Recipe(
       scale: c.scale,
       fast2: c.fastPath,
+      preDown: c.scale == 8 ? 1 : _preDown,
+      sharpen: _sharpen,
       srModel: _model,
       strength: _strength,
       look: _look,
@@ -719,8 +729,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one
-  /// and for the RRDBNet models (no denoise levels).
+  /// Denoise levels the device has (ADR-0015; level 0 is built in, ADR-0025); hidden with only
+  /// the built-in one and for the RRDBNet models (no denoise levels).
   Widget? _denoise(AppLocalizations l10n) {
     if (SrModel.of(_model) != SrModel.compact) return null;
     final available = ref.watch(availableModelsProvider);

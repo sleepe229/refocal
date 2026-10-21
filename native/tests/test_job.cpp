@@ -1382,6 +1382,152 @@ static void test_errors(Session& se) {
   enh_job_destroy(j);
 }
 
+// ADR-0025: SR at the effective resolution (pre_down) and the luma unsharp mask (sharpen). With
+// nearest4 the result is exactly: area-downscale, nearest x4, Lanczos-3 to the size without
+// pre_down, unsharp_luma over the whole image; the same whatever the SR bands (no seams).
+static Rgb8 unsharp_whole(const Rgb8& in, float amount) {
+  Rgb8 o = in;
+  unsharp_luma(in.w, in.h, [&](int y) { return in.row(y); }, 0, in.h, amount, o.px.data());
+  return o;
+}
+
+static Rgb8 lanczos_to(const Rgb8& in, int w, int h) {
+  Rgb8 o;
+  o.w = w;
+  o.h = h;
+  o.px.resize(sz(w) * sz(h) * 3);
+  LanczosResampler(in, w, h).rows(0, h, o.px.data());
+  return o;
+}
+
+static void test_pre_down(Session& se) {
+  const std::string in = make_jpeg("pd.jpg", 150, 101);
+  const Rgb8 src = jpeg_decode(in);
+  auto run = [&](const std::string& id, const json& q) {
+    Collector c;
+    auto r = run_job(se, q, c);
+    CHECK(r.status == ENH_OK);
+    CHECK(!fs::exists(fs::join(g_work, id + "/pre")));  // the SR pass's store is gone
+    return std::make_pair(r.payload, read_output(fs::join(g_work, id)));
+  };
+  {  // 4x at 0.5: SR on 75x51, nearest x4 = 300x204, Lanczos to 600x404 (the size without it)
+    json q = req("pd4", in, "nearest4");
+    q["pre_down"] = 0.5;
+    auto [res, out] = run("pd4", q);
+    CHECK(out.w == 600 && out.h == 404 && res["pre_down"] == 0.5 && res["sr_pre_down"] == 0.5);
+    CHECK(out.px == lanczos_to(nearest_up(resize_area(src, 75, 51), 4), 600, 404).px);
+    json q2 = q;
+    q2["job_id"] = "pd4b";
+    q2["tile"] = 32;  // other tiles and SR bands, the same result (deterministic)
+    CHECK(run("pd4b", q2).second.px == out.px);
+  }
+  {  // sharpen alone: the plain x4 sharpened as one image, whatever the bands
+    const Rgb8 ref = unsharp_whole(nearest_up(src, 4), 1.0f);
+    for (int tile : {32, 64}) {
+      json q = req(strf("sh%d", tile), in, "nearest4");
+      q["sharpen"] = 1.0;
+      q["tile"] = tile;
+      auto [res, out] = run(q["job_id"].get<std::string>(), q);
+      CHECK(out.w == 600 && out.h == 404 && out.px == ref.px);
+      CHECK(res["sharpen"] == 1.0 && res["pre_down"] == 1.0 && res["sr_pre_down"] == 1.0);
+    }
+    CHECK(ref.px != nearest_up(src, 4).px);  // it does sharpen
+  }
+  {  // both, at 1x: x4 of 75x51 with area /2 (the largest /down still >= 150x101), Lanczos
+    json q = req("pd1", in, "nearest4");
+    q["scale"] = 1;
+    q["pre_down"] = 0.5;
+    q["sharpen"] = 0.5;
+    auto [res, out] = run("pd1", q);
+    CHECK(out.w == 150 && out.h == 101);
+    const Rgb8 sr = area_down(nearest_up(resize_area(src, 75, 51), 4), 2);  // 150x102
+    CHECK(out.px == unsharp_whole(lanczos_to(sr, 150, 101), 0.5f).px);
+  }
+  {  // fast 2x: min(0.5, pre_down); the result keeps the fast 2x size, (w/2)*4
+    json q = req("pdf", in, "nearest4");
+    q["scale"] = 2;
+    q["fast2"] = true;
+    q["pre_down"] = 0.3;
+    auto [res, out] = run("pdf", q);
+    CHECK(out.w == 300 && out.h == 200 && res["sr_pre_down"] == 0.3);
+    CHECK(out.px == lanczos_to(nearest_up(resize_area(src, 45, 30), 4), 300, 200).px);
+    json same = req("pdf2", in, "nearest4");  // pre_down above 0.5 changes nothing in fast 2x
+    same["scale"] = 2;
+    same["fast2"] = true;
+    same["pre_down"] = 0.7;
+    auto [r2, o2] = run("pdf2", same);
+    CHECK(o2.px == nearest_up(area_down(src, 2), 4).px);
+    CHECK(r2["pre_down"] == 0.7 && r2["sr_pre_down"] == 0.5);  // the recipe, and what SR ran at
+  }
+  {  // the recipe hash tells them apart (resume never takes another recipe's bands)
+    std::vector<std::string> hashes;
+    const std::vector<std::pair<double, double>> recipes = {
+        {1.0, 0.0}, {0.5, 0.0}, {0.6, 0.0}, {0.5, 1.0}, {1.0, 1.0}};
+    for (auto [pd, sh] : recipes) {
+      json q = req(strf("ph%d", int(hashes.size())), in, "nearest4");
+      q["pre_down"] = pd;
+      q["sharpen"] = sh;
+      hashes.push_back(
+          run(q["job_id"].get<std::string>(), q).first["recipe_hash"].get<std::string>());
+    }
+    std::sort(hashes.begin(), hashes.end());
+    CHECK(std::unique(hashes.begin(), hashes.end()) == hashes.end());
+  }
+  for (const char* bad : {R"({"pre_down": 0})", R"({"pre_down": 1.5})", R"({"sharpen": 2})",
+                          R"({"sharpen": -1})", R"({"pre_down": 0.5, "scale": 8})"}) {
+    json q = req("pdbad", in, "nearest4");
+    q.update(json::parse(bad));
+    enh_job* j = nullptr;
+    CHECK(enh_job_create(se.s, q.dump().c_str(), &j) == ENH_E_INVALID);
+  }
+}
+
+// Pause in the SR pass of a pre_down + sharpen job, resume: the same bytes; the finish pass
+// then runs from its first band.
+static void test_pre_down_resume(Session& se, const std::string& in) {
+  auto q = [&](const std::string& id) {
+    json r = slow_req(id, in);
+    r["pre_down"] = 0.8;
+    r["sharpen"] = 1.0;
+    return r;
+  };
+  Collector ref;
+  CHECK(run_job(se, q("pdr_ref"), ref).status == ENH_OK);
+  Collector c;
+  g_col = &c;
+  enh_job* j = nullptr;
+  CHECK(enh_job_create(se.s, q("pdr").dump().c_str(), &j) == ENH_OK);
+  CHECK(enh_job_start(j, on_event, 1) == ENH_OK);
+  {
+    std::unique_lock lk(c.mu);
+    c.cv.wait_for(lk, std::chrono::seconds(60), [&] {
+      for (auto& e : c.evs)
+        if (e.type == ENH_EV_PROGRESS && e.total > 0 && e.done * 3 > e.total) return true;
+      return false;
+    });
+  }
+  enh_job_pause(j);
+  CHECK(wait_terminal(c, 10));
+  CHECK(enh_job_status(j) == ENH_E_PAUSED);
+  enh_job_destroy(j);
+  CHECK(fs::exists(fs::join(g_work, "pdr/pre/checkpoint.json")));
+  Collector c2;
+  g_col = &c2;
+  enh_job* j2 = nullptr;
+  CHECK(enh_job_resume(se.s, fs::join(g_work, "pdr").c_str(), &j2) == ENH_OK);
+  CHECK(enh_job_start(j2, on_event, 2) == ENH_OK);
+  CHECK(wait_terminal(c2));
+  enh_job_destroy(j2);
+  check_invariants(c2);
+  {
+    std::lock_guard lk(c2.mu);
+    CHECK(c2.evs.back().type == ENH_EV_DONE);
+    CHECK(c2.evs.back().payload["resumed_from_band"].get<int>() > 0);
+  }
+  CHECK(read_output(fs::join(g_work, "pdr")).px == read_output(fs::join(g_work, "pdr_ref")).px);
+  CHECK(!fs::exists(fs::join(g_work, "pdr/pre")));
+}
+
 int main(int argc, char** argv) try {
   g_root = argc > 1 ? argv[1] : "test-work-job";
   fs::remove_tree(g_root);
@@ -1413,6 +1559,8 @@ int main(int argc, char** argv) try {
     test_pause_resume(se, slow);
     test_thermal(se, slow);
     test_x8_resume(se);
+    test_pre_down(se);
+    test_pre_down_resume(se, slow);
     test_x8_too_large(se);
     test_needs_user(se);
     test_oom_ladder(se);

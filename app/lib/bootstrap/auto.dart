@@ -33,7 +33,8 @@ final autoProvider = Provider.autoDispose.family<AsyncValue<AutoProposal>, Strin
   final available = ref.watch(availableModelsProvider);
   final models = AutoModels(
     standard: bundledSrModel,
-    none: available.contains(DenoiseLevel.none.model) ? DenoiseLevel.none.model : null,
+    // ADR-0025: built in (installed on the first start), no longer a pack Auto waits for.
+    none: available.contains(bundledNoDenoiseModel) ? bundledNoDenoiseModel : null,
     strong: available.contains(DenoiseLevel.strong.model) ? DenoiseLevel.strong.model : null,
     facePack: available.contains(defaultFacePack) && available.contains(bundledDetector)
         ? defaultFacePack

@@ -18,7 +18,7 @@ void main() {
         'libjpeg-turbo (IJG)',
         'SQLite',
         'Monocypher',
-        'Real-ESRGAN (model weights: sr.general-x4v3)',
+        'Real-ESRGAN (model weights: sr.general-x4v3, sr.general-x4v3-dn0)',
       ]),
     );
   });

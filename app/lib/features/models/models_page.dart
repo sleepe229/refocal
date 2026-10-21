@@ -67,7 +67,10 @@ class ModelsPage extends ConsumerWidget {
                   )
                 else
                   for (final p in s!.manifest!.packs)
-                    if (appVersion != null && p.supportedBy(appVersion))
+                    // A pack that is also bundled (ADR-0025: denoise level 0) is not offered.
+                    if (appVersion != null &&
+                        p.supportedBy(appVersion) &&
+                        !bundledModelIds.contains(p.id))
                       _PackTile(
                         pack: p,
                         lang: lang,

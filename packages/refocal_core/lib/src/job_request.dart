@@ -11,6 +11,8 @@ class JobRequest {
     required this.input,
     required this.scale,
     this.fast2 = false,
+    this.preDown = 1,
+    this.sharpen = 0,
     required this.srModel,
     this.faceModel,
     this.faceStrength = Recipe.defaultFaceStrength,
@@ -45,6 +47,8 @@ class JobRequest {
     input: input,
     scale: recipe.scale,
     fast2: recipe.fast2,
+    preDown: recipe.preDown,
+    sharpen: recipe.sharpen,
     srModel: recipe.srModel,
     faceModel: recipe.faceModel,
     faceStrength: recipe.faceStrength,
@@ -66,6 +70,9 @@ class JobRequest {
   final String input;
   final int scale;
   final bool fast2;
+
+  /// ADR-0025: `pre_down` and `sharpen` in the core (Recipe.preDown, Recipe.sharpen).
+  final double preDown, sharpen;
   final String srModel;
 
   /// The face pack (FR-FACE-002), null without face restoration; the detector is the core's
@@ -108,6 +115,8 @@ class JobRequest {
   Recipe recipe({double strength = 1}) => Recipe(
     scale: scale,
     fast2: fast2,
+    preDown: preDown,
+    sharpen: sharpen,
     srModel: srModel,
     strength: strength,
     faceModel: faceModel,
@@ -130,6 +139,8 @@ class JobRequest {
     'sr_model': srModel,
     'scale': scale,
     'fast2': fast2,
+    if (preDown < 1) 'pre_down': preDown,
+    if (sharpen > 0) 'sharpen': sharpen,
     if (faceModel case final f?) ...{
       'face_model': f,
       'face_strength': faceStrength,
@@ -154,6 +165,9 @@ class JobRequest {
       'scale': final int scale,
       'fast2': final bool fast2,
     }) {
+      // ADR-0025: the core writes both (1 and 0 when off); an older core neither.
+      final preDown = j['pre_down'] ?? 1.0, sharpen = j['sharpen'] ?? 0.0;
+      if (preDown is! num || sharpen is! num) throw FormatException('bad pre_down / sharpen', j);
       final face = j['face_model'];
       final faceStrength = j['face_strength'] ?? Recipe.defaultFaceStrength;
       final faceFidelity = j['face_fidelity'] ?? Recipe.defaultFaceFidelity;
@@ -166,6 +180,8 @@ class JobRequest {
           input: input,
           scale: scale,
           fast2: fast2,
+          preDown: preDown.toDouble(),
+          sharpen: sharpen.toDouble(),
           srModel: srModel,
           // The core writes "" for no face restoration.
           faceModel: face == null || face == '' ? null : face as String,

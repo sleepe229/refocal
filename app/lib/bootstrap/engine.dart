@@ -16,11 +16,19 @@ const bundledSrModel = 'sr.general-x4v3';
 /// Face detector bundled with the app (ADR-0011: YuNet, MIT); face restoration comes in packs.
 const bundledDetector = 'det.yunet-2023mar';
 
+/// ADR-0025: denoise level 0 is bundled too (Auto picks it for clean photos, ADR-0015). The id
+/// and files are those of the pack `sr.general-x4v3-dn0`, which installed copies keep using.
+const bundledNoDenoiseModel = 'sr.general-x4v3-dn0';
+
 /// Files of the bundled models in `assets/models/<id>/` (tools/models/fetch.sh, models.lock).
 const _bundled = {
   bundledSrModel: ['model.ncnn.param', 'model.ncnn.bin', 'model.json'],
   bundledDetector: ['model.ncnn.param', 'model.ncnn.bin'],
+  bundledNoDenoiseModel: ['model.ncnn.param', 'model.ncnn.bin', 'model.json'],
 };
+
+/// The ids of the bundled models (the model list does not offer them as packs).
+final bundledModelIds = _bundled.keys.toSet();
 
 final platformApiProvider = Provider((_) => RefocalPlatformApi());
 
@@ -37,7 +45,14 @@ final heicSupportedProvider = FutureProvider<bool>((ref) async {
 final appDirsProvider = FutureProvider<AppDirs>((ref) => ref.watch(platformApiProvider).getDirs());
 
 class Engine {
-  Engine(this.native, this.session, this.dirs, this.modelReady, {this.detectorReady = false});
+  Engine(
+    this.native,
+    this.session,
+    this.dirs,
+    this.modelReady, {
+    this.detectorReady = false,
+    this.noDenoiseReady = false,
+  });
 
   final RefocalNative native;
   final RefocalSession session;
@@ -46,6 +61,9 @@ class Engine {
 
   /// The face detector is installed: face restoration can run once a face pack is.
   final bool detectorReady;
+
+  /// The bundled denoise level 0 is installed (ADR-0025).
+  final bool noDenoiseReady;
 
   /// The app version: `version:` of app/pubspec.yaml without `+build`, compiled into the core
   /// by native/CMakeLists.txt (the only copy).
@@ -62,6 +80,7 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   final models = '${dirs.support}/models';
   final ready = await _installBundledModel(models, bundledSrModel);
   final detector = await _installBundledModel(models, bundledDetector);
+  final noDenoise = await _installBundledModel(models, bundledNoDenoiseModel);
   final native = RefocalNative.open();
   try {
     final logs = await Directory('${dirs.support}/logs').create(recursive: true);
@@ -100,7 +119,7 @@ final engineProvider = FutureProvider<Engine>((ref) async {
   } on PlatformException catch (e) {
     AppLog.warn('thermal level: ${e.code}'); // nominal until the first change
   }
-  return Engine(native, session, dirs, ready, detectorReady: detector);
+  return Engine(native, session, dirs, ready, detectorReady: detector, noDenoiseReady: noDenoise);
 });
 
 Future<bool> _installBundledModel(String modelsDir, String id) async {

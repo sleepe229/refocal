@@ -171,4 +171,44 @@ void main() {
     expect(ExportFormat.heic.maxMegapixels, 50);
     expect(ExportFormat.heic.hasQuality, isTrue);
   });
+
+  test('effective resolution and sharpening round-trip as schema 7; older recipes read as off '
+      '(ADR-0025)', () {
+    final r = Recipe(scale: 4, srModel: 'm', preDown: 0.54, sharpen: 1);
+    expect(r.toJson()['schema'], 7);
+    expect(r.toJson(), containsPair('pre_down', 0.54));
+    expect(Recipe.fromJson(roundTrip(r)), r);
+    expect(r.copyWith(strength: 0.5).preDown, 0.54, reason: 'copyWith keeps them');
+    final off = Recipe(scale: 4, srModel: 'm');
+    expect(off.toJson()['schema'], 2);
+    expect(off.toJson().containsKey('pre_down'), isFalse);
+    // A schema 6 recipe (history and presets of 0.8) has neither field.
+    final old = Recipe.fromJson({
+      'schema': 6,
+      'scale': 2,
+      'fast2': true,
+      'sr_model': 'm',
+      'strength': 1,
+      'look': {'id': 'pastel', 'amount': 1, 'leaks': false},
+    });
+    expect((old.preDown, old.sharpen, old.fast2), (1.0, 0.0, true));
+    expect(Recipe(scale: 2, fast2: true, srModel: 'm', preDown: 0.3).preDown, 0.3);
+    for (final bad in [
+      () => Recipe(scale: 4, srModel: 'm', preDown: 0),
+      () => Recipe(scale: 4, srModel: 'm', preDown: 1.2),
+      () => Recipe(scale: 8, srModel: 'm', preDown: 0.5),
+      () => Recipe(scale: 4, srModel: 'm', sharpen: 2),
+      () => Recipe(scale: 4, srModel: 'm', sharpen: -0.1),
+    ]) {
+      expect(bad, throwsArgumentError);
+    }
+    for (final bad in <Map<String, Object?>>[
+      {...r.toJson(), 'schema': 6}, // schema 6 has no pre_down
+      {...r.toJson(), 'pre_down': 0},
+      {...r.toJson(), 'pre_down': '0.5'},
+      {...r.toJson(), 'sharpen': 3},
+    ]) {
+      expect(() => Recipe.fromJson(bad), throwsFormatException, reason: '$bad');
+    }
+  });
 }

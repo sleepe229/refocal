@@ -194,10 +194,13 @@ LanczosResampler::Axis LanczosResampler::make_axis(int in, int out) {
 }
 
 LanczosResampler::LanczosResampler(const Rgb8& src, int out_w, int out_h)
-    : src_(src), out_w_(out_w), out_h_(out_h) {
-  if (src.w == out_w && src.h == out_h) return;
-  ax_ = make_axis(src.w, out_w);
-  ay_ = make_axis(src.h, out_h);
+    : LanczosResampler(src.w, src.h, [&src](int y) { return src.row(y); }, out_w, out_h) {}
+
+LanczosResampler::LanczosResampler(int src_w, int src_h, RowSource row, int out_w, int out_h)
+    : row_(std::move(row)), out_w_(out_w), out_h_(out_h) {
+  if (src_w == out_w && src_h == out_h) return;
+  ax_ = make_axis(src_w, out_w);
+  ay_ = make_axis(src_h, out_h);
   // A window of ay_.taps consecutive source rows never collides in a ring of that size.
   ring_.assign(sz(ay_.taps), std::vector<float>(sz(out_w) * 3));
   ring_y_.assign(sz(ay_.taps), -1);
@@ -207,7 +210,7 @@ const float* LanczosResampler::hrow(int sy) {
   const size_t slot = sz(sy) % ring_.size();
   std::vector<float>& r = ring_[slot];
   if (ring_y_[slot] != sy) {
-    const uint8_t* s = src_.row(sy);
+    const uint8_t* s = row_(sy);
     const int T = ax_.taps;
     for (int x = 0; x < out_w_; ++x) {
       const int* ix = &ax_.idx[sz(x) * sz(T)];
@@ -231,7 +234,7 @@ const float* LanczosResampler::hrow(int sy) {
 void LanczosResampler::rows(int y0, int rows, uint8_t* dst) {
   const size_t stride = sz(out_w_) * 3;
   if (ring_.empty()) {  // same size
-    std::memcpy(dst, src_.row(y0), stride * sz(rows));
+    for (int r = 0; r < rows; ++r) std::memcpy(dst + sz(r) * stride, row_(y0 + r), stride);
     return;
   }
   const int T = ay_.taps;
@@ -250,6 +253,96 @@ void LanczosResampler::rows(int y0, int rows, uint8_t* dst) {
     for (size_t i = 0; i < stride; ++i) {
       const float v = acc[i] < 0.f ? 0.f : (acc[i] > 255.f ? 255.f : acc[i]);
       d[i] = round_u8(v);
+    }
+  }
+}
+
+// ---- unsharp mask (ADR-0025) ----
+
+namespace {
+
+// Gaussian taps truncated at 4 sigma: radius round(4 sigma), normalized to sum 1.
+std::vector<float> gauss_taps(double sigma) {
+  const int r = round_int(4 * sigma, 0, kUsmMargin);
+  std::vector<float> k(sz(2 * r + 1));
+  double s = 0;
+  for (int i = -r; i <= r; ++i) s += k[sz(i + r)] = float(std::exp(-0.5 * i * i / (sigma * sigma)));
+  for (float& v : k) v = float(v / s);
+  return k;
+}
+
+}  // namespace
+
+void unsharp_luma(int w, int h, const RowSource& row, int y0, int rows, float amount,
+                  uint8_t* dst) {
+  const size_t stride = sz(w) * 3;
+  if (!(amount > 0)) {
+    for (int r = 0; r < rows; ++r) std::memcpy(dst + sz(r) * stride, row(y0 + r), stride);
+    return;
+  }
+  constexpr int M = kUsmMargin;
+  const int R = rows + 2 * M;  // window rows y0 - M .. y0 + rows + M - 1, reflected at the edges
+  std::vector<float> Y(sz(R) * sz(w));
+  for (int i = 0; i < R; ++i) {
+    const uint8_t* p = row(reflect_half(y0 - M + i, h));
+    float* d = &Y[sz(i) * sz(w)];
+    for (int x = 0; x < w; ++x, p += 3) d[x] = luma01(p);
+  }
+  static const std::vector<float> k15 = gauss_taps(1.5), k1 = gauss_taps(1.0);
+  const int r15 = int(k15.size() / 2), r1 = int(k1.size() / 2);  // 6 and 4: within M
+  // Horizontal passes of both blurs over the window.
+  std::vector<float> h15(Y.size()), h1(Y.size());
+  std::vector<int> xi(sz(w + 2 * r15));
+  for (int x = -r15; x < w + r15; ++x) xi[sz(x + r15)] = reflect_half(x, w);
+  for (int i = 0; i < R; ++i) {
+    const float* s = &Y[sz(i) * sz(w)];
+    for (int x = 0; x < w; ++x) {
+      float a = 0, b = 0;
+      for (int t = -r15; t <= r15; ++t) a += k15[sz(t + r15)] * s[xi[sz(x + t + r15)]];
+      for (int t = -r1; t <= r1; ++t) b += k1[sz(t + r1)] * s[xi[sz(x + t + r15)]];
+      h15[sz(i) * sz(w) + sz(x)] = a;
+      h1[sz(i) * sz(w) + sz(x)] = b;
+    }
+  }
+  // G_1 * y on the output rows and one more above and below (for the Sobel).
+  std::vector<float> g1(sz(rows + 2) * sz(w));
+  for (int j = 0; j < rows + 2; ++j) {
+    const int c = M - 1 + j;  // window row of output row j - 1
+    for (int x = 0; x < w; ++x) {
+      float a = 0;
+      for (int t = -r1; t <= r1; ++t) a += k1[sz(t + r1)] * h1[sz(c + t) * sz(w) + sz(x)];
+      g1[sz(j) * sz(w) + sz(x)] = a;
+    }
+  }
+  for (int r = 0; r < rows; ++r) {
+    const int c = M + r;  // window row of output row r
+    const uint8_t* src = row(y0 + r);
+    uint8_t* out = dst + sz(r) * stride;
+    const float* ga = &g1[sz(r) * sz(w)];
+    const float* gb = ga + w;
+    const float* gc = gb + w;
+    const float* ya = &Y[sz(c - 1) * sz(w)];
+    const float* yb = ya + w;
+    const float* yc = yb + w;
+    for (int x = 0; x < w; ++x) {
+      float bl = 0;
+      for (int t = -r15; t <= r15; ++t) bl += k15[sz(t + r15)] * h15[sz(c + t) * sz(w) + sz(x)];
+      const int xm = reflect_half(x - 1, w), xp = reflect_half(x + 1, w);
+      const float gx = ((ga[xp] - ga[xm]) + 2 * (gb[xp] - gb[xm]) + (gc[xp] - gc[xm])) / 8.f;
+      const float gy = ((gc[xm] - ga[xm]) + 2 * (gc[x] - ga[x]) + (gc[xp] - ga[xp])) / 8.f;
+      const float m = std::clamp((std::sqrt(gx * gx + gy * gy) - 0.01f) / 0.03f, 0.f, 1.f);
+      const float y = yb[x];
+      float lo = y, hi = y;
+      for (const float* q : {ya, yb, yc})
+        for (int xx : {xm, x, xp}) {
+          lo = std::min(lo, q[xx]);
+          hi = std::max(hi, q[xx]);
+        }
+      const float y2 = std::clamp(y + amount * m * (y - bl), lo - 0.02f, hi + 0.02f);
+      const float d = (y2 - y) * 255.f;
+      for (size_t ch = 0; ch < 3; ++ch) {
+        out[sz(x) * 3 + ch] = round_u8(float(src[sz(x) * 3 + ch]) + d);
+      }
     }
   }
 }

@@ -279,6 +279,7 @@
   "autoFacesNeedPack": "нет модели лиц",
   "autoJpeg": "артефакты сжатия",
   "autoFacesOnly": "только лица",
+  "autoBlurry": "нечёткое фото: улучшено по реальной резкости",
   "autoDenoiseNone": "без шумоподавления",
   "autoDenoiseStandard": "шумоподавление",
   "autoDenoiseStrong": "сильное шумоподавление",
