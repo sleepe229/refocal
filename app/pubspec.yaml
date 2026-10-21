@@ -1,7 +1,7 @@
 name: refocal
 description: "Refocal: on-device AI photo enhancer."
 publish_to: none
-version: 0.8.1-beta.1+13
+version: 0.8.2-beta.1+14
 resolution: workspace
 
 environment:

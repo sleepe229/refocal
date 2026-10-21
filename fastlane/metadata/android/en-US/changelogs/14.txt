@@ -1,0 +1,6 @@
+Beta 0.8.2-beta.1:
+• Blurry photos come out crisper: Auto enhances them at their real sharpness
+• No denoise built in for clean photos
+• Back in Adjust closes the panel, not the photo
+• Leave the editor while a model downloads: a bar shows the progress and takes you back to the photo
+• Models for faster phones are offered with a "slow" warning instead of hidden
