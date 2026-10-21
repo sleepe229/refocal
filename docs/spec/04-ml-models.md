@@ -202,6 +202,7 @@ upstream .pth ──► PyTorch (eval, fixed seed, randomize_noise=False)
 - 50–100 изображений с лицензиями CC0/CC-BY (provenance и лицензия каждого — в `golden/SOURCES.md`).
 - Категории (не менее 5 изображений в каждой): старые сканы, сильный JPEG, low-light/шум, групповые фото, мелкие лица, профиль, без лиц (пейзаж, текст), иллюстрации/аниме, ч/б, большие (≥ 12 МП), с альфой, HEIC, разные EXIF-ориентации, разнообразие тонов кожи (шкала Monk), возраст (дети не используются — только взрослые и пожилые; см. 15).
 - Эталонные выходы PyTorch fp32 хранятся в Git LFS / артефакте релиза `golden-refs-vN`.
+- **Часть для SR (1.1):** фото в git не хранятся. `ml/golden/golden.lock` — по строке JSON на фото (категория, SHA-256, URL Wikimedia Commons, лицензия CC0 / CC BY / PD, автор), `SOURCES.md` генерируется из него (`tools/ml/golden_fetch.py --sources`, CI сверяет). 46 реальных фото без лиц: `compact` (мыльницы), `phone` (старые телефоны), `blur`, `noise`, `lowlight`, `jpeg`; кандидатов предлагает `tools/ml/golden_collect.py`, каждый просмотрен человеком. Синтетика с эталоном — 24 фото Kodak с деградациями clean/blur/noise/jpeg внутри `tools/ml/sr_eval.py` (DIV2K не берём: лицензия только для исследований).
 
 ### 7.3 Пороги CI
 

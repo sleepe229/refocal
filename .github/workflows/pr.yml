@@ -71,6 +71,8 @@ jobs:
         run: ~/.local/bin/ruff check . && ~/.local/bin/ruff format --check .
       - name: actionlint
         run: PATH="$HOME/.local/bin:$PATH" actionlint
+      - name: golden set sources (ml/golden/SOURCES.md from golden.lock)
+        run: python3 tools/ml/golden_fetch.py --check-sources
 
   dart:
     needs: changes
