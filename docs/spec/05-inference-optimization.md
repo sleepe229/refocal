@@ -4,7 +4,7 @@
 
 | Платформа | Основной | Fallback 1 | Fallback 2 | Позже |
 |---|---|---|---|---|
-| Android | ncnn + Vulkan (fp16 storage/arith) | ncnn CPU (NEON, fp16 storage, многопоток) | — | R1.3: ONNX Runtime + QNN EP (Snapdragon 8 Gen 2+, w8a8), отдельной загрузкой |
+| Android | ncnn + Vulkan (fp16 storage/arith) | ncnn CPU (NEON, fp16 storage, многопоток) | — | R1.4: ONNX Runtime + QNN EP (Snapdragon 8 Gen 2+, w8a8), отдельной загрузкой |
 | iOS | Core ML, mlprogram fp16, `computeUnits = .all` (ANE) | Core ML `.cpuAndGPU` | ncnn CPU | — |
 
 Обоснование и отклонённые альтернативы — [ADR-0001](adr/ADR-0001-inference-backends.md). Ключевые факты:
@@ -134,11 +134,11 @@ if t > 280: T0 + предупреждение «устройство медле�
 |---|---|---|
 | fp16 | По умолчанию на всех GPU/ANE-бэкендах; хранение весов на CPU | Паритет ≥ 35 дБ / LPIPS ≤ 0.02 |
 | fp32 | CPU-fallback для лиц при NaN; слои с переполнением (mixed precision) | — |
-| int8 (w8a8) | Только NPU-тир (R1.3); per-channel веса; первый/последний слой и upsampler в fp16 | QAT или PTQ + обязательный golden-гейт (ML-QNT-001) |
+| int8 (w8a8) | Только NPU-тир (R1.4); per-channel веса; первый/последний слой и upsampler в fp16 | QAT или PTQ + обязательный golden-гейт (ML-QNT-001) |
 
 Размеры (ориентиры): general-x4v3 fp32 4.65 МБ / int8 1.25 МБ [V]; x4plus 63.9 / 16.7 МБ [V]; GFPGAN ~340 / ~170 / ~85 МБ [оценка].
 
-Известный риск: PTQ на GAN-моделях даёт бандинг, сдвиг цвета, потерю текстур; QAT с int8-дружественной архитектурой — потеря < 0.1–0.2 дБ [V, MAI 2022]. Публичных замеров int8 для ESRGAN/GFPGAN нет — замер в R1.3.
+Известный риск: PTQ на GAN-моделях даёт бандинг, сдвиг цвета, потерю текстур; QAT с int8-дружественной архитектурой — потеря < 0.1–0.2 дБ [V, MAI 2022]. Публичных замеров int8 для ESRGAN/GFPGAN нет — замер в R1.4.
 
 ## 8. Тепло и батарея
 

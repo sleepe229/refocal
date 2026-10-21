@@ -12,7 +12,7 @@
 Общий C++ интерфейс `InferenceBackend` и реализации:
 - **Android:** `NcnnVulkanBackend` (основной), `NcnnCpuBackend` (fallback).
 - **iOS:** `CoreMLBackend` (Objective-C++ в native core; mlprogram fp16, `computeUnits=.all`); fallback `.cpuAndGPU` → `.cpuOnly` → `NcnnCpuBackend`.
-- **R1.3:** `OrtQnnBackend` (Snapdragon NPU, w8a8) как отдельная загрузка.
+- **R1.4** (перенесено с R1.3 2026-10-21, 13): `OrtQnnBackend` (Snapdragon NPU, w8a8) как отдельная загрузка.
 
 ## Последствия
 
