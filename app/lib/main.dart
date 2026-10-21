@@ -12,6 +12,7 @@ import 'features/editor/editor_page.dart';
 import 'features/history/history_entry_page.dart';
 import 'features/history/history_page.dart';
 import 'features/home/home_page.dart';
+import 'features/models/download_banner.dart';
 import 'features/models/models_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/presets/presets_page.dart';
@@ -77,6 +78,7 @@ class RefocalApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: _router,
+      builder: (_, child) => DownloadBanner(router: _router, child: child!),
     );
   }
 }

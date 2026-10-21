@@ -849,5 +849,15 @@
   "packOfferBodyNoSize": "This needs a model from the internet.",
   "packOfferNonCommercial": "For non-commercial use only.",
   "packUnavailable": "The model is not available right now.",
-  "packTooSlow": "This phone is too slow for this model."
+  "packSlow": "This model will be slow on this phone: minutes per photo.",
+  "bannerDownloading": "Downloading a model… {percent}%",
+  "@bannerDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "bannerDone": "Model ready",
+  "bannerBackToPhoto": "Back to photo"
 }

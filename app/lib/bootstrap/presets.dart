@@ -28,15 +28,15 @@ enum BuiltinPreset {
 }
 
 /// SR models to choose from (FR-ENH-008, 04 §1): the compact one, whose denoise levels are
-/// [DenoiseLevel]s, and the RRDBNet packs, each from its tier up (ADR-0017).
+/// [DenoiseLevel]s, and the RRDBNet packs (their manifest tier_min says which devices run them
+/// fast, ADR-0017).
 enum SrModel {
-  compact(bundledSrModel, DeviceTier.t0),
-  hq('sr.x4plus', DeviceTier.t2),
-  anime('sr.x4plus-anime6b', DeviceTier.t1);
+  compact(bundledSrModel),
+  hq('sr.x4plus'),
+  anime('sr.x4plus-anime6b');
 
-  const SrModel(this.model, this.tierMin);
+  const SrModel(this.model);
   final String model;
-  final DeviceTier tierMin;
 
   /// Null for a model that is none of these (a face pack).
   static SrModel? of(String model) =>

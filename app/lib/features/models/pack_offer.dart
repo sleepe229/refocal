@@ -37,21 +37,16 @@ double? packsProgress(WidgetRef ref, List<String> ids) {
   return sum / ids.length;
 }
 
-/// Whether the cached manifest says this device can run [id] (unknown: yes, the offer checks
-/// again once it has the manifest).
-bool packFitsDevice(WidgetRef ref, String id) {
-  final pack = ref.watch(modelsProvider).value?.manifest?.pack(id);
-  final tier = ref.watch(tierProvider).value?.tier;
-  return pack == null || tier == null || _fits(pack, tier);
-}
-
-bool _fits(PackInfo pack, DeviceTier tier) =>
-    tier.index >= (DeviceTier.parse(pack.tierMin) ?? DeviceTier.t0).index;
+/// A pack made for a faster device than this one (ADR-0017: its tier_min is a speed class,
+/// not a limit): offered with a warning, never hidden or refused.
+bool _slowOn(PackInfo pack, DeviceTier tier) =>
+    tier.index < (DeviceTier.parse(pack.tierMin) ?? DeviceTier.t0).index;
 
 /// FR-FACE-003, FR-ONB-003 (06 §3.3): what a mode or switch needs, offered where it is wanted.
 /// One question (size, licence kind); the manifest is fetched on "Download" if the device has
 /// none (ADR-0020: the user's action), the licence text is accepted for a restricted pack
-/// (ADR-0022), then [ids] download one after another while the editor stays usable: the
+/// (ADR-0022), then [ids] download one after another while the editor stays usable (a pack for
+/// a faster device says it will be slow here, ADR-0017): the
 /// progress is [ModelsController]'s, shown by the caller with [packsProgress]. True once all
 /// of them are installed.
 Future<bool> offerPacks(
@@ -79,6 +74,8 @@ Future<bool> offerPacks(
   }
 
   final known = packsOf(manifest);
+  final device = (await tier).tier;
+  bool slow(List<PackInfo> packs) => packs.any((p) => _slowOn(p, device));
   if (!context.mounted) return false;
   final size = known?.fold(0, (n, p) => n + manager.filesFor(p).fold(0, (n, f) => n + f.size));
   final ok = await showModalBottomSheet<bool>(
@@ -97,6 +94,10 @@ Future<bool> offerPacks(
                   ? l10n.packOfferBodyNoSize
                   : l10n.packOfferBody(formatBytes(context, size)),
             ),
+            if (known != null && slow(known)) ...[
+              const SizedBox(height: 4),
+              Text(l10n.packSlow, style: Theme.of(context).textTheme.bodySmall),
+            ],
             if (known?.any((p) => p.license.requiresAcceptance) ?? false) ...[
               const SizedBox(height: 4),
               Text(l10n.packOfferNonCommercial, style: Theme.of(context).textTheme.bodySmall),
@@ -128,10 +129,9 @@ Future<bool> offerPacks(
       tell(l10n.packUnavailable);
       return false;
     }
-    final device = (await tier).tier;
-    if (packs.any((p) => !_fits(p, device))) {
-      tell(l10n.packTooSlow);
-      return false;
+    // Not said in the offer: it had no manifest to tell.
+    if (known == null && slow(packs)) {
+      if (!context.mounted || !await _slowConfirmed(context, l10n)) return false;
     }
     for (final p in packs) {
       if (!context.mounted) return false;
@@ -148,3 +148,22 @@ Future<bool> offerPacks(
   final installed = {for (final i in await manager.repo.installed()) i.id};
   return ids.every(installed.contains);
 }
+
+Future<bool> _slowConfirmed(BuildContext context, AppLocalizations l10n) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(l10n.packSlow),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.faceOfferLater),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.modelsDownload),
+          ),
+        ],
+      ),
+    ) ==
+    true;

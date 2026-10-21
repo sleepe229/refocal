@@ -365,5 +365,8 @@
   "packOfferBodyNoSize": "Для этого нужна модель из интернета.",
   "packOfferNonCommercial": "Только для некоммерческого использования.",
   "packUnavailable": "Модель сейчас недоступна.",
-  "packTooSlow": "Этот телефон не потянет эту модель."
+  "packSlow": "На этом телефоне эта модель будет работать медленно: минуты на фото.",
+  "bannerDownloading": "Загружается модель… {percent}%",
+  "bannerDone": "Модель готова",
+  "bannerBackToPhoto": "К фото"
 }

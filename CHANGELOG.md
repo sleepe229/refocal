@@ -13,6 +13,17 @@ New:
   not sharpened again. Portrait, Old photo and Adjust handle blurry photos the same way as Auto.
 - **No denoise** is now built in: Auto uses it for clean photos without a download.
 
+Fixed:
+- **Back in Adjust** closes the panel (as Done does) instead of leaving the photo and the
+  settings chosen; the same for picking a part to preview.
+- **Downloads you walked away from**: leave the editor while a model downloads and a small bar
+  at the bottom shows the progress, without covering anything, then "Model ready". "Back to
+  photo" opens the photo with the settings that asked for the model. Close it and it stays
+  away until the next download. Back in the editor, the mode shows the download again.
+- **Scale**: tapping the scale already chosen closes the list (it did nothing).
+- **Models for faster phones** are no longer hidden or refused: the offer says the model will
+  be slow on this phone, and it is yours to try. Auto still picks for the phone.
+
 ## 0.8.1-beta.1
 
 Simpler for the first time: fewer decisions, nothing promised that is not there, no work lost
