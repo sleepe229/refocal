@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 
-import '../../bootstrap/engine.dart';
+import '../../bootstrap/app_update.dart';
+import '../../bootstrap//engine.dart';
 import '../../bootstrap/history.dart';
 import '../../bootstrap/settings.dart';
 import '../../bootstrap/storage.dart';
@@ -221,12 +222,22 @@ class AdvancedSettingsPage extends ConsumerWidget {
             SettingsSection(
               children: [
                 _Link(l10n.settingsModels, '/models'),
+                // ADR-0027: in the `github` build the same switch checks for app updates.
                 SwitchListTile(
-                  title: Text(l10n.settingsPackUpdates),
-                  subtitle: Text(l10n.settingsPackUpdatesHint),
+                  title: Text(selfUpdate ? l10n.settingsUpdates : l10n.settingsPackUpdates),
+                  subtitle: Text(
+                    selfUpdate ? l10n.settingsUpdatesHint : l10n.settingsPackUpdatesHint,
+                  ),
                   value: s.packUpdateCheck,
                   onChanged: (v) => change((c) => c.copyWith(packUpdateCheck: v)),
                 ),
+                if (selfUpdate && s.packUpdateCheck)
+                  SwitchListTile(
+                    title: Text(l10n.settingsBetaUpdates),
+                    subtitle: Text(l10n.settingsBetaUpdatesHint),
+                    value: s.betaUpdates,
+                    onChanged: (v) => change((c) => c.copyWith(betaUpdates: v)),
+                  ),
                 _TierTile(chosen: s.tierOverride, change: change),
               ],
             ),

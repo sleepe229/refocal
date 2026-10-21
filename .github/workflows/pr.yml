@@ -300,9 +300,9 @@ jobs:
           restore-keys: |
             ccache-android-${{ steps.subs.outputs.sha }}-
             ccache-android-
-      - name: Build APKs (fdroid; play too on main; arm64 only in CI)
+      - name: Build APKs (fdroid, github; play too on main; arm64 only in CI)
         env:
-          FLAVORS: ${{ github.event_name == 'push' && 'fdroid play' || 'fdroid' }}
+          FLAVORS: ${{ github.event_name == 'push' && 'fdroid github play' || 'fdroid github' }}
         run: |
           chmod -R a+rwX .
           mkdir -p ~/.gradle-ci ~/.ccache-android && chmod a+rwX ~/.gradle-ci ~/.ccache-android
@@ -317,7 +317,7 @@ jobs:
               git config --global --add safe.directory '*'
               flutter --suppress-analytics config --no-analytics >/dev/null
               flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64 \
-                --split-debug-info=build/symbols
+                --split-debug-info=build/symbols-$flavor
               ccache -s | grep -iE 'hits|misses' | head -2"
           done
           ls -l app/build/app/outputs/flutter-apk/
@@ -333,6 +333,11 @@ jobs:
               echo "::error::GMS/Firebase in the merged manifest"; exit 1; fi
             if grep -lE "Lcom/google/android/gms/|Lcom/google/firebase/" /tmp/classes*.dex; then
               echo "::error::GMS/Firebase classes in dex"; exit 1; fi
+            # ADR-0027: the self-updater is the github flavor only (F-Droid allows none).
+            if grep -E "REQUEST_INSTALL_PACKAGES|UPDATE_PACKAGES_WITHOUT_USER_ACTION" /tmp/manifest.txt; then
+              echo "::error::install permission in the fdroid APK"; exit 1; fi
+            if grep -lE "Lio/github/refocal/app/AppUpdater;" /tmp/classes*.dex; then
+              echo "::error::self-updater classes in the fdroid dex"; exit 1; fi
             echo "clean"'
       - name: Native libraries hardened (SEC-INP-003)
         run: python3 tools/security/check_elf.py app/build/app/outputs/flutter-apk/app-fdroid-release.apk

@@ -22,6 +22,13 @@ class ForegroundWork {
   final RefocalPlatformApi _api;
   final ProcessingTexts Function() _texts;
   final _holders = <Object>{};
+  Completer<void>? _idle;
+
+  /// Something is processing (the app update waits for it, FR-UPD-004).
+  bool get busy => _holders.isNotEmpty;
+
+  /// Completes once nothing processes.
+  Future<void> idle() => busy ? (_idle ??= Completer<void>()).future : Future.value();
 
   /// [holder] starts processing; call while the app is in the foreground (a user action).
   Future<void> acquire(Object holder) async {
@@ -42,6 +49,8 @@ class ForegroundWork {
   /// notification when the app is in the background, if nothing else is still processing.
   Future<void> release(Object holder, String? finishedText) async {
     if (!_holders.remove(holder) || _holders.isNotEmpty) return;
+    _idle?.complete();
+    _idle = null;
     await _call('stop processing', () => _api.stopProcessing(finishedText));
   }
 

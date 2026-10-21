@@ -1,5 +1,6 @@
-# Release (docs/spec/11-ci-cd-release.md, OPS-REL-001/002): on a tag v*, build the fdroid flavor in
-# the pinned rebuilder image, sign it with the release key (Gradle signingConfig: the only way the
+# Release (docs/spec/11-ci-cd-release.md, OPS-REL-001/002): on a tag v*, build the fdroid flavor
+# (the APK F-Droid compares its build with) and the github flavor (fdroid plus the self-updater,
+# ADR-0027) in the pinned rebuilder image, sign it with the release key (Gradle signingConfig: the only way the
 # signature survives apksigcopier, S8), and publish a DRAFT GitHub release with SHA256SUMS, an
 # SPDX SBOM (tools/sbom/make_sbom.py) and provenance and SBOM attestations. A maintainer reviews and publishes the draft by hand.
 #
@@ -58,20 +59,28 @@ jobs:
             export PATH=$PWD/../flutter/bin:$PATH
             git config --global --add safe.directory "*"
             flutter --suppress-analytics config --no-analytics >/dev/null
-            flutter --suppress-analytics build apk --release --flavor fdroid --target-platform android-arm64 \
-              --split-debug-info=build/symbols'
+            for flavor in fdroid github; do
+              flutter --suppress-analytics build apk --release --flavor $flavor --target-platform android-arm64 \
+                --split-debug-info=build/symbols-$flavor
+            done'
           rm -f app/android/release.jks app/android/key.properties
           mkdir -p dist
+          # The fdroid APK keeps its name: fdroiddata's Binaries: URL points at it.
           cp app/build/app/outputs/flutter-apk/app-fdroid-release.apk "dist/refocal-${GITHUB_REF_NAME}-arm64-v8a.apk"
+          cp app/build/app/outputs/flutter-apk/app-github-release.apk "dist/refocal-${GITHUB_REF_NAME}-github-arm64-v8a.apk"
           # Dart symbols for `flutter symbolize` of stack traces from this release.
-          tar -C app/build/symbols -czf "dist/refocal-${GITHUB_REF_NAME}-symbols.tar.gz" .
+          for flavor in fdroid github; do
+            tar -C "app/build/symbols-$flavor" -czf "dist/refocal-${GITHUB_REF_NAME}-$flavor-symbols.tar.gz" .
+          done
       - name: Verify signature and size
         run: |
           docker run --rm -v "$PWD/dist:/d" refocal-rebuilder:release bash -c \
-            'apksigner verify --print-certs /d/*.apk && zipalign -c -P 16 4 /d/*.apk'
-          size=$(stat -c %s dist/*.apk)
-          echo "APK size: $size bytes"
-          [ "$size" -le 31457280 ] || { echo "::error::APK over 30 MB (0.1 budget)"; exit 1; }
+            'for a in /d/*.apk; do apksigner verify --print-certs "$a" && zipalign -c -P 16 4 "$a"; done'
+          for a in dist/*.apk; do
+            size=$(stat -c %s "$a")
+            echo "$a: $size bytes"
+            [ "$size" -le 31457280 ] || { echo "::error::$a over 30 MB (0.1 budget)"; exit 1; }
+          done
       - name: SBOM (OPS-REL-002)
         run: |
           docker run --rm -v "$PWD:/src" -w /src/app refocal-rebuilder:release bash -euc '

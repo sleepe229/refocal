@@ -7,7 +7,10 @@ import 'package:refocal_ffi/refocal_ffi.dart';
 import 'app_log.dart';
 import 'database.dart';
 import 'engine.dart';
+import 'https_fetch.dart';
 import 'settings.dart';
+
+export 'https_fetch.dart' show DownloadCancelled;
 
 /// Public keys of the model manifest (ADR-0011): A signs (release CI), B is kept offline for
 /// rotation. The key lines of tools/models/keys/{A,B}.pub (test/models_test.dart compares).
@@ -106,7 +109,7 @@ class ModelManager {
     ModelPlatform? platform,
     this.manifestBase = manifestUrls,
   }) : platform = platform ?? ModelPlatform.current(),
-       _http = http ?? (HttpClient()..connectionTimeout = const Duration(seconds: 20));
+       _fetcher = HttpsFetcher(http);
 
   final ModelRepository repo;
   final ModelVerifier verifier;
@@ -116,7 +119,7 @@ class ModelManager {
   /// The manifest's location (one URL per mirror).
   final List<String> manifestBase;
   final ModelPlatform platform;
-  final HttpClient _http;
+  final HttpsFetcher _fetcher;
 
   String get modelsDir => '$supportDir/models';
   String dirOf(String packId) => '$modelsDir/$packId';
@@ -370,24 +373,6 @@ class ModelManager {
     throw ModelError(ModelErrorKind.network, last);
   }
 
-  /// GET [uri] (from [from] bytes on, if > 0), following at most 5 redirects itself: every hop
-  /// must be HTTPS too (PRIV-NET-004); dart:io would follow one to http://.
-  Future<HttpClientResponse> _get(Uri start, int from) async {
-    var uri = start;
-    for (var hop = 0; ; ++hop) {
-      if (uri.scheme != 'https') throw HttpException('https only', uri: uri);
-      final req = await _http.getUrl(uri);
-      req.followRedirects = false;
-      if (from > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$from-');
-      final res = await req.close();
-      if (!res.isRedirect) return res;
-      final location = res.headers.value(HttpHeaders.locationHeader);
-      await res.drain<void>();
-      if (location == null || hop >= 5) throw HttpException('bad redirect', uri: uri);
-      uri = uri.resolve(location);
-    }
-  }
-
   Future<void> _fetch(
     String url,
     File dst, {
@@ -396,40 +381,17 @@ class ModelManager {
     void Function(int)? onBytes,
     bool Function()? cancel,
   }) async {
-    var have = resume && await dst.exists() ? await dst.length() : 0;
-    if (expected != null && have > expected) {
-      await dst.delete();
-      have = 0;
-    }
-    final res = await _get(Uri.parse(url), have);
-    final uri = Uri.parse(url);
-    if (res.statusCode == HttpStatus.requestedRangeNotSatisfiable) {
-      await res.drain<void>();
-      return; // already complete; the hash decides
-    }
-    if (res.statusCode != HttpStatus.ok && res.statusCode != HttpStatus.partialContent) {
-      await res.drain<void>();
-      throw HttpException('HTTP ${res.statusCode}', uri: uri);
-    }
-    final append = res.statusCode == HttpStatus.partialContent && have > 0;
-    if (!append) have = 0;
-    final sink = dst.openWrite(mode: append ? FileMode.append : FileMode.write);
     try {
-      await for (final chunk in res) {
-        if (cancel?.call() ?? false) throw const DownloadCancelled();
-        have += chunk.length;
-        // The hash decides in the end; this only keeps a bad mirror from filling the disk.
-        if (expected != null && have > expected) {
-          throw HttpException('more than $expected bytes', uri: uri);
-        }
-        sink.add(chunk);
-        onBytes?.call(have);
-      }
-    } on FileSystemException catch (e) {
-      if (e.osError?.errorCode == 28) throw ModelError(ModelErrorKind.storage, e);
-      rethrow;
-    } finally {
-      await sink.close();
+      await _fetcher.fetch(
+        url,
+        dst,
+        resume: resume,
+        expected: expected,
+        onBytes: onBytes,
+        cancel: cancel,
+      );
+    } on StorageFull catch (e) {
+      throw ModelError(ModelErrorKind.storage, e.cause);
     }
   }
 }
@@ -442,11 +404,6 @@ class OfflinePack {
 
   /// Checked against the manifest's SHA-256: what a consent is given for (ADR-0022).
   final String licenseText;
-}
-
-/// [ModelManager.install] was cancelled; the partial file stays for resuming.
-class DownloadCancelled implements Exception {
-  const DownloadCancelled();
 }
 
 /// Which pack files this device takes.

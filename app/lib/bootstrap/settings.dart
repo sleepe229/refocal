@@ -27,6 +27,10 @@ class Settings {
     this.packUpdateCheck = false,
     this.packUpdateCheckedAt,
     this.tierOverride,
+    this.appUpdateCheckedAt,
+    this.betaUpdates = false,
+    this.seenVersionCode,
+    this.updateOfferShown = false,
   });
 
   /// PRIV-META-001: location is removed from results unless the user asks to keep it.
@@ -65,6 +69,19 @@ class Settings {
   /// FR-SET-003: "T0".."T2" chosen by the user; null: the benchmark decides.
   final String? tierOverride;
 
+  /// FR-UPD-001 (`github` build, ADR-0027): the last app update check; the same switch as
+  /// [packUpdateCheck] turns it on.
+  final DateTime? appUpdateCheckedAt;
+
+  /// FR-UPD-005: pre-releases too.
+  final bool betaUpdates;
+
+  /// The versionCode whose "What's new" was shown (or that was installed first).
+  final int? seenVersionCode;
+
+  /// The one-time offer to turn on update checks was shown (ADR-0027).
+  final bool updateOfferShown;
+
   Settings copyWith({
     bool? keepGps,
     bool? aiMarker,
@@ -79,6 +96,10 @@ class Settings {
     bool? packUpdateCheck,
     DateTime? Function()? packUpdateCheckedAt,
     String? Function()? tierOverride,
+    DateTime? Function()? appUpdateCheckedAt,
+    bool? betaUpdates,
+    int? Function()? seenVersionCode,
+    bool? updateOfferShown,
   }) => Settings(
     keepGps: keepGps ?? this.keepGps,
     aiMarker: aiMarker ?? this.aiMarker,
@@ -95,6 +116,10 @@ class Settings {
         ? packUpdateCheckedAt()
         : this.packUpdateCheckedAt,
     tierOverride: tierOverride != null ? tierOverride() : this.tierOverride,
+    appUpdateCheckedAt: appUpdateCheckedAt != null ? appUpdateCheckedAt() : this.appUpdateCheckedAt,
+    betaUpdates: betaUpdates ?? this.betaUpdates,
+    seenVersionCode: seenVersionCode != null ? seenVersionCode() : this.seenVersionCode,
+    updateOfferShown: updateOfferShown ?? this.updateOfferShown,
   );
 
   /// Rows of the `settings` table; null removes the key (the system language).
@@ -112,6 +137,10 @@ class Settings {
     'pack_update_check': '$packUpdateCheck',
     'pack_update_checked_at': packUpdateCheckedAt?.millisecondsSinceEpoch.toString(),
     'tier_override': tierOverride,
+    'app_update_checked_at': appUpdateCheckedAt?.millisecondsSinceEpoch.toString(),
+    'beta_updates': '$betaUpdates',
+    'seen_version_code': seenVersionCode?.toString(),
+    'update_offer_shown': '$updateOfferShown',
   };
 
   /// The values are validated here, once: anything missing, unknown or out of range is the
@@ -143,6 +172,16 @@ class Settings {
       tierOverride: const {'T0', 'T1', 'T2'}.contains(m['tier_override'])
           ? m['tier_override']
           : null,
+      appUpdateCheckedAt: switch (int.tryParse(m['app_update_checked_at'] ?? '')) {
+        final ms? when ms > 0 => DateTime.fromMillisecondsSinceEpoch(ms),
+        _ => null,
+      },
+      betaUpdates: flag('beta_updates', d.betaUpdates),
+      seenVersionCode: switch (int.tryParse(m['seen_version_code'] ?? '')) {
+        final v? when v > 0 => v,
+        _ => null,
+      },
+      updateOfferShown: flag('update_offer_shown', d.updateOfferShown),
     );
   }
 

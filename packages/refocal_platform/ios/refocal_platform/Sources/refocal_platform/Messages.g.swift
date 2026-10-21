@@ -871,6 +871,129 @@ class RefocalPlatformApiSetup {
     }
   }
 }
+/// App self-update (ADR-0027). Implemented only by the `github` flavor; the `fdroid` and
+/// `play` builds do not register it, so every call fails with a channel error there.
+///
+/// Generated protocol from Pigeon that represents a handler of messages from Flutter.
+protocol AppUpdateApi {
+  /// The installed versionCode (PackageInfo.longVersionCode).
+  func installedVersionCode() throws -> Int64
+  /// Android SDK_INT, compared with an update's minSdk.
+  func sdkInt() throws -> Int64
+  /// The active network is not metered (Wi-Fi, Ethernet): background checks and downloads
+  /// only run then.
+  func unmetered() throws -> Bool
+  /// The user allowed this app to install apps ("Install unknown apps").
+  func canInstall() throws -> Bool
+  /// Opens the system screen where the user allows that for this app.
+  func openInstallSettings() throws
+  /// Installs the APK at [apkPath] over this app through a PackageInstaller session, without
+  /// a question where Android allows it (12+, this app is the installer of record). Returns
+  /// "pending_user" when Android shows its own dialog, else throws (code "install", the
+  /// installer's message). On success the process is replaced and never returns.
+  func install(apkPath: String) async throws -> String
+}
+
+/// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
+class AppUpdateApiSetup {
+  static var codec: FlutterStandardMessageCodec { MessagesPigeonCodec.shared }
+  /// Sets up an instance of `AppUpdateApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: AppUpdateApi?, messageChannelSuffix: String = "") {
+    let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
+    /// The installed versionCode (PackageInfo.longVersionCode).
+    let installedVersionCodeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.installedVersionCode\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      installedVersionCodeChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.installedVersionCode()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      installedVersionCodeChannel.setMessageHandler(nil)
+    }
+    /// Android SDK_INT, compared with an update's minSdk.
+    let sdkIntChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.sdkInt\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      sdkIntChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.sdkInt()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      sdkIntChannel.setMessageHandler(nil)
+    }
+    /// The active network is not metered (Wi-Fi, Ethernet): background checks and downloads
+    /// only run then.
+    let unmeteredChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.unmetered\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      unmeteredChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.unmetered()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      unmeteredChannel.setMessageHandler(nil)
+    }
+    /// The user allowed this app to install apps ("Install unknown apps").
+    let canInstallChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.canInstall\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      canInstallChannel.setMessageHandler { _, reply in
+        do {
+          let result = try api.canInstall()
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      canInstallChannel.setMessageHandler(nil)
+    }
+    /// Opens the system screen where the user allows that for this app.
+    let openInstallSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.openInstallSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      openInstallSettingsChannel.setMessageHandler { _, reply in
+        do {
+          try api.openInstallSettings()
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      openInstallSettingsChannel.setMessageHandler(nil)
+    }
+    /// Installs the APK at [apkPath] over this app through a PackageInstaller session, without
+    /// a question where Android allows it (12+, this app is the installer of record). Returns
+    /// "pending_user" when Android shows its own dialog, else throws (code "install", the
+    /// installer's message). On success the process is replaced and never returns.
+    let installChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.refocal_platform.AppUpdateApi.install\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      installChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let apkPathArg = args[0] as! String
+        Task { @MainActor in
+          do {
+            let result = try await api.install(apkPath: apkPathArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      installChannel.setMessageHandler(nil)
+    }
+  }
+}
 
 /// Calls from the platform into Dart.
 ///
