@@ -19,7 +19,8 @@ while read -r id file sha url; do
   if [[ -n "$FROM" ]]; then
     src="$FROM/$id/$file"
     [[ -f "$src" ]] || src="$FROM/$file"                            # flat directory
-    [[ -f "$src" ]] || src="$FROM/sr_compact_dn050.${file#model.}"   # spikes/_shared/models layout
+    level=050; [[ "$id" == *-dn0 ]] && level=000
+    [[ -f "$src" ]] || src="$FROM/sr_compact_dn$level.${file#model.}"   # spikes/_shared/models layout
     cp "$src" "$dst.part"
   elif [[ "$url" != "-" ]]; then
     if ! curl -fsSL -o "$dst.part" "$url" 2>/dev/null; then

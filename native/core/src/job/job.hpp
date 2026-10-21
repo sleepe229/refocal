@@ -49,6 +49,13 @@ struct JobRequest {
   // S9 low light: the HVI-CIDNet pack id ("" = off), run 1x after the JPEG cleanup, before the
   // scratch removal.
   std::string lowlight_model;
+  // ADR-0025: SR runs on the input area-downscaled to this factor (its effective resolution,
+  // enh_analyze "eff_scale"), and its result is Lanczos-resampled to the size it has without
+  // it. With fast2 the factor is min(0.5, pre_down). (0, 1]; 1: off; not with 8x.
+  double pre_down = 1.0;
+  // ADR-0025: luma unsharp mask of the result before the faces are pasted (unsharp_luma
+  // amount), 0..1.5; 0: off.
+  double sharpen = 0.0;
 };
 
 JobRequest parse_job_request(const std::string& json);  // throws Error(ENH_E_INVALID)
@@ -65,4 +72,7 @@ inline constexpr const char* kAlphaFile = "alpha.raw";
 // FR-ENH-003: the first pass of 8x (x4), a band store of its own; removed when the job is done.
 inline constexpr const char* kX8Dir = "x8";
 inline constexpr double kMaxX8InputPx = 1.5e6;  // ADR-0014
+// ADR-0025: the SR pass of a job with pre_down or sharpen, a band store of its own; the result
+// bands are made from it (resample, sharpen, faces) and it is removed when the job is done.
+inline constexpr const char* kPreDir = "pre";
 }  // namespace enh

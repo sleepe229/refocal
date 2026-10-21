@@ -153,6 +153,8 @@ class JobResult {
     required this.fallbacks,
     required this.scale,
     required this.fast2,
+    this.preDown = 1,
+    this.sharpen = 0,
     required this.model,
     required this.inputWidth,
     required this.inputHeight,
@@ -173,6 +175,8 @@ class JobResult {
       fallbacks: [for (final f in (j['fallbacks'] as List? ?? const [])) '$f'],
       scale: (j['scale'] as num).toInt(),
       fast2: j['fast2'] as bool,
+      preDown: (j['pre_down'] as num?)?.toDouble() ?? 1,
+      sharpen: (j['sharpen'] as num?)?.toDouble() ?? 0,
       model: j['model'] as String,
       inputWidth: (input['width'] as num).toInt(),
       inputHeight: (input['height'] as num).toInt(),
@@ -189,6 +193,11 @@ class JobResult {
   final int scale;
   final bool fast2;
   final String model;
+
+  /// ADR-0025: `pre_down` and `sharpen` as the request had them (the recipe; result.json
+  /// `sr_pre_down` is the factor SR ran at, with fast 2x at most 0.5); absent from an older
+  /// core: 1 and 0.
+  final double preDown, sharpen;
 
   /// The input after EXIF orientation.
   final int inputWidth, inputHeight;

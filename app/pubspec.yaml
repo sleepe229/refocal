@@ -30,5 +30,6 @@ flutter:
   assets:
     # Filled by tools/models/fetch.sh (weights are not in git); empty in CI builds.
     - assets/models/sr.general-x4v3/
+    - assets/models/sr.general-x4v3-dn0/
     - assets/models/det.yunet-2023mar/
     - assets/licenses/

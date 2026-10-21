@@ -463,8 +463,15 @@ class ModelPlatform {
 
 final modelManagerProvider = FutureProvider<ModelManager>((ref) async {
   final engine = await ref.watch(engineProvider.future);
+  final repo = ModelRepository(await ref.watch(databaseProvider.future));
+  // ADR-0025: an installed denoise 0 pack is the bundled model now (same id, files and
+  // directory): its record goes, so the models list, which does not offer the pack, does not
+  // hold a copy that can be neither updated nor deleted. The files stay for the bundled model.
+  if (engine.noDenoiseReady && await repo.removeInstalled(bundledNoDenoiseModel) != null) {
+    AppLog.info('pack $bundledNoDenoiseModel: bundled now');
+  }
   return ModelManager(
-    repo: ModelRepository(await ref.watch(databaseProvider.future)),
+    repo: repo,
     verifier: NativeModelVerifier(engine.native),
     unpacker: NativePackUnpacker(engine.native),
     supportDir: engine.dirs.support,
@@ -478,12 +485,17 @@ final installedPacksProvider = StreamProvider<List<InstalledPack>>((ref) async* 
   yield* repo.watchInstalled();
 });
 
-/// Models the device has now: the bundled SR model, the bundled face detector once installed,
-/// and installed packs.
+/// Models the device has now: the bundled SR model, the bundled face detector and denoise level
+/// 0 once installed, and installed packs.
 final availableModelsProvider = Provider<Set<String>>((ref) {
   final installed = ref.watch(installedPacksProvider).value ?? const <InstalledPack>[];
-  final detector = ref.watch(engineProvider).value?.detectorReady ?? false;
-  return {bundledSrModel, if (detector) bundledDetector, for (final p in installed) p.id};
+  final engine = ref.watch(engineProvider).value;
+  return {
+    bundledSrModel,
+    if (engine?.detectorReady ?? false) bundledDetector,
+    if (engine?.noDenoiseReady ?? false) bundledNoDenoiseModel,
+    for (final p in installed) p.id,
+  };
 });
 
 /// FR-MODEL-008: installed packs the manifest has a newer version of, that [appVersion] can use.

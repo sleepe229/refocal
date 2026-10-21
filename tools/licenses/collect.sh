@@ -23,7 +23,8 @@ entries = [
     ("SQLite", "tools/licenses/upstream/SQLite.LICENSE"),
     # Android libraries outside Flutter's license registry (HEIC output, FR-EXP-002).
     ("AndroidX HeifWriter (Apache-2.0)", "LICENSE"),
-    ("Real-ESRGAN (model weights: sr.general-x4v3)", "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
+    ("Real-ESRGAN (model weights: sr.general-x4v3, sr.general-x4v3-dn0)",
+     "tools/licenses/upstream/Real-ESRGAN.LICENSE"),
     ("YuNet (model weights: det.yunet-2023mar)", "tools/licenses/upstream/YuNet.LICENSE"),
 ]
 out = []

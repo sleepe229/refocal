@@ -96,6 +96,8 @@ class ResultSaver {
           recipe: Recipe(
             scale: r.scale,
             fast2: r.fast2,
+            preDown: r.preDown,
+            sharpen: r.sharpen,
             srModel: r.model,
             strength: strength,
             look: look,

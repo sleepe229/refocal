@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <regex>
@@ -59,6 +60,8 @@ JobRequest parse_job_request(const std::string& text) {
     r.sr_model = j.value("sr_model", r.sr_model);
     r.scale = j.value("scale", r.scale);
     r.fast2 = j.value("fast2", r.fast2);
+    r.pre_down = j.value("pre_down", r.pre_down);
+    r.sharpen = j.value("sharpen", r.sharpen);
     r.tile = j.value("tile", r.tile);
     r.backend = j.value("backend", r.backend);
     r.preview_max = j.value("preview_max", r.preview_max);
@@ -108,6 +111,9 @@ JobRequest parse_job_request(const std::string& text) {
   if (r.scale != 1 && r.scale != 2 && r.scale != 4 && r.scale != 8)
     fail(ENH_E_INVALID, "scale must be 1, 2, 4 or 8");
   if (r.fast2 && r.scale != 2) fail(ENH_E_INVALID, "fast2 requires scale 2");
+  if (!(r.pre_down > 0 && r.pre_down <= 1)) fail(ENH_E_INVALID, "pre_down must be in (0, 1]");
+  if (r.pre_down < 1 && r.scale == 8) fail(ENH_E_INVALID, "pre_down does not go with 8x");
+  if (!(r.sharpen >= 0 && r.sharpen <= 1.5)) fail(ENH_E_INVALID, "sharpen must be 0..1.5");
   if (r.tile != 0 && (r.tile < 32 || r.tile > 1024)) fail(ENH_E_INVALID, "tile out of range");
   if (r.backend != "auto" && r.backend != "cpu" && r.backend != "vulkan")
     fail(ENH_E_INVALID, "bad backend");
@@ -132,6 +138,8 @@ nlohmann::json job_request_to_json(const JobRequest& r) {
                       {"sr_model", r.sr_model},
                       {"scale", r.scale},
                       {"fast2", r.fast2},
+                      {"pre_down", r.pre_down},
+                      {"sharpen", r.sharpen},
                       {"tile", r.tile},
                       {"backend", r.backend},
                       {"preview_max", r.preview_max},
@@ -242,6 +250,36 @@ const char* fallback_reason(enh_status st) {
 
 // Smallest sub-tile core of the "tile / 2" rung: below it the pad would dominate the work.
 constexpr int kMinSubTile = 32;
+
+// ADR-0025: rows per band of a finish pass (as the region Faces bands).
+constexpr int kFinishRows = 256;
+// ADR-0025: rows per unsharp_luma call (its float window is (rows + 2 * kUsmMargin) x width x 4).
+constexpr int kUsmRows = 128;
+
+// ADR-0025: rows of a finished SR pass read back from its band store a band at a time, for
+// the finish pass's resampler. It asks for source rows in non-decreasing order (its ring keeps
+// the window of rows it resamples from), so one band is held; a row of an earlier band is read
+// again (correct, only slower).
+class StoreRows {
+ public:
+  StoreRows(const BandStore& st, const Geometry& g) : st_(st), g_(g) {}
+  const uint8_t* row(int y) {
+    int b = b_ < 0 ? 0 : b_;
+    while (b > 0 && y < g_.band_out_y0(b)) --b;
+    while (b + 1 < g_.bands() && y >= g_.band_out_y0(b + 1)) ++b;
+    if (b != b_) {
+      st_.read_band(b, buf_, sz(g_.band_out_rows(b)) * sz(g_.out_w) * 3);
+      b_ = b;
+    }
+    return buf_.data() + sz(y - g_.band_out_y0(b_)) * sz(g_.out_w) * 3;
+  }
+
+ private:
+  const BandStore& st_;
+  const Geometry& g_;
+  int b_ = -1;  // the band in buf_
+  std::vector<uint8_t> buf_;
+};
 
 // Runs one tile as n x n sub-tiles of its core (n = 2^split), each with the pad taken from the
 // tile's own padded input. With the model's receptive field within the pad the output equals
@@ -513,6 +551,9 @@ std::string recipe_hash(const std::string& input_sha, const ModelInfo& m, const 
   if (!r.jpeg_model.empty()) s += ";jpeg=" + r.jpeg_model + "," + std::to_string(r.jpeg_qf);
   if (!r.scratch_model.empty()) s += ";scratches=" + r.scratch_model + "," + r.inpaint_model;
   if (!r.lowlight_model.empty()) s += ";lowlight=" + r.lowlight_model;
+  // ADR-0025: only when on, so the bands of an older job still match on resume.
+  if (r.pre_down < 1) s += ";pre_down=" + std::to_string(r.pre_down);
+  if (r.sharpen > 0) s += ";sharpen=" + std::to_string(r.sharpen);
   if (!stage.empty()) s += ";stage=" + stage;
   return Sha256::of_string(s);
 }
@@ -1018,7 +1059,18 @@ void enh_job::run_impl(nlohmann::json& result) {
     fs::write_atomic(fs::join(dir, kResultFile), result.dump(2) + "\n");
     return;
   }
-  if (req.fast2) img = area_down(img, 2);
+  // ADR-0025: the result keeps the size it has without pre_down (fast 2x: (w/2) * 4); SR sees
+  // the input at its effective resolution and a finish pass resamples, sharpens and pastes.
+  const int final_w = req.fast2 ? (src_w / 2) * 4 : src_w * req.scale;
+  const int final_h = req.fast2 ? (src_h / 2) * 4 : src_h * req.scale;
+  const bool pre = req.pre_down < (req.fast2 ? 0.5 : 1.0);
+  if (pre) {
+    img = resize_area(img, std::max(1, int(std::lround(src_w * req.pre_down))),
+                      std::max(1, int(std::lround(src_h * req.pre_down))));
+  } else if (req.fast2) {
+    img = area_down(img, 2);
+  }
+  const bool finish = pre || req.sharpen > 0;
 
   // ---- geometry, backend, store ----
   Ladder lad = backend_ladder(*s, req, model.id);
@@ -1047,7 +1099,17 @@ void enh_job::run_impl(nlohmann::json& result) {
   const bool x8 = req.scale == 8;
   Geometry g1;
   if (x8) g1 = Geometry::make(img.w, img.h, tile, model.pad, model.scale, 1);
-  const int down = x8 ? 2 : req.fast2 ? 1 : model.scale / req.scale;
+  int down = x8 ? 2 : req.fast2 ? 1 : model.scale / req.scale;
+  if (pre) {  // the largest area /down whose SR output is still at least the result's size
+    down = 1;
+    for (int d : {4, 2}) {
+      if (model.scale % d == 0 && model.scale / d * img.w >= final_w &&
+          model.scale / d * img.h >= final_h) {
+        down = d;
+        break;
+      }
+    }
+  }
   if (down < 1) fail(ENH_E_INVALID, "scale exceeds model scale");
   Geometry g = x8 ? Geometry::make(g1.out_w, g1.out_h, tile, model.pad, model.scale, down)
                   : Geometry::make(img.w, img.h, tile, model.pad, model.scale, down);
@@ -1104,16 +1166,16 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   // The band store of a pass: the band to start from (its checkpoint matches and its bands are
   // whole), else emptied after a check for [need] bytes free (NFR-SIZE-004).
-  auto open_store = [&](BandStore& store, const Geometry& gg, const Checkpoint& ck, bool may_resume,
-                        double need) {
+  auto open_bands = [&](BandStore& store, int bands, const std::function<int(int)>& band_rows,
+                        int out_w, const Checkpoint& ck, bool may_resume, double need) {
     Checkpoint old;
     if (may_resume && store.load_checkpoint(old) && old.recipe_hash == ck.recipe_hash &&
         old.bands_total == ck.bands_total) {
       bool ok = true;
       for (int b = 0; b <= old.band_idx && ok; ++b)
-        ok = fs::file_size(store.band_path(b)) == int64_t(gg.band_out_rows(b)) * gg.out_w * 3;
+        ok = fs::file_size(store.band_path(b)) == int64_t(band_rows(b)) * out_w * 3;
       if (ok) {
-        store.discard_after(old.band_idx, gg.bands());
+        store.discard_after(old.band_idx, bands);
         return old.band_idx + 1;
       }
     }
@@ -1124,6 +1186,12 @@ void enh_job::run_impl(nlohmann::json& result) {
       fail(ENH_E_DISK_FULL, "need " + std::to_string(int64_t(need / 1e6)) + " MB free");
     }
     return 0;
+  };
+  auto open_store = [&](BandStore& store, const Geometry& gg, const Checkpoint& ck, bool may_resume,
+                        double need) {
+    return open_bands(
+        store, gg.bands(), [&gg](int b) { return gg.band_out_rows(b); }, gg.out_w, ck, may_resume,
+        need);
   };
   auto checkpoint = [&](const Geometry& gg, const std::string& stage) {
     Checkpoint ck;
@@ -1143,13 +1211,16 @@ void enh_job::run_impl(nlohmann::json& result) {
     start1 = open_store(store1, g1, ck1, resume, bytes(g1) + bytes(g));
   }
   const bool pass1_done = !x8 || start1 == g1.bands();
-  BandStore store(dir);
-  Checkpoint ck = checkpoint(g, "");
-  const int start_band = open_store(store, g, ck, resume && pass1_done, bytes(g));
+  // With a finish pass the SR pass has a store of its own (ADR-0025).
+  BandStore store(finish ? fs::join(dir, kPreDir) : dir);
+  Checkpoint ck = checkpoint(g, finish ? "pre" : "");
+  const double finish_bytes = finish ? double(final_w) * final_h * 3 * 1.2 : 0;
+  const int start_band = open_store(store, g, ck, resume && pass1_done, bytes(g) + finish_bytes);
+  const bool sr_done = pass1_done && start_band == g.bands();  // only the finish is left
 
   PreviewAccumulator preview;
-  preview.init(g.out_w, g.out_h, req.preview_max);
-  if (start_band > 0) {
+  preview.init(finish ? final_w : g.out_w, finish ? final_h : g.out_h, req.preview_max);
+  if (start_band > 0 && !finish) {
     std::vector<uint8_t> buf;
     for (int b = 0; b < start_band; ++b) {
       store.read_band(b, buf, sz(g.band_out_rows(b)) * sz(g.out_w) * 3);
@@ -1159,7 +1230,9 @@ void enh_job::run_impl(nlohmann::json& result) {
 
   // ---- SR banded ----
   if (ladder[rung].kind == BackendKind::vulkan) sentinel.arm();
-  const int64_t total_tiles = (x8 ? g1.tiles() : 0) + g.tiles();
+  const int finish_bands = finish ? (final_h + kFinishRows - 1) / kFinishRows : 0;
+  // The finish pass counts one unit per band of the result.
+  const int64_t total_tiles = (x8 ? g1.tiles() : 0) + g.tiles() + finish_bands;
   std::atomic<int64_t> done_tiles{x8 && !pass1_done ? int64_t(start1) * g1.tiles_per_band()
                                                     : (x8 ? g1.tiles() : 0) +
                                                           int64_t(start_band) * g.tiles_per_band()};
@@ -1340,7 +1413,7 @@ void enh_job::run_impl(nlohmann::json& result) {
     }
     img = std::move(mid);
   }
-  sr_pass(img, g, store, ck, start_band, true);
+  sr_pass(img, g, store, ck, start_band, !finish);
   sentinel.disarm();
   if (stop()) throw Stopped{};
   if (x8) fs::remove_tree(fs::join(dir, kX8Dir));
@@ -1348,18 +1421,82 @@ void enh_job::run_impl(nlohmann::json& result) {
   const std::string backend_name = be->name();
   be.reset();
 
+  // ---- finish (ADR-0025): resample to the result size, sharpen, paste the faces ----
+  nlohmann::json band_rows = nlohmann::json::array();
+  int start_finish = 0;
+  const std::string finish_hash = finish ? recipe_hash(input_sha, model, g, req, "") : "";
+  if (finish) {
+    img = Rgb8{};
+    auto rows_of = [&](int b) { return std::min(kFinishRows, final_h - b * kFinishRows); };
+    BandStore out(dir);
+    Checkpoint ckf;
+    ckf.bands_total = finish_bands;
+    ckf.out_w = final_w;
+    ckf.out_h = final_h;
+    ckf.recipe_hash = finish_hash;
+    start_finish =
+        open_bands(out, finish_bands, rows_of, final_w, ckf, resume && sr_done, finish_bytes);
+    std::vector<uint8_t> band;
+    for (int b = 0; b < start_finish; ++b) {
+      out.read_band(b, band, sz(rows_of(b)) * sz(final_w) * 3);
+      preview.add_rows(band.data(), b * kFinishRows, rows_of(b));
+    }
+    StoreRows sr_rows(store, g);
+    LanczosResampler up(g.out_w, g.out_h, [&](int y) { return sr_rows.row(y); }, final_w, final_h);
+    // Resampled rows [win_y, win_y + win_n): a band and kUsmMargin rows on either side.
+    const size_t stride = sz(final_w) * 3;
+    std::vector<uint8_t> win;
+    int win_y = std::max(0, start_finish * kFinishRows - kUsmMargin), win_n = 0;
+    done_tiles = total_tiles - finish_bands + start_finish;
+    const auto t_finish = steady_clock::now();
+    for (int b = start_finish; b < finish_bands; ++b) {
+      if (stop()) throw Stopped{};
+      const int y0 = b * kFinishRows, rows = rows_of(b);
+      const int lo = std::max(0, y0 - kUsmMargin), hi = std::min(final_h, y0 + rows + kUsmMargin);
+      if (lo > win_y) {
+        win.erase(win.begin(), win.begin() + std::ptrdiff_t(sz(lo - win_y) * stride));
+        win_n -= lo - win_y;
+        win_y = lo;
+      }
+      if (win_y + win_n < hi) {
+        const int n = hi - (win_y + win_n);
+        win.resize(win.size() + sz(n) * stride);
+        up.rows(win_y + win_n, n, win.data() + sz(win_n) * stride);
+        win_n += n;
+      }
+      band.resize(sz(rows) * stride);
+      // In parts of kUsmRows: the mask's float buffers scale with the rows it is given.
+      for (int r = 0; r < rows; r += kUsmRows) {
+        unsharp_luma(
+            final_w, final_h, [&](int y) { return win.data() + sz(y - win_y) * stride; }, y0 + r,
+            std::min(kUsmRows, rows - r), float(req.sharpen), band.data() + sz(r) * stride);
+      }
+      if (!faces.empty()) paste_faces(band.data(), final_w, y0, rows, faces);
+      preview.add_rows(band.data(), y0, rows);
+      out.commit(b, band.data(), band.size(), ckf);
+      const int64_t done = ++done_tiles;
+      // ETA from this pass's own rate (its bands cost unlike SR tiles).
+      const int here = b + 1 - start_finish;
+      const double el = duration<double>(steady_clock::now() - t_finish).count();
+      const int64_t eta = int64_t(el / here * (finish_bands - b - 1) * 1000);
+      sink.progress(kStageUpscale, done, total_tiles, eta, done == total_tiles);
+    }
+    fs::remove_tree(fs::join(dir, kPreDir));
+    for (int b = 0; b < finish_bands; ++b) band_rows.push_back(rows_of(b));
+  } else {
+    for (int b = 0; b < g.bands(); ++b) band_rows.push_back(g.band_out_rows(b));
+  }
+
   // ---- finalize ----
   sink.emit(ENH_EV_STAGE, kStageFinalize, 0, 0, {{"stage", "finalize"}});
   Rgb8 pv = preview.finish();
   jpeg_encode(fs::join(dir, kPreviewFile), pv, 90);
 
-  nlohmann::json band_rows = nlohmann::json::array();
-  for (int b = 0; b < g.bands(); ++b) band_rows.push_back(g.band_out_rows(b));
   result = {{"schema", 1},
             {"job_id", req.job_id},
             {"job_dir", dir},
-            {"width", g.out_w},
-            {"height", g.out_h},
+            {"width", finish ? final_w : g.out_w},
+            {"height", finish ? final_h : g.out_h},
             {"band_rows", band_rows},
             {"preview", {{"file", kPreviewFile}, {"width", pv.w}, {"height", pv.h}}},
             {"input",
@@ -1374,8 +1511,15 @@ void enh_job::run_impl(nlohmann::json& result) {
             {"fallbacks", fallbacks},
             {"tile", g.tw},
             {"pad", g.pad},
-            {"resumed_from_band", start_band},
-            {"recipe_hash", ck.recipe_hash},
+            // ADR-0025: as asked (the recipe, like scale and fast2), and the factor of the input
+            // SR ran at: min(fast 2x ? 0.5 : 1, pre_down); 1 without a downscale.
+            {"pre_down", req.pre_down},
+            {"sr_pre_down", pre         ? req.pre_down
+                            : req.fast2 ? 0.5
+                                        : 1.0},
+            {"sharpen", req.sharpen},
+            {"resumed_from_band", finish && sr_done ? start_finish : start_band},
+            {"recipe_hash", finish ? finish_hash : ck.recipe_hash},
             {"timings_ms",
              {{"sr", int64_t(sr_s * 1000)},
               {"total", int64_t(duration<double>(steady_clock::now() - t_start).count() * 1000)}}}};

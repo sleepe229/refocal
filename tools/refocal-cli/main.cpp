@@ -2,10 +2,12 @@
 // Uses the public C ABI for jobs (same path as the app) and core internals only for compare.
 //
 //   refocal-cli probe
+//   refocal-cli analyze --models DIR IN          (enh_analyze: eff_scale, noise, faces)
 //   refocal-cli run --models DIR --work DIR --input IN --out OUT [--model ID] [--scale 4|2|1]
 //                   [--fast2] [--tile N] [--backend auto|cpu|vulkan] [--threads N] [--quality Q]
 //                   [--lossless] [--strength 0..1] [--jpeg-model ID [--jpeg-qf 0..1]]
 //                   [--scratch-model ID [--inpaint-model ID]]
+//                   [--face-model ID [--face-strength 0..1]] [--pre-down 0..1] [--sharpen 0..1.5]
 //                   [--job-id ID] [--resume] [--json]
 //                   [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]
 // OUT: .jpg, .png or .webp (the format follows the extension).
@@ -51,11 +53,14 @@ int usage() {
   (void)std::fprintf(
       stderr,
       "usage:\n  refocal-cli probe\n"
+      "  refocal-cli analyze --models DIR IN\n"
       "  refocal-cli run --models DIR --work DIR --input IN --out OUT.jpg|.png|.webp\n"
       "              [--model ID] [--scale 4|2|1] [--fast2] [--tile N] [--backend "
       "auto|cpu|vulkan]\n"
       "              [--threads N] [--quality Q] [--lossless] [--strength 0..1]\n"
       "              [--jpeg-model ID [--jpeg-qf 0..1]] [--scratch-model ID [--inpaint-model ID]]\n"
+      "              [--face-model ID [--face-strength 0..1]]\n"
+      "              [--pre-down 0..1] [--sharpen 0..1.5]\n"
       "              [--job-id ID] [--resume] [--json]\n"
       "              [--cache DIR] [--tier T0|T1|T2] [--no-exif] [--keep-gps] [--no-ai-marker]\n"
       "  refocal-cli compare A B [--min-psnr DB]\n");
@@ -127,6 +132,30 @@ int cmd_probe() {
   return rc;
 }
 
+// What Auto decides from (FR-ENH-007, ADR-0025): the enh_analyze JSON of one photo.
+int cmd_analyze(const Args& a) {
+  const std::string models = a.get("--models");
+  std::string input;  // the argument that is not --models or its value
+  for (size_t i = 1; i < a.pos.size(); ++i) {
+    if (a.pos[i] == "--models")
+      ++i;
+    else
+      input = a.pos[i];
+  }
+  if (models.empty() || input.empty()) return usage();
+  enh_session_config cfg{};
+  cfg.struct_size = sizeof cfg;
+  cfg.models_dir = models.c_str();
+  enh_session* s = nullptr;
+  if (enh_session_create(&cfg, &s) != ENH_OK) return 1;
+  char* out = nullptr;
+  const int rc = enh_analyze(s, input.c_str(), &out) == ENH_OK ? 0 : 1;
+  if (out) std::printf("%s\n", json::parse(out).dump(2).c_str());
+  enh_free(out);
+  enh_session_destroy(s);
+  return rc;
+}
+
 int cmd_run(const Args& a) {
   std::string models = a.get("--models"), work = a.get("--work"), input = a.get("--input"),
               out = a.get("--out");
@@ -163,6 +192,14 @@ int cmd_run(const Args& a) {
                 {"fast2", a.has("--fast2")},
                 {"tile", std::atoi(a.get("--tile", "0").c_str())},
                 {"backend", backend}};
+    if (a.has("--face-model")) {  // ADR-0012: face restoration (needs the bundled detector)
+      req["face_model"] = a.get("--face-model");
+      if (a.has("--face-strength"))
+        req["face_strength"] = std::atof(a.get("--face-strength").c_str());
+    }
+    // ADR-0025: SR at the effective resolution, and the unsharp mask of the result.
+    if (a.has("--pre-down")) req["pre_down"] = std::atof(a.get("--pre-down").c_str());
+    if (a.has("--sharpen")) req["sharpen"] = std::atof(a.get("--sharpen").c_str());
     if (a.has("--jpeg-model")) {
       req["jpeg_model"] = a.get("--jpeg-model");
       if (a.has("--jpeg-qf")) req["jpeg_qf"] = std::atof(a.get("--jpeg-qf").c_str());
@@ -256,6 +293,7 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; ++i) a.pos.emplace_back(argv[i]);
   if (a.pos.empty()) return usage();
   if (a.pos[0] == "probe") return cmd_probe();
+  if (a.pos[0] == "analyze") return cmd_analyze(a);
   if (a.pos[0] == "run") return cmd_run(a);
   if (a.pos[0] == "compare") return cmd_compare(a);
   return usage();

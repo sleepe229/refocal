@@ -683,6 +683,10 @@
     }
   },
   "autoFacesOnly": "only faces",
+  "autoBlurry": "blurry: enhanced at its real sharpness",
+  "@autoBlurry": {
+    "description": "Auto explanation part (ADR-0025): the photo is softer than its pixel size, so it is enhanced from a smaller copy"
+  },
   "autoDenoiseNone": "no denoise",
   "autoDenoiseStandard": "denoise",
   "autoDenoiseStrong": "strong denoise",

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'recipe.dart';
 import 'tiers.dart';
 
@@ -37,6 +39,7 @@ class PhotoAnalysis {
     required this.detector,
     this.boxes = const [],
     this.jpegQuality = 0,
+    this.effScale = 1,
   });
 
   /// Throws [FormatException] for anything the core did not write.
@@ -66,6 +69,12 @@ class PhotoAnalysis {
           final int q when q >= 0 && q <= 100 => q,
           final other => throw FormatException('bad jpeg_quality', other),
         },
+        // ADR-0025: absent from an older core: as a sharp photo.
+        effScale: switch (j['eff_scale']) {
+          null => 1.0,
+          final num e when e > 0 && e <= 1 => e.toDouble(),
+          final other => throw FormatException('bad eff_scale', other),
+        },
       );
     }
     throw FormatException('not an analysis', j);
@@ -86,6 +95,9 @@ class PhotoAnalysis {
   /// S9: the JPEG quality of the photo's quantization table; 0 when it is not a JPEG.
   final int jpegQuality;
 
+  /// ADR-0025: the effective resolution, a factor in (0, 1] of the pixel size (1: sharp).
+  final double effScale;
+
   double get megapixels => width * height / 1e6;
 }
 
@@ -93,7 +105,7 @@ class PhotoAnalysis {
 class AutoModels {
   const AutoModels({required this.standard, this.none, this.strong, this.facePack, this.jpegPack});
 
-  /// The built-in model (denoise 0.5).
+  /// The built-in model (denoise 0.5); [none] is built in too (ADR-0025), [strong] a pack.
   final String standard;
   final String? none, strong, facePack;
 
@@ -112,6 +124,9 @@ enum AutoReason {
   noisyPhoto,
   veryNoisyPhoto,
   jpegArtifacts,
+
+  /// ADR-0025: the photo is blurrier than its pixels: SR runs at its effective resolution.
+  blurryPhoto,
 }
 
 class AutoDecision {
@@ -131,11 +146,31 @@ class AutoDecision {
 ///   [noisySigma] -> the strong level if installed; else the built-in 0.5.
 /// - JPEG artifacts (S9): a JPEG below [jpegCleanBelow] quality gets the cleanup pack on T2
 ///   (FBCNN is a T2 pack, 04 §1), its quality factor read from the photo.
+/// - Effective resolution (ADR-0025): an eff_scale below [blurBelow] runs SR on the input
+///   downscaled to it, no lower than [minPreDown] (a downscale that is too strong destroys
+///   small text, so the rule errs on the sharp side), when that is below what SR runs at
+///   anyway (fast 2x: 0.5; region Faces: no SR; 8x: not with a downscale) ([preDownFor]).
+///   Every recipe gets the unsharp mask at [sharpen].
 class AutoPolicy {
   const AutoPolicy();
 
   static const cleanSigma = 2.0, noisySigma = 8.0;
   static const jpegCleanBelow = 60;
+  static const blurBelow = 0.9, minPreDown = 0.4, sharpen = 1.0;
+
+  /// ADR-0025: the recipe's preDown for photo [a] at [scale] / [fast2] / [facesOnly]; a
+  /// property of the photo and the scale, so the editor applies it in every mode as Auto does.
+  /// 1 (off) unless it lowers the size SR runs at; 2 decimals, so recipes stay readable.
+  static double preDownFor(
+    PhotoAnalysis a, {
+    required int scale,
+    required bool fast2,
+    required bool facesOnly,
+  }) {
+    if (a.effScale >= blurBelow || facesOnly || scale == 8) return 1;
+    final eff = (math.max(minPreDown, a.effScale) * 100).round() / 100;
+    return eff < (fast2 ? 0.5 : 1) ? eff : 1;
+  }
 
   AutoDecision decide(PhotoAnalysis a, DeviceTier tier, AutoModels models) {
     final reasons = <AutoReason>[];
@@ -175,6 +210,8 @@ class AutoPolicy {
         reasons.add(AutoReason.faces);
       }
     }
+    final preDown = preDownFor(a, scale: scale, fast2: fast2 && !facesOnly, facesOnly: facesOnly);
+    if (preDown < 1) reasons.add(AutoReason.blurryPhoto);
     String? jpeg;
     if (a.jpegQuality > 0 &&
         a.jpegQuality < jpegCleanBelow &&
@@ -187,6 +224,8 @@ class AutoPolicy {
       Recipe(
         scale: scale,
         fast2: fast2 && !facesOnly,
+        preDown: preDown,
+        sharpen: sharpen,
         srModel: sr,
         faceModel: face,
         facesOnly: facesOnly,

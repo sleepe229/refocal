@@ -113,6 +113,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// installed) while the settings still are Auto's.
   void _onAuto(AsyncValue<AutoProposal>? prev, AsyncValue<AutoProposal> next) {
     final p = next.value;
+    if (p != null) _analysis = p.analysis;
     if (p == null) {
       if (next.hasError) {
         AppLog.warn('analyze: ${next.error}');
@@ -287,6 +288,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _jpeg = r.jpegModel != null;
     _scratches = r.scratchModel != null;
     _lowLight = r.lowlightModel != null;
+    _preDown = r.preDown;
   }
 
   /// FR-ENH-003, ADR-0014: 8x on T2 for an input of at most 1.5 MP (a preset may still pick
@@ -481,6 +483,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   /// S9: brighten an under-exposed photo before SR.
   bool _lowLight = false;
 
+  /// ADR-0025: the photo's analysis (Auto's), which the effective resolution of every mode
+  /// follows; null while Auto looks at the photo, and for an opened job.
+  PhotoAnalysis? _analysis;
+
+  /// ADR-0025: preDown of the opened recipe, for when there is no analysis.
+  double _preDown = 1;
+
   /// The SR model: the bundled one, or an installed pack (a denoise level, ADR-0015).
   String _model = bundledSrModel;
 
@@ -491,6 +500,19 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final r = Recipe(
       scale: c.scale,
       fast2: c.fastPath,
+      // ADR-0025: no controls of their own. The downscale follows the photo at the scale chosen
+      // here, in every mode (a preset or Adjust on a blurry photo gets it too); every result
+      // gets the unsharp mask, as Auto's.
+      preDown: switch (_analysis) {
+        final a? => AutoPolicy.preDownFor(
+          a,
+          scale: c.scale,
+          fast2: c.fastPath,
+          facesOnly: _faces && _facesOnly,
+        ),
+        null => c.scale == 8 ? 1 : _preDown,
+      },
+      sharpen: AutoPolicy.sharpen,
       srModel: _model,
       strength: _strength,
       look: _look,
@@ -719,8 +741,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     );
   }
 
-  /// Denoise levels the installed packs offer (ADR-0015); hidden with only the built-in one
-  /// and for the RRDBNet models (no denoise levels).
+  /// Denoise levels the device has (ADR-0015; level 0 is built in, ADR-0025); hidden with only
+  /// the built-in one and for the RRDBNet models (no denoise levels).
   Widget? _denoise(AppLocalizations l10n) {
     if (SrModel.of(_model) != SrModel.compact) return null;
     final available = ref.watch(availableModelsProvider);

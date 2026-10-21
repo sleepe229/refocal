@@ -65,6 +65,8 @@ class Recipe {
   Recipe({
     required this.scale,
     this.fast2 = false,
+    this.preDown = 1,
+    this.sharpen = 0,
     required this.srModel,
     this.strength = 1,
     this.faceModel,
@@ -93,7 +95,8 @@ class Recipe {
       throw ArgumentError('faceFidelity must be 0..1, got $faceFidelity');
     }
     if (facesOnly && faceModel == null) throw ArgumentError('facesOnly needs a face model');
-    if (_invalid(scale, fast2, srModel, strength, faceModel, faceStrength) case final why?) {
+    if (_invalid(scale, fast2, srModel, strength, faceModel, faceStrength, preDown, sharpen)
+        case final why?) {
       throw ArgumentError(why);
     }
   }
@@ -105,9 +108,14 @@ class Recipe {
     double strength,
     String? faceModel,
     double faceStrength,
+    double preDown,
+    double sharpen,
   ) {
     if (!scales.contains(scale)) return 'scale must be 1, 2, 4 or 8, got $scale';
     if (fast2 && scale != 2) return 'fast2 needs scale 2';
+    if (!(preDown > 0 && preDown <= 1)) return 'preDown must be in (0, 1], got $preDown';
+    if (preDown < 1 && scale == 8) return 'preDown does not go with 8x';
+    if (!(sharpen >= 0 && sharpen <= maxSharpen)) return 'sharpen must be 0..1.5, got $sharpen';
     if (srModel.isEmpty) return 'no SR model';
     if (!(strength >= 0 && strength <= 1)) return 'strength must be 0..1, got $strength';
     if (faceModel != null && faceModel.isEmpty) return 'empty face model';
@@ -122,7 +130,12 @@ class Recipe {
   /// jpegQf), written only when it is on, so other recipes stay readable by older apps. 4:
   /// scratch removal (scratchModel, inpaintModel), likewise only when it is on. 5: low light
   /// (lowlightModel), likewise. 6: a look (FR-LOOK-*), likewise only when it changes the pixels.
-  static const schemaVersion = 6;
+  /// 7: the effective resolution and sharpening (preDown, sharpen; ADR-0025), likewise only
+  /// when either is on.
+  static const schemaVersion = 7;
+
+  /// ADR-0025: the strongest unsharp mask the core takes.
+  static const maxSharpen = 1.5;
 
   /// FR-FACE-004, ADR-0022: half the restored face over the SR result.
   static const defaultFaceStrength = 0.5;
@@ -142,6 +155,14 @@ class Recipe {
 
   /// 2x by running x4 on a half-size input (ADR-0014).
   final bool fast2;
+
+  /// ADR-0025: SR runs on the input area-downscaled to this factor (its effective resolution)
+  /// and the result is resampled to the size it has without it; with [fast2] the factor is
+  /// min(0.5, preDown). (0, 1], 1: off; not with 8x.
+  final double preDown;
+
+  /// ADR-0025: luma unsharp mask of the result before the faces, 0..[maxSharpen]; 0: off.
+  final double sharpen;
 
   /// Super-resolution model id (04-ml-models).
   final String srModel;
@@ -198,6 +219,8 @@ class Recipe {
   }) => Recipe(
     scale: scale,
     fast2: fast2,
+    preDown: preDown,
+    sharpen: sharpen,
     srModel: srModel,
     strength: strength ?? this.strength,
     faceModel: faceModel != null ? faceModel() : this.faceModel,
@@ -215,7 +238,9 @@ class Recipe {
   );
 
   Map<String, Object?> toJson() => {
-    'schema': look != null
+    'schema': preDown < 1 || sharpen > 0
+        ? 7
+        : look != null
         ? 6
         : lowlightModel != null
         ? 5
@@ -224,6 +249,8 @@ class Recipe {
         : (jpegModel != null ? 3 : 2),
     'scale': scale,
     'fast2': fast2,
+    if (preDown < 1) 'pre_down': preDown,
+    if (sharpen > 0) 'sharpen': sharpen,
     'sr_model': srModel,
     'strength': strength,
     if (faceModel case final f?) ...{
@@ -291,13 +318,35 @@ class Recipe {
         final Object l when schema >= 6 => Look.fromJson(l),
         final other => throw FormatException('bad look', other),
       };
-      if (_invalid(scale, fast2, srModel, strength.toDouble(), faceModel, faceStrength)
+      // ADR-0025: absent in older recipes (schema < 7): off.
+      final preDown = switch (j['pre_down']) {
+        null => 1.0,
+        final num v when schema >= 7 => v.toDouble(),
+        final other => throw FormatException('bad pre_down', other),
+      };
+      final sharpen = switch (j['sharpen']) {
+        null => 0.0,
+        final num v when schema >= 7 => v.toDouble(),
+        final other => throw FormatException('bad sharpen', other),
+      };
+      if (_invalid(
+            scale,
+            fast2,
+            srModel,
+            strength.toDouble(),
+            faceModel,
+            faceStrength,
+            preDown,
+            sharpen,
+          )
           case final why?) {
         throw FormatException(why, j);
       }
       return Recipe(
         scale: scale,
         fast2: fast2,
+        preDown: preDown,
+        sharpen: sharpen,
         srModel: srModel,
         strength: strength.toDouble(),
         faceModel: faceModel,
@@ -340,6 +389,8 @@ class Recipe {
       other is Recipe &&
       other.scale == scale &&
       other.fast2 == fast2 &&
+      other.preDown == preDown &&
+      other.sharpen == sharpen &&
       other.srModel == srModel &&
       other.strength == strength &&
       other.faceModel == faceModel &&
@@ -358,6 +409,8 @@ class Recipe {
   int get hashCode => Object.hash(
     scale,
     fast2,
+    preDown,
+    sharpen,
     srModel,
     strength,
     faceModel,

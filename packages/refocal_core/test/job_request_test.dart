@@ -98,4 +98,20 @@ void main() {
     expect(JobRequest.of(r, '/in.jpg').toJson(), isNot(contains('crop')));
     expect(() => JobRequest.of(r, '/in.jpg', crop: (x: 0, y: 0, w: 8, h: 8)), throwsArgumentError);
   });
+
+  test('the effective resolution and sharpening go to the core and back (ADR-0025)', () {
+    final r = Recipe(scale: 4, srModel: 'sr.m', preDown: 0.6, sharpen: 1);
+    final q = JobRequest.of(r, '/in/a.jpg', id: 'job-p');
+    expect(q.toJson(), containsPair('pre_down', 0.6));
+    expect(q.toJson(), containsPair('sharpen', 1.0));
+    expect(JobRequest.fromJson(q.toJson()).recipe(), r);
+    // The core writes both, 1 and 0 when off; an older core neither.
+    final plain = JobRequest(id: 'job-o', input: '/a', scale: 4, srModel: 'm').toJson();
+    expect(plain.containsKey('pre_down') || plain.containsKey('sharpen'), isFalse);
+    final core = JobRequest.fromJson({...plain, 'pre_down': 1.0, 'sharpen': 0.0});
+    expect((core.preDown, core.sharpen), (1.0, 0.0));
+    expect(JobRequest.fromJson(plain).recipe(), Recipe(scale: 4, srModel: 'm'));
+    expect(() => JobRequest.fromJson({...plain, 'pre_down': 'x'}), throwsFormatException);
+    expect(() => JobRequest.fromJson({...plain, 'pre_down': 0}), throwsFormatException);
+  });
 }

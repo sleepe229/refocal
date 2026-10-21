@@ -28,6 +28,7 @@
 | [ADR-0022](ADR-0022-face-models-licensing-defaults.md) | Face models: licensing and safe defaults | Accepted |
 | [ADR-0023](ADR-0023-gfpgan-mobile-graph-rewrite.md) | Mobile graph rewrite for StyleGAN2-based face models | Accepted |
 | [ADR-0024](ADR-0024-codeformer-split-graph.md) | CodeFormer as a split graph with the fidelity as an input | Accepted |
+| [ADR-0025](ADR-0025-effective-resolution.md) | Effective resolution, sharpening and bundled denoise level 0 | Accepted |
 
 ## Шаблон
 

@@ -134,4 +134,68 @@ void main() {
     );
     expect(() => PhotoAnalysis.fromJson(const {'schema': 2}), throwsFormatException);
   });
+
+  test('a blurry photo runs at its effective resolution; every recipe is sharpened (ADR-0025)', () {
+    PhotoAnalysis blurry(double eff, {double mp = 1}) => PhotoAnalysis(
+      width: 1000,
+      height: (mp * 1000).round(),
+      noiseSigma: 1,
+      faces: 0,
+      largestFacePx: 0,
+      detector: true,
+      effScale: eff,
+    );
+    final d = _auto.decide(blurry(0.537), DeviceTier.t1, _all);
+    expect((d.recipe.preDown, d.recipe.sharpen), (0.54, AutoPolicy.sharpen));
+    expect(d.reasons, contains(AutoReason.blurryPhoto));
+    expect(d.recipe.srModel, 'sr.general-x4v3-dn0', reason: 'still clean');
+    final sharp = _auto.decide(blurry(0.92), DeviceTier.t1, _all);
+    expect((sharp.recipe.preDown, sharp.recipe.sharpen), (1.0, 1.0));
+    expect(sharp.reasons, isNot(contains(AutoReason.blurryPhoto)));
+    expect(_auto.decide(blurry(0.1), DeviceTier.t1, _all).recipe.preDown, AutoPolicy.minPreDown);
+    // >= 8 MP, fast 2x: half the size already, so 0.7 would change nothing: 1, not reported.
+    final big = _auto.decide(blurry(0.7, mp: 12), DeviceTier.t1, _all);
+    expect((big.recipe.fast2, big.recipe.preDown), (true, 1.0));
+    expect(big.reasons, isNot(contains(AutoReason.blurryPhoto)));
+    // Region Faces (T0, >= 8 MP, one face): no SR to downscale for.
+    final faces = _auto.decide(
+      PhotoAnalysis(
+        width: 4000,
+        height: 3000,
+        noiseSigma: 1,
+        faces: 1,
+        largestFacePx: 200,
+        detector: true,
+        effScale: 0.3,
+      ),
+      DeviceTier.t0,
+      _all,
+    );
+    expect((faces.recipe.facesOnly, faces.recipe.preDown), (true, 1.0));
+    expect(faces.reasons, isNot(contains(AutoReason.blurryPhoto)));
+    expect(
+      _auto.decide(blurry(0.45, mp: 12), DeviceTier.t1, _all).reasons,
+      contains(AutoReason.blurryPhoto),
+    );
+    // The same rule at any scale the editor picks: a property of the photo and the scale.
+    double at(int scale, {bool fast2 = false, bool facesOnly = false}) =>
+        AutoPolicy.preDownFor(blurry(0.7), scale: scale, fast2: fast2, facesOnly: facesOnly);
+    expect(
+      [at(4), at(2), at(1), at(2, fast2: true), at(8), at(4, facesOnly: true)],
+      [0.7, 0.7, 0.7, 1.0, 1.0, 1.0],
+    );
+    Map<String, Object?> json(Object? eff) => {
+      'schema': 1,
+      'width': 10,
+      'height': 10,
+      'noise_sigma': 1,
+      'eff_scale': ?eff,
+      'faces': {'count': 0, 'largest_px': 0, 'detector': false, 'boxes': <Object?>[]},
+    };
+    expect(PhotoAnalysis.fromJson(json(null)).effScale, 1.0, reason: 'an older core');
+    expect(PhotoAnalysis.fromJson(json(0.5)).effScale, 0.5);
+    for (final bad in [0, 1.5, 'x']) {
+      expect(() => PhotoAnalysis.fromJson(json(bad)), throwsFormatException);
+    }
+  });
 }
