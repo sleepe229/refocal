@@ -156,6 +156,34 @@ abstract class RefocalPlatformApi {
   void stopProcessing(String? finishedText);
 }
 
+/// App self-update (ADR-0027). Implemented only by the `github` flavor; the `fdroid` and
+/// `play` builds do not register it, so every call fails with a channel error there.
+@HostApi()
+abstract class AppUpdateApi {
+  /// The installed versionCode (PackageInfo.longVersionCode).
+  int installedVersionCode();
+
+  /// Android SDK_INT, compared with an update's minSdk.
+  int sdkInt();
+
+  /// The active network is not metered (Wi-Fi, Ethernet): background checks and downloads
+  /// only run then.
+  bool unmetered();
+
+  /// The user allowed this app to install apps ("Install unknown apps").
+  bool canInstall();
+
+  /// Opens the system screen where the user allows that for this app.
+  void openInstallSettings();
+
+  /// Installs the APK at [apkPath] over this app through a PackageInstaller session, without
+  /// a question where Android allows it (12+, this app is the installer of record). Returns
+  /// "pending_user" when Android shows its own dialog, else throws (code "install", the
+  /// installer's message). On success the process is replaced and never returns.
+  @async
+  String install(String apkPath);
+}
+
 /// Calls from the platform into Dart.
 @FlutterApi()
 abstract class RefocalPlatformEvents {

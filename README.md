@@ -6,8 +6,9 @@ Refocal is an open-source, cross-platform (Flutter, Android + iOS) AI photo enha
 upscaling, denoising and face restoration that run **entirely on the device** —
 no servers, no accounts, no telemetry.
 
-> Status: **public beta (0.5).** Android only; iOS is not started. Download the APK from
-> [GitHub Releases](https://github.com/sleepe229/refocal/releases); an F-Droid listing is under
+> Status: **public beta (0.5).** Android only; iOS is not started. Download `refocal-…-github-arm64-v8a.apk` from
+> [GitHub Releases](https://github.com/sleepe229/refocal/releases): it can update itself
+> (ADR-0027); the plain `…-arm64-v8a.apk` is the build F-Droid checks against; an F-Droid listing is under
 > review. What changed: [CHANGELOG.md](CHANGELOG.md). The technical specification lives in
 > [`docs/spec/`](docs/spec/README.md) (in Russian).
 

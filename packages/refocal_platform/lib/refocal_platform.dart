@@ -4,6 +4,7 @@ library;
 export 'src/messages.g.dart'
     show
         AppDirs,
+        AppUpdateApi,
         PickedImage,
         PickedImages,
         ProcessingTexts,

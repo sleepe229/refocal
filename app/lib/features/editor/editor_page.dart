@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:refocal_core/refocal_core.dart';
 import 'package:refocal_ffi/refocal_ffi.dart';
 
+import '../update/update_ui.dart';
 import '../../bootstrap/auto.dart';
 import '../../bootstrap/engine.dart';
 import '../../bootstrap/app_log.dart';
@@ -1393,7 +1394,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      if (await save() != null) messenger.showSnackBar(SnackBar(content: Text(done)));
+      if (await save() == null) return;
+      messenger.showSnackBar(SnackBar(content: Text(done)));
+      if (mounted) unawaited(offerUpdateChecks(context, ref));
     } on HistoryNotRecorded catch (e, stack) {
       showError(messenger, l10n, 'record history', e.cause, stack, l10n.historyNotRecorded);
     } on EnhException catch (e, stack) {

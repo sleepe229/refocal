@@ -1,6 +1,6 @@
 # Privacy policy
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-21
 
 ## In short
 
@@ -23,7 +23,10 @@ Refocal connects to the internet **only** when you:
 
 1. open the model list or download a model: files come from this project's GitHub releases
    (GitHub receives your IP address under its own privacy policy);
-2. turn on the check for model updates (off by default; at most once every 7 days);
+2. turn on the check for updates (off by default): model updates at most once a day; in the
+   APK from GitHub (`…-github-arm64-v8a.apk`) also new versions of the app, at most once every
+   7 days and only on Wi-Fi or another unmetered network, from this project's GitHub releases.
+   "Check for updates" in About checks once, when you tap it;
 3. tap "Report a problem" or "Report a bad result": a GitHub page opens in your browser with a
    pre-filled text that you can read and edit before sending. The photo is not included. You can
    share it separately, by your own action, after a warning.

@@ -859,5 +859,54 @@
     }
   },
   "bannerDone": "Model ready",
-  "bannerBackToPhoto": "Back to photo"
+  "bannerBackToPhoto": "Back to photo",
+  "updateFound": "Refocal {version} is out",
+  "@updateFound": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateDownloading": "Downloading Refocal {version}…",
+  "@updateDownloading": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateReady": "Refocal {version} is ready",
+  "@updateReady": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateInstall": "Update",
+  "updateDownload": "Download",
+  "updateInstalling": "Updating…",
+  "updateWaiting": "Updates when the photos are done",
+  "updatePermission": "Allow installs from Refocal, then tap Update again",
+  "updateFailed": "Could not update",
+  "aboutCheckUpdates": "Check for updates",
+  "aboutChecking": "Checking…",
+  "aboutUpToDate": "This is the latest version",
+  "whatsNewTitle": "What's new in {version}",
+  "@whatsNewTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateOfferTitle": "Hear about new versions?",
+  "updateOfferBody": "Refocal will look for a new version once a week on Wi-Fi and get it ready for you. Nothing about you is sent.",
+  "updateOfferYes": "Yes",
+  "updateOfferNo": "Not now",
+  "settingsUpdates": "Check for updates",
+  "settingsUpdatesHint": "New versions of the app and its models. Nothing about you is sent.",
+  "settingsBetaUpdates": "Beta versions",
+  "settingsBetaUpdatesHint": "New versions earlier; they may have more bugs"
 }

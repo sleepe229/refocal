@@ -927,6 +927,141 @@ interface RefocalPlatformApi {
   }
 }
 /**
+ * App self-update (ADR-0027). Implemented only by the `github` flavor; the `fdroid` and
+ * `play` builds do not register it, so every call fails with a channel error there.
+ *
+ * Generated interface from Pigeon that represents a handler of messages from Flutter.
+ */
+interface AppUpdateApi {
+  /** The installed versionCode (PackageInfo.longVersionCode). */
+  fun installedVersionCode(): Long
+  /** Android SDK_INT, compared with an update's minSdk. */
+  fun sdkInt(): Long
+  /**
+   * The active network is not metered (Wi-Fi, Ethernet): background checks and downloads
+   * only run then.
+   */
+  fun unmetered(): Boolean
+  /** The user allowed this app to install apps ("Install unknown apps"). */
+  fun canInstall(): Boolean
+  /** Opens the system screen where the user allows that for this app. */
+  fun openInstallSettings()
+  /**
+   * Installs the APK at [apkPath] over this app through a PackageInstaller session, without
+   * a question where Android allows it (12+, this app is the installer of record). Returns
+   * "pending_user" when Android shows its own dialog, else throws (code "install", the
+   * installer's message). On success the process is replaced and never returns.
+   */
+  suspend fun install(apkPath: String): String
+
+  companion object {
+    /** The codec used by AppUpdateApi. */
+    val codec: MessageCodec<Any?> by lazy {
+      MessagesPigeonCodec()
+    }
+    /** Sets up an instance of `AppUpdateApi` to handle messages through the `binaryMessenger`. */
+    @JvmOverloads
+    fun setUp(binaryMessenger: BinaryMessenger, api: AppUpdateApi?, messageChannelSuffix: String = "") {
+      val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.installedVersionCode$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.installedVersionCode())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.sdkInt$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.sdkInt())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.unmetered$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.unmetered())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.canInstall$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.canInstall())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.openInstallSettings$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              api.openInstallSettings()
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.refocal_platform.AppUpdateApi.install$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val apkPathArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.install(apkPathArg))
+              } catch (exception: Throwable) {
+                MessagesPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+    }
+  }
+}
+/**
  * Calls from the platform into Dart.
  *
  * Generated class from Pigeon that represents Flutter messages that can be called from Kotlin.

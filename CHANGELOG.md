@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+New:
+- **Updates without the browser** (the APK from GitHub, `…-github-arm64-v8a.apk`): with
+  "Check for updates" on, Refocal looks for a new version once a week on Wi-Fi, downloads it in
+  the background and checks it, then a card on the home screen says "Update". The first time,
+  Android asks you to allow installs from Refocal; after that, updates install without asking.
+  It waits while photos are processing. "What's new" shows once after the update; "Check for
+  updates" in About checks at once. Beta versions are a switch away. The F-Droid build has none
+  of this: F-Droid updates it.
+
 ## 1.0.0
 
 The first stable release: everything of the 0.x betas, nothing new since 0.8.2-beta.1.
