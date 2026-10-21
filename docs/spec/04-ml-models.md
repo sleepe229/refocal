@@ -16,8 +16,17 @@
 | `jpeg.fbcnn` | Удаление JPEG-артефактов | FBCNN | ~70M [R] | ~140 МБ | Apache-2.0 [V] | пак | T2 | R1.1 |
 | `old.scratch-det` | Детекция царапин | U-Net из BOPBTL | — | — | MIT [V] | пак | T1+ | R1.1 |
 | `old.inpaint` | Заполнение царапин | MI-GAN / LaMa (выбор — спайк) | — | — | проверить | пак | T1+ | R1.1 |
-| `color.ddcolor-tiny` | Колоризация | DDColor paper_tiny | — | — | Apache-2.0 код; веса — уточнить [V] | пак (если лицензия ок) | T1+ | R1.2 |
+| `color.ddcolor-tiny` | Колоризация | DDColor paper_tiny | — | ~220 МБ fp32 [V] | Apache-2.0 код и веса (HF `piddnad/ddcolor_paper_tiny`) [V] | пак | T1+ | R1.2 |
 | `parse.bisenet` | Маски лица/волос | BiSeNet | ~13M [R] | ~26 МБ | MIT код; данные CelebAMask-HQ NC [R] | пак, NC | T1+ | R1.2 |
+| `sr.lsdir-compact` | SR, реальные деградации (кандидат) | SRVGGNetCompact (4xLSDIRCompactR3 / C3, Phhofm) | ~1.2M | ~2.3 МБ | CC-BY-4.0 [V] | пак (ADR-0026), рядом с general-x4v3 | T0+ | R1.1 (S11) |
+| `sr.nomos-span` | SR, реальные деградации (кандидат) | SPAN (4xNomos8k_span_otf medium/strong) | ~0.5M | ~1 МБ | CC-BY-4.0 [V] | пак | T0+ | R1.1 (S11) |
+| `sr.nomos-compact-x2` | Родной 2x (кандидат) | SRVGGNetCompact (2xNomosUni_compact_otf_medium) | ~1.2M | ~2.3 МБ | CC-BY-4.0 [V] | пак; нужен x2-путь в ядре | T0+ | R1.1 (S11) |
+| `sr.webphoto-realplksr` | HQ SR рядом с x4plus (кандидат) | RealPLKSR 64dim/28 блоков, PixelShuffle (4xNomosWebPhoto_RealPLKSR) | ~7.4M [R] | ~15 МБ | CC-BY-4.0 [V] | пак | T2 | R1.2 |
+| `sr.public-realplksr-x2` | HQ 2x, permissive (кандидат) | RealPLKSR + DySample + LayerNorm (2xPublic_realplksr_dysample_layernorm_real) | ~7M [R] | ~14 МБ | Apache-2.0 [V] | пак; нужен Vulkan GridSample | T2 | R1.2 |
+| `face.restoreformerpp` | Лица, лучшая идентичность (кандидат) | RestoreFormer++ | — | — | Apache-2.0 код [V]; веса — лицензия не указана, нужен письменный ответ автора | пак, согласие по ответу | T1+ | R1.3 |
+| `face.vqfr` | Лица с регулятором fidelity (кандидат) | VQFR | — | — | Apache-2.0 код [V]; веса — не указана | пак | T1+ | R1.3 |
+| `denoise.scunet` | Слепое шумоподавление реальных фото (кандидат) | SCUNet `color_real_psnr` / DRUNet | 17.9M / 32.6M [V] | ~36 / ~65 МБ | Apache-2.0 / MIT код [V]; веса — не указана | пак; категория `denoise` в схеме | T1+ | R1.3 |
+| `face.gen-*` | Генеративные лица, эксперимент | одношаговая диффузия (OSDFace / PMRF / InterLCM — S12) | 160M–1B | до ~2 ГБ | OSDFace и InterLCM — NC [V]; PMRF — MIT [V] (проверить стадию SwinIR из DifFace) | пак, только явное включение, никогда не Auto | T2 + NPU | R1.5 |
 | `sr.span-real` | Своя permissive SR | SPAN/SPANV2 retrain | ~0.15M | < 1 МБ | Apache-2.0 (своя) | встроена (замена general-x4v3) | T0+ | R2.0 (R&D) |
 
 ### Отклонённые модели
@@ -27,9 +36,31 @@
 | SwinIR, HAT | Тяжёлые (HAT 20.8M / 102 GMACs [V]), window attention плохо экспортируется и не ложится на NPU. HAT — только как офлайн-эталон/учитель. |
 | SCRFD, ArcFace (InsightFace) | Только некоммерческое исследовательское использование [V]. ArcFace допускается **только офлайн** для оценки в `ml/eval`. |
 | MediaPipe BlazeFace | Только short-range, слаб на мелких/групповых лицах. |
-| RestoreFormer++ | Веса только на Google Drive, лицензия весов не указана [V]. |
-| DiffBIR, OSDFace, InterLCM | Диффузионные, ~1B параметров — нереально on-device в 2026; лицензии весов SD (OpenRAIL-M). |
-| Официальный SPAN / NTIRE ESR | Обучены на бикубической деградации (PSNR) — не справляются с реальными фото; кандидат только для retrain (R2.0). |
+| DiffBIR | 50 шагов, 3B параметров; в составе DifFace (S-Lab NC) и SD 2.1 (OpenRAIL-M) [V]. Одношаговые OSDFace, InterLCM, PMRF перенесены в экспериментальные (`face.gen-*`, R1.5): на кропе лица 512 и NPU это около 0.1–0.3 с [V, Qualcomm AI Hub SD 2.1], а на весь кадр по-прежнему нереально. |
+| Официальный SPAN / NTIRE ESR | Обучены на бикубической деградации (PSNR) — не справляются с реальными фото. Версии сообщества, переобученные на реальных деградациях (`sr.nomos-span`), — кандидаты R1.1. |
+| NAFNet, Restormer (deblur) | Спайк S10 (ветка `spike/s10-defocus`): Restormer — 225 с и 1.2 ГБ на 0.3 МП на CPU, после SR — полосы на лицах; NAFNet GoPro почти не меняет фото, REDS «рисует» лица. Возврат — только на NPU (R1.4). |
+| 4xRealWebPhoto_v4_dat2, v3_atd | DAT2/ATD (window attention, 80–140 МБ) — не для телефона; офлайн-эталон и учитель для дистилляции (R2.0). |
+| ClearRealityV1, UltraSharpV2 | CC-BY-NC-SA-4.0 [V]; ниже приоритетом, чем CC-BY-кандидаты с тем же графом. |
+| GPEN, OneRestore | Нет лицензии; модели GPEN отозваны автором [V]. |
+
+### Источники кандидатов R1.1–R1.5 (проверено 2026-10-21)
+
+Кандидаты только добавляются рядом с текущими моделями (ADR-0026). Класс лицензии проверяется по первоисточнику до публикации пака (ML-REG-002). Сравнений этих моделей с Real-ESRGAN Compact по MUSIQ, CLIP-IQA и MANIQA никто не публиковал — выигрыш доказывает S11 на нашем golden-наборе.
+
+| Кандидат | Источник лицензии | Замечания для ncnn |
+|---|---|---|
+| 4xLSDIRCompactR3 / C3 | <https://openmodeldb.info/models/4x-LSDIRCompactR3>, <https://openmodeldb.info/models/4x-LSDIRCompactC3> | Граф `general-x4v3`, drop-in |
+| 4xNomos8k_span_otf | <https://openmodeldb.info/models/4x-Nomos8k-span-otf-strong>; SPAN — Apache-2.0, <https://github.com/hongyuanyu/SPAN> | Экспорт после репараметризации Conv3XC; порт на ncnn есть (tntwise/SPAN-ncnn-vulkan) |
+| 2xNomosUni_compact_otf_medium | <https://openmodeldb.info/models/2x-NomosUni-compact-otf-medium> | Граф Compact, масштаб 2 |
+| 4xNomosWebPhoto_RealPLKSR | <https://openmodeldb.info/models/4x-NomosWebPhoto-RealPLKSR>; PLKSR — MIT, <https://github.com/dslisleedh/PLKSR> | Свёртка 17×17, GroupNorm по тайлу (швы), pad ≥ рецептивного поля |
+| 2xPublic_realplksr_dysample_layernorm_real | <https://github.com/Phhofm/models/releases/tag/2xPublic_realplksr_dysample_layernorm_real> | DySample → `F.grid_sample`; у ncnn нет Vulkan-слоя GridSample |
+| RestoreFormer++ | <https://github.com/wzhouxiff/RestoreFormerPlusPlus> | Deg 29.63 против 37.28 у CodeFormer (таблица PMRF, CelebA-Test) |
+| VQFR | <https://github.com/TencentARC/VQFR> | Регулятор fidelity `-f` |
+| SCUNet, DRUNet | <https://github.com/cszn/SCUNet>, <https://github.com/cszn/DPIR> | SCUNet — окна Swin (roll, reshape); DRUNet — простой CNN |
+| DDColor tiny | <https://huggingface.co/piddnad/ddcolor_paper_tiny> | — |
+| OSDFace | <https://github.com/jkwang28/OSDFace> (NC academic) | SD 2.1 UNet, 978M; реалистично только на NPU |
+| PMRF | <https://github.com/ohayonguy/PMRF>, <https://huggingface.co/ohayonguy/PMRF_blind_face_image_restoration> (MIT) | 160M × K шагов; neighborhood attention — своё ядро |
+| InterLCM | <https://github.com/sen-mao/InterLCM> (CC BY-NC 4.0) | 1–3 шага LCM |
 
 ## 2. Требования к моделям (ML)
 
@@ -46,7 +77,7 @@
 | ML-FACE-003 | Маска вставки без видимого шва (erode + feather) | Must | R0.2 | визуальное ревью golden + метрика градиента | — |
 | ML-FACE-004 | Color match: ΔE средних в LAB ≤ 3 | Should | R0.2 | TEST-ML-002 | — |
 | ML-BIAS-001 | Оценка качества по подгруппам golden-лиц (тон кожи по шкале Monk, возраст, очки, профиль) публикуется в MODELS.md | Must | R0.5 | TEST-ML-008 | [15](15-ethics-responsible-ai.md) |
-| ML-QNT-001 | Квантизованная (int8) модель допускается только при выполнении golden-гейта (PSNR ≥ 35 дБ, LPIPS ≤ 0.02 vs fp32) | Must | R1.3 | TEST-ML-005 | — |
+| ML-QNT-001 | Квантизованная (int8) модель допускается только при выполнении golden-гейта (PSNR ≥ 35 дБ, LPIPS ≤ 0.02 vs fp32) | Must | R1.4 | TEST-ML-005 | — |
 
 ## 3. Лицензионный анализ face-моделей
 
@@ -112,7 +143,7 @@ upstream .pth ──► PyTorch (eval, fixed seed, randomize_noise=False)
    │      └─► onnxsim ──► pnnx ──► ncnn .param/.bin (fp16 storage)
    └─► coremltools (torch.export / TorchScript) ──► mlprogram, FLOAT16,
           EnumeratedShapes {128,256,512}, iOS16 target ──► .mlpackage
-   (R1.3) └─► ONNX ──► ORT QNN (w8a8, QAT/PTQ + golden-гейт)
+   (R1.4) └─► ONNX ──► ORT QNN (w8a8, QAT/PTQ + golden-гейт)
 ```
 
 | ID | Требование | Приоритет | Релиз |
@@ -193,7 +224,8 @@ upstream .pth ──► PyTorch (eval, fixed seed, randomize_noise=False)
 
 | Направление | Цель | Релиз |
 |---|---|---|
-| SPAN/SPANV2 retrain с деградациями Real-ESRGAN (Apache) | Качество ≈ general-x4v3 при ~0.15M параметров и ≤ 50% латентности | R2.0 |
+| SPAN/SPANV2 retrain с деградациями Real-ESRGAN (Apache), дистилляция от 4xRealWebPhoto_v4_dat2 | Своя встроенная модель не хуже выигравших CC-BY-паков R1.1 при ~0.15M параметров | R2.0 |
 | Clean-room face restoration на permissive-данных | Убрать NC-зависимость | R2.0 |
 | Дистилляция x4plus → компактная модель | HQ на T1 | R2.0 |
-| Low-light модель (выбор: Zero-DCE++ / SCI / др., проверка лицензий) | Режим Low-light | R1.1 |
+| Low-light модель | ✅ HVI-CIDNet (0.6) | — |
+| Одношаговая диффузия для лиц на NPU (S12) | Экспериментальный пак `face.gen-*` | R1.5 |
