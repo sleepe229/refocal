@@ -23,6 +23,7 @@ import '../../l10n/app_localizations.dart';
 import '../../ui_kit/compare_slider.dart';
 import '../../ui_kit/errors.dart';
 import '../../ui_kit/labels.dart';
+import '../models/download_banner.dart';
 import '../models/pack_offer.dart';
 import '../presets/preset_name_dialog.dart';
 import 'enhance_controller.dart';
@@ -171,10 +172,17 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         surface: Colors.black,
       ),
     );
+    // Back closes an open panel first, as its Done does; only then it leaves the photo.
+    final panel = (state is Idle || state is AskUser) && (_adjusting || _picking);
     return PopScope(
-      canPop: state is! Running,
+      canPop: state is! Running && !panel,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && state is Running) unawaited(_stop(state, ctl, l10n, leave: true));
+        if (didPop) return;
+        if (state is Running) {
+          unawaited(_stop(state, ctl, l10n, leave: true));
+        } else if (panel) {
+          setState(() => _adjusting = _picking = false);
+        }
       },
       child: Theme(
         data: canvas,
@@ -494,10 +502,16 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   String _model = bundledSrModel;
 
   /// What Enhance runs; [_model] is one the device has (installed or bundled).
-  Recipe? get _recipe {
+  Recipe? get _recipe => switch (_settings) {
+    final r? when canRun(r, ref.read(availableModelsProvider)) => r,
+    _ => null,
+  };
+
+  /// The settings as chosen, whether or not the device has their models yet.
+  Recipe? get _settings {
     final c = _choice;
     if (c == null || _autoFirst) return null;
-    final r = Recipe(
+    return Recipe(
       scale: c.scale,
       fast2: c.fastPath,
       // ADR-0025: no controls of their own. The downscale follows the photo at the scale chosen
@@ -525,27 +539,36 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       inpaintModel: _scratches ? inpaintPack : null,
       lowlightModel: _lowLight ? lowlightPack : null,
     );
-    return canRun(r, ref.read(availableModelsProvider)) ? r : null;
   }
 
   /// Modes and switches (by label) whose models are being fetched, with the packs asked for.
   final _fetching = <String, List<String>>{};
 
   /// Offers [packs] for what [label] names (06 §3.3); true once they are installed. The tool
-  /// or switch shows the download meanwhile, and the editor stays usable.
-  Future<bool> _fetch(String label, List<String> packs) async {
+  /// or switch shows the download meanwhile, and the editor stays usable. Left meanwhile, the
+  /// download banner brings the user back to this photo with [wanted] (else the settings).
+  Future<bool> _fetch(String label, List<String> packs, {Recipe? wanted}) async {
     setState(() => _fetching[label] = packs);
+    final origin = ref.read(downloadOriginProvider.notifier);
+    if (widget.args.jobDir == null) {
+      origin.set(packs, EditorArgs(widget.input, recipe: wanted ?? _settings));
+    }
+    var ok = false;
     try {
-      return await offerPacks(context, ref, packs, title: label);
+      return ok = await offerPacks(context, ref, packs, title: label);
     } finally {
+      // Kept for the banner's "ready" only when the editor was left and the models came.
+      if (mounted || !ok) origin.clear(packs);
       if (mounted) setState(() => _fetching.remove(label));
     }
   }
 
   /// The download under [label]: null when there is none, else its fraction, or a progress
-  /// without a value while it starts.
-  ({double? value})? _download(String label) {
-    final packs = _fetching[label];
+  /// without a value while it starts. [missing] (what it needs) shows a download asked for
+  /// before the editor was left and opened again.
+  ({double? value})? _download(String label, [List<String> missing = const []]) {
+    final downloads = ref.watch(modelsProvider).value?.downloads ?? const {};
+    final packs = _fetching[label] ?? (missing.any(downloads.containsKey) ? missing : null);
     return packs == null ? null : (value: packsProgress(ref, packs));
   }
 
@@ -560,13 +583,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     required bool value,
     required void Function(bool) onChanged,
   }) {
-    if (!packs.every((p) => packFitsDevice(ref, p))) return const SizedBox.shrink();
     final available = ref.watch(availableModelsProvider);
     final missing = [
       for (final p in packs)
         if (!available.contains(p)) p,
     ];
-    final download = _download(title);
+    final download = _download(title, missing);
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       secondary: Icon(icon),
@@ -714,14 +736,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     return true;
   }
 
-  /// SR models the device has and its tier allows (FR-ENH-008); hidden with only the
-  /// compact one.
+  /// SR models the device has (FR-ENH-008; one for a faster device was installed after its
+  /// warning, ADR-0017); hidden with only the compact one.
   Widget? _srModel(AppLocalizations l10n) {
     final available = ref.watch(availableModelsProvider);
-    final tier = ref.watch(tierProvider).value?.tier ?? DeviceTier.t0;
     final models = [
       for (final m in SrModel.values)
-        if (available.contains(m.model) && tier.index >= m.tierMin.index) m,
+        if (available.contains(m.model)) m,
     ];
     if (models.length < 2) return null;
     return Column(
@@ -847,7 +868,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     final p = auto.value;
     Widget preset(BuiltinPreset b, IconData icon) {
       final label = builtinPresetLabel(l10n, b);
-      final download = _download(label);
+      final download = _download(label, missingPacks(b.recipe, ref.watch(availableModelsProvider)));
       return _Tool(
         icon: icon,
         label: label,
@@ -857,9 +878,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       );
     }
 
-    final faces =
-        ref.watch(availableModelsProvider).contains(bundledDetector) &&
-        packFitsDevice(ref, defaultFacePack);
+    final faces = ref.watch(availableModelsProvider).contains(bundledDetector);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -903,7 +922,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       if (canRun(r, available)) setState(() => _apply(r));
       return;
     }
-    if (await _fetch(label, missing) && mounted && _wanted == r) setState(() => _apply(r));
+    if (await _fetch(label, missing, wanted: r) && mounted && _wanted == r) {
+      setState(() => _apply(r));
+    }
   }
 
   /// The result's size at [c] (null while the photo's size is not known).
@@ -965,7 +986,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           )
         : null;
     Widget chip(String label, Recipe r) {
-      final download = _download(label);
+      final download = _download(label, missingPacks(r, ref.watch(availableModelsProvider)));
       return ChoiceChip(
         avatar: download == null
             ? null
@@ -1002,8 +1023,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 runSpacing: 4,
                 children: [
                   for (final b in [BuiltinPreset.fast, BuiltinPreset.quality, BuiltinPreset.anime])
-                    if (missingPacks(b.recipe, const {}).every((p) => packFitsDevice(ref, p)))
-                      chip(builtinPresetLabel(l10n, b), b.recipe),
+                    chip(builtinPresetLabel(l10n, b), b.recipe),
                   for (final p in user) chip(p.name, p.recipe),
                 ],
               ),
