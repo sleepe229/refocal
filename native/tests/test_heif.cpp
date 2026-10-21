@@ -158,6 +158,36 @@ TEST("a uuid box in iref is refused (it would be written back without its userty
   CHECK(refused);
 }
 
+TEST("an item in two ipma boxes is refused (its lists would be merged past a byte count)") {
+  // fuzz-ga (heif shard 4, run 39626811093): two ipma boxes listed the same items; the parser
+  // merged them, the writer's one-byte count wrapped and the rewritten ipma lost the ICC.
+  Bytes in = make_heif(tile2(), tile3());
+  auto be32 = [&](size_t at) {
+    return uint32_t(in[at]) << 24 | uint32_t(in[at + 1]) << 16 | uint32_t(in[at + 2]) << 8 |
+           in[at + 3];
+  };
+  auto put32 = [&](size_t at, uint32_t v) {
+    for (size_t i = 0; i < 4; ++i) in[at + i] = uint8_t(v >> (24 - 8 * i));
+  };
+  auto find = [&](const char* t) {
+    return size_t(std::search(in.begin(), in.end(), t, t + 4) - in.begin()) - 4;
+  };
+  const size_t meta = find("meta"), iprp = find("iprp"), ipma = find("ipma");
+  const uint32_t size = be32(ipma);
+  const Bytes twice(in.begin() + std::ptrdiff_t(ipma), in.begin() + std::ptrdiff_t(ipma + size));
+  in.insert(in.begin() + std::ptrdiff_t(ipma + size), twice.begin(), twice.end());
+  put32(iprp, be32(iprp) + size);
+  put32(meta, be32(meta) + size);
+  bool refused = false;
+  try {
+    (void)heif_read_meta(in.data(), in.size());
+  } catch (const Error& e) {
+    refused = e.status() == ENH_E_INVALID;
+  }
+  CHECK(refused);
+  CHECK(throws_invalid(in));
+}
+
 // [seed_dir]: also writes the synthetic file before and after attaching (fuzz seed corpus).
 int main(int argc, char** argv) {
   if (argc > 1) {

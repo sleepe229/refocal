@@ -369,6 +369,7 @@
   "bannerDownloading": "Загружается модель… {percent}%",
   "bannerDone": "Модель готова",
   "bannerBackToPhoto": "К фото",
+  "modelsBy": "автор: {author}",
   "updateFound": "Вышел Refocal {version}",
   "updateDownloading": "Загружается Refocal {version}…",
   "updateReady": "Refocal {version} готов",

@@ -860,6 +860,14 @@
   },
   "bannerDone": "Model ready",
   "bannerBackToPhoto": "Back to photo",
+  "modelsBy": "by {author}",
+  "@modelsBy": {
+    "placeholders": {
+      "author": {
+        "type": "String"
+      }
+    }
+  },
   "updateFound": "Refocal {version} is out",
   "@updateFound": {
     "placeholders": {

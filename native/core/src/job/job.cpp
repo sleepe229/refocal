@@ -415,6 +415,8 @@ struct enh_job {
   // Fallback ladder state (ADR-0016), kept across a retry at a smaller scale: tiles run as
   // 2^split x 2^split sub-tiles; the memory warnings already answered (from enh_job_create on).
   int split = 0;
+  bool splittable = true;  // the SR model's model.json "split_tiles"
+  int model_scale = 4;     // the SR model's own scale (a x2 model: no fast 2x)
   uint32_t warnings_seen = 0;
   bool sr_started = false;  // past decode and faces: an OOM now can be answered by a downscale
 
@@ -422,7 +424,7 @@ struct enh_job {
   // are already the smallest.
   bool smaller_tile(const Geometry& g, const char* reason, int64_t done, int64_t total,
                     std::vector<std::string>& fallbacks) {
-    if ((std::min(g.tw, g.th) >> (split + 1)) < kMinSubTile) return false;
+    if (!splittable || (std::min(g.tw, g.th) >> (split + 1)) < kMinSubTile) return false;
     const std::string from = std::to_string(g.tw >> split), to = std::to_string(g.tw >> ++split);
     ENH_LOGW("tile %s -> %s (%s)", from.c_str(), to.c_str(), reason);
     sink.emit(ENH_EV_FALLBACK, kStageUpscale, done, total,
@@ -827,7 +829,8 @@ bool enh_job::retry_smaller() {
   if (req.background != "lanczos") {
     if (req.scale == 8) opts.push_back({{"scale", 4}, {"fast2", false}});
     if (req.scale == 4) opts.push_back({{"scale", 2}, {"fast2", false}});
-    if (req.scale >= 2 && !req.fast2) opts.push_back({{"scale", 2}, {"fast2", true}});
+    if (req.scale >= 2 && !req.fast2 && model_scale == 4)
+      opts.push_back({{"scale", 2}, {"fast2", true}});
     if (!req.face_model.empty())
       opts.push_back({{"scale", req.scale}, {"fast2", false}, {"background", "lanczos"}});
   }
@@ -882,6 +885,11 @@ void enh_job::run_impl(nlohmann::json& result) {
   ImageInfo info = probe_image(req.input);
   ModelInfo model = resolve_model(s->models_dir, req.sr_model);
   if (req.scale == 8 && model.scale != 4) fail(ENH_E_INVALID, "8x needs a x4 model");
+  // 1.1: a x2 model serves 2x (and 1x); 4x and 8x take a x4 model (Auto chooses).
+  if (req.scale != 8 && req.scale > model.scale) fail(ENH_E_INVALID, "scale above the model's");
+  if (req.fast2 && model.scale != 4) fail(ENH_E_INVALID, "fast 2x needs a x4 model");
+  model_scale = model.scale;
+  splittable = model.split_tiles;
   // ADR-0014: 8x only on an input of at most 1.5 MP; above, it is a smaller scale's turn.
   const double in_px = req.crop_w ? double(req.crop_w) * req.crop_h : double(info.w) * info.h;
 
@@ -899,7 +907,8 @@ void enh_job::run_impl(nlohmann::json& result) {
       JobRequest t = req;
       t.scale = sc;
       t.fast2 = f2;
-      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) && !too_large(t))
+      if ((sc < req.scale || (sc == req.scale && f2 && !req.fast2)) && !too_large(t) &&
+          (!f2 || model.scale == 4))
         opts.push_back({{"scale", sc}, {"fast2", f2}});
     }
     if (opts.empty()) fail(ENH_E_LIMIT, "input too large for any scale");
@@ -909,7 +918,7 @@ void enh_job::run_impl(nlohmann::json& result) {
                                     {"input_mp", in_px / 1e6},
                                     {"options", opts}});
     req.scale = a.value("scale", req.scale);
-    req.fast2 = a.value("fast2", false) && req.scale == 2;
+    req.fast2 = a.value("fast2", false) && req.scale == 2 && model.scale == 4;
     fs::write_atomic(fs::join(dir, kRequestFile), dump_json(job_request_to_json(req)) + "\n");
   }
 

@@ -23,6 +23,10 @@ const manifestKeys = [
 /// their own mirrors).
 const manifestUrls = ['https://github.com/sleepe229/refocal/releases/download/models'];
 
+/// The manifest this app reads there: schema 2 (ADR-0026); `manifest.json` next to it is the
+/// schema 1 projection for apps before 1.1 (ADR-0011 amendment).
+const manifestFile = 'manifest.v2.json';
+
 /// File hashes and manifest signatures (ADR-0021: the native core in the app).
 abstract interface class ModelVerifier {
   /// Throws [EnhException] unless [path] has [sha256Hex].
@@ -128,11 +132,11 @@ class ModelManager {
   /// stores it (rollback check). Throws [ModelError].
   Future<Manifest> refresh() async {
     await Directory(tmpDir).create(recursive: true);
-    final json = File('$tmpDir/manifest.json'), sig = File('$tmpDir/manifest.json.minisig');
+    final json = File('$tmpDir/$manifestFile'), sig = File('$tmpDir/$manifestFile.minisig');
     try {
-      await _fetchAny([for (final u in manifestBase) '$u/manifest.json'], json, _maxManifestBytes);
+      await _fetchAny([for (final u in manifestBase) '$u/$manifestFile'], json, _maxManifestBytes);
       await _fetchAny(
-        [for (final u in manifestBase) '$u/manifest.json.minisig'],
+        [for (final u in manifestBase) '$u/$manifestFile.minisig'],
         sig,
         _maxSignatureBytes,
       );

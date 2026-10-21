@@ -9,6 +9,14 @@ on:
         description: "tools/ml/<category>_eval.py"
         required: true
         default: jpeg
+      args:
+        description: "extra arguments, e.g. --model sr.lsdir-compact (sr)"
+        required: false
+        default: ""
+      packs:
+        description: "packs to fetch besides jpeg.fbcnn, space separated"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -25,10 +33,12 @@ jobs:
       - name: Bundled models and the packs, verified against the manifest and golden.lock
         env:
           GH_TOKEN: ${{ github.token }}
+          EXTRA_PACKS: ${{ inputs.packs }}
         run: |
           DEST=models tools/models/fetch.sh
           LOCK=tools/models/golden.lock DEST=models tools/models/fetch.sh
-          python3 tools/models/fetch_pack.py jpeg.fbcnn models
+          read -ra packs <<< "$EXTRA_PACKS"
+          for p in jpeg.fbcnn "${packs[@]}"; do python3 tools/models/fetch_pack.py "$p" models; done
       - name: Build refocal-cli
         run: |
           CC=clang-18 CXX=clang++-18 cmake -S native -B native/build -DENH_BUILD_CLI=ON \
@@ -40,13 +50,16 @@ jobs:
           lock=spikes/s1-gfpgan/requirements.lock
           pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
           /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)" "$(pin torchvision)"
-          /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" pyiqa==0.1.16
+          /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" "$(pin scipy)" pyiqa==0.1.16
       - name: Evaluate
+        env:
+          EVAL_ARGS: ${{ inputs.args }}
         run: |
           set -o pipefail
+          read -ra args <<< "$EVAL_ARGS"
           mkdir -p out
           /tmp/venv/bin/python tools/ml/${{ inputs.category }}_eval.py out \
-            --cli native/build/refocal-cli --models models | tee out/report.md
+            --cli native/build/refocal-cli --models models "${args[@]}" | tee out/report.md
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Checks tools/models/manifest.json before it is signed (ADR-0011): the schema
-(docs/spec/appendix/manifest.schema.json), a serial above the published one, and every file of
-every pack downloaded from every mirror with its size and SHA-256, the license texts too; and a
-MODELS.md row for every pack and every bundled model (ML-REG-001, TEST-COMP-004).
+(docs/spec/appendix/manifest.schema.json, schema 2), a serial above the published one (the
+schema 1 projection, manifest_v1.py), and every file of every pack downloaded from every mirror
+with its size and SHA-256, the license texts too; a MODELS.md row for every pack and every
+bundled model (ML-REG-001, TEST-COMP-004), naming the author of a credited pack (ADR-0026).
 
   tools/models/check_manifest.py [--published PATH]   # PATH: the manifest now in release `models`
 
@@ -21,6 +22,9 @@ import time
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/models"))
+from manifest_v1 import project  # noqa: E402
+
 GH = re.compile(r"^https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/(.+)$")
 
 
@@ -75,6 +79,20 @@ def unregistered(m: dict) -> list[str]:
     return sorted({i for i in ids if i not in rows})
 
 
+def uncredited(m: dict) -> list[str]:
+    """Credited (CC-BY, CC-BY-SA) packs whose MODELS.md row does not name their author."""
+    rows = {
+        r[0]: r[1]
+        for r in re.findall(r"^\| `([^`]+)` \|(.*)$", (ROOT / "MODELS.md").read_text(), re.M)
+    }
+    return [
+        p["id"]
+        for p in m["packs"]
+        if p["license"]["class"] in ("attribution", "sharealike")
+        and p["license"]["attribution"]["author"] not in rows.get(p["id"], "")
+    ]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--published")
@@ -86,9 +104,10 @@ def main() -> int:
     jsonschema.validate(m, schema)
     if a.published and pathlib.Path(a.published).exists():
         old = json.loads(pathlib.Path(a.published).read_text())
-        if m["serial"] <= old["serial"] and m != old:
+        if m["serial"] <= old["serial"] and project(m) != old:
             sys.exit(f"serial {m['serial']} must be above the published {old['serial']}")
     errors = [f"{i}: no row in MODELS.md" for i in unregistered(m)]
+    errors += [f"{i}: MODELS.md row does not credit the author" for i in uncredited(m)]
     with tempfile.TemporaryDirectory() as tmp:
         dst = pathlib.Path(tmp) / "f"
         for p in m["packs"]:

@@ -104,15 +104,16 @@ static void check_invariants(Collector& c) {
 
 static std::string g_root, g_models, g_work;
 
-static void make_model(const std::string& id, int resize_type) {
+static void make_model(const std::string& id, int resize_type, int scale = 4,
+                       const char* extra = "") {
   std::string dir = fs::join(g_models, id);
   fs::mkdirs(dir);
   fs::write_atomic(
       fs::join(dir, "model.ncnn.param"),
-      strf("7767517\n2 2\nInput in0 0 1 in0\nInterp up 1 1 in0 out0 0=%d 1=4.0 2=4.0\n",
-           resize_type));
+      strf("7767517\n2 2\nInput in0 0 1 in0\nInterp up 1 1 in0 out0 0=%d 1=%d.0 2=%d.0\n",
+           resize_type, scale, scale));
   fs::write_atomic(fs::join(dir, "model.ncnn.bin"), std::string());
-  fs::write_atomic(fs::join(dir, "model.json"), std::string("{\"scale\":4,\"pad\":16}"));
+  fs::write_atomic(fs::join(dir, "model.json"), strf("{\"scale\":%d,\"pad\":16%s}", scale, extra));
 }
 
 static Rgb8 texture(int w, int h) {
@@ -1322,6 +1323,51 @@ static void test_oom_ladder(Session& se) {
   CHECK(json::parse(fs::read_text(fs::join(g_work, "oom_down/request.json")))["scale"] == 2);
 }
 
+// 1.1: a x2 model serves 2x pixel for pixel (no x4 pass and area /2); 4x, 8x and fast 2x need a
+// x4 model. A model with "split_tiles": false never runs as sub-tiles: an out of memory asks
+// for a smaller scale at once, without the fast 2x of a x2 model.
+static void test_x2_and_split(Session& se) {
+  make_model("nearest2", 1, 2);
+  make_model("nosplit4", 2, 4, ",\"split_tiles\":false");
+  const std::string in = make_jpeg("x2.jpg", 150, 110);
+  {
+    Collector c;
+    json q = req("x2", in, "nearest2");
+    q["scale"] = 2;
+    CHECK(run_job(se, q, c).status == ENH_OK);
+    const Rgb8 src = jpeg_decode(in), out = read_output(fs::join(g_work, "x2"));
+    CHECK(out.w == 300 && out.h == 220);
+    bool same = out.w == 300 && out.h == 220;
+    for (int y = 0; same && y < out.h; ++y)
+      for (int x = 0; same && x < out.w; ++x)
+        for (size_t k = 0; k < 3; ++k)
+          same &= out.px[(sz(y) * sz(out.w) + sz(x)) * 3 + k] ==
+                  src.px[(sz(y / 2) * sz(src.w) + sz(x / 2)) * 3 + k];
+    CHECK(same);
+  }
+  for (auto [id, scale, fast2] :
+       {std::tuple{"x2_4", 4, false}, std::tuple{"x2_8", 8, false}, std::tuple{"x2_f2", 2, true}}) {
+    json q = req(id, in, "nearest2");
+    q["scale"] = scale;
+    q["fast2"] = fast2;
+    Collector c;
+    CHECK(run_job(se, q, c).status == ENH_E_INVALID);
+  }
+  setenv("ENH_FAULT", "cpu:oom_above:90", 1);
+  Collector c;
+  g_col = &c;
+  const std::string r = req("nosplit", in, "nosplit4").dump();
+  enh_job* j = nullptr;
+  CHECK(enh_job_create(se.s, r.c_str(), &j) == ENH_OK);
+  CHECK(enh_job_start(j, on_event, 3) == ENH_OK);
+  CHECK(wait_for(c, ENH_EV_NEEDS_USER));
+  unsetenv("ENH_FAULT");
+  CHECK(fallbacks(c).empty());  // no "tile 64 -> 32"
+  enh_job_cancel(j);
+  CHECK(wait_terminal(c));
+  enh_job_destroy(j);
+}
+
 static void test_errors(Session& se) {
   enh_job* j = nullptr;
   CHECK(enh_job_create(se.s, "not json", &j) == ENH_E_INVALID);
@@ -1627,6 +1673,7 @@ int main(int argc, char** argv) try {
     test_x8_too_large(se);
     test_needs_user(se);
     test_oom_ladder(se);
+    test_x2_and_split(se);
     test_errors(se);
   }
   (void)std::printf("test_job: %d failures\n", fails);
