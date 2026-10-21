@@ -368,5 +368,6 @@
   "packSlow": "На этом телефоне эта модель будет работать медленно: минуты на фото.",
   "bannerDownloading": "Загружается модель… {percent}%",
   "bannerDone": "Модель готова",
-  "bannerBackToPhoto": "К фото"
+  "bannerBackToPhoto": "К фото",
+  "modelsBy": "автор: {author}"
 }

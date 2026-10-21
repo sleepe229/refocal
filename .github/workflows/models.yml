@@ -10,7 +10,7 @@ name: models
 on:
   push:
     branches: [main]
-    paths: [tools/models/manifest.json, tools/models/make_rfpack.py]
+    paths: [tools/models/manifest.json, tools/models/make_rfpack.py, tools/models/manifest_v1.py]
   workflow_dispatch:
 
 permissions:
@@ -41,14 +41,22 @@ jobs:
           trap 'rm -f key.minisign' EXIT
           printf '%s\n' "$KEY" > key.minisign
           serial=$(python3 -c 'import json; print(json.load(open("tools/models/manifest.json"))["serial"])')
-          cp tools/models/manifest.json manifest.json
-          minisign -S -s key.minisign -m manifest.json -t "refocal manifest serial:$serial"
-          minisign -V -p tools/models/keys/A.pub -m manifest.json
-          for id in $(python3 -c 'import json; print(" ".join(p["id"] for p in json.load(open("tools/models/manifest.json"))["packs"]))'); do
-            tools/models/make_rfpack.py tools/models/manifest.json "$id" rfpack key.minisign
+          # Schema 2 for 1.1 and later, its schema 1 projection for older apps (ADR-0011 amendment).
+          cp tools/models/manifest.json manifest.v2.json
+          tools/models/manifest_v1.py tools/models/manifest.json > manifest.json
+          for f in manifest.json manifest.v2.json; do
+            minisign -S -s key.minisign -m "$f" -t "refocal manifest serial:$serial"
+            minisign -V -p tools/models/keys/A.pub -m "$f"
+          done
+          # An offline pack an older app can use carries the schema 1 manifest.
+          v1=$(python3 -c 'import json; print(" ".join(p["id"] for p in json.load(open("manifest.json"))["packs"]))')
+          for id in $(python3 -c 'import json; print(" ".join(p["id"] for p in json.load(open("manifest.v2.json"))["packs"]))'); do
+            case " $v1 " in *" $id "*) src=manifest.json ;; *) src=manifest.v2.json ;; esac
+            tools/models/make_rfpack.py "$src" "$id" rfpack key.minisign
           done
       - name: Upload to the release `models`
         run: |
           gh release view models >/dev/null 2>&1 || gh release create models --title "Model manifest" \
             --notes "Signed model manifest read by the app (ADR-0011). Do not delete." --latest=false
-          gh release upload models manifest.json manifest.json.minisig rfpack/*.rfpack --clobber
+          gh release upload models manifest.json manifest.json.minisig \
+            manifest.v2.json manifest.v2.json.minisig rfpack/*.rfpack --clobber

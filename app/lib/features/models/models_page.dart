@@ -231,6 +231,7 @@ class _PackTile extends ConsumerWidget {
     final status = [
       formatBytes(context, size),
       pack.license.spdx,
+      if (pack.license.attribution case final a?) l10n.modelsBy(a.author),
       if (pack.license.requiresAcceptance) l10n.modelsNonCommercial,
       if (i != null) update ? l10n.modelsUpdate(i.version, pack.version) : l10n.modelsInstalled,
     ].join(' · ');

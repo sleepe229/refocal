@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../bootstrap/engine.dart';
+import '../../bootstrap/models.dart';
 import '../../l10n/app_localizations.dart';
 
 const sourceUrl = 'https://github.com/sleepe229/refocal';
@@ -22,6 +23,32 @@ void registerNativeLicenses() {
       yield LicenseEntryWithLineBreaks([m['package'] as String], m['text'] as String);
     }
   });
+}
+
+/// Credited packs (CC-BY, ADR-0026) already in the license registry.
+final _credited = <String>{};
+
+/// Adds the credit of every installed credited pack to Flutter's license registry, once each
+/// (ADR-0026: the author, the link and the licence, next to the app's own licences).
+Future<void> registerPackCredits(WidgetRef ref) async {
+  final manager = await ref.read(modelManagerProvider.future);
+  final manifest = await manager.repo.current();
+  if (manifest == null) return;
+  final installed = {for (final i in await manager.repo.installed()) i.id};
+  for (final p in manifest.packs) {
+    final credit = p.license.attribution;
+    if (credit == null || !installed.contains(p.id) || !_credited.add(p.id)) continue;
+    final title = p.titleFor('en');
+    LicenseRegistry.addLicense(
+      () => Stream.value(
+        LicenseEntryWithLineBreaks(
+          ['Model: $title'],
+          '$title by ${credit.author}\n${credit.url}\n\n'
+          'Licensed under ${p.license.spdx}: ${p.license.url}',
+        ),
+      ),
+    );
+  }
 }
 
 class AboutPage extends ConsumerWidget {
@@ -61,12 +88,16 @@ class AboutPage extends ConsumerWidget {
           SelectableText(l10n.aboutSource(sourceUrl)),
           const SizedBox(height: 16),
           FilledButton.tonal(
-            onPressed: () => showLicensePage(
-              context: context,
-              applicationName: 'Refocal',
-              applicationVersion: version,
-              applicationLegalese: '© 2026 The Refocal Authors · Apache-2.0',
-            ),
+            onPressed: () async {
+              await registerPackCredits(ref);
+              if (!context.mounted) return;
+              showLicensePage(
+                context: context,
+                applicationName: 'Refocal',
+                applicationVersion: version,
+                applicationLegalese: '© 2026 The Refocal Authors · Apache-2.0',
+              );
+            },
             child: Text(l10n.aboutLicenses),
           ),
           const SizedBox(height: 8),

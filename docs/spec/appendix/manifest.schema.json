@@ -13,7 +13,8 @@
   "additionalProperties": false,
   "properties": {
     "schema": {
-      "const": 1
+      "const": 2,
+      "description": "Schema 2 (ADR-0026): licence classes, the denoise category. tools/models/manifest_v1.py publishes the schema 1 projection as manifest.json for apps before 1.1."
     },
     "serial": {
       "type": "integer",
@@ -239,7 +240,8 @@
             "jpeg",
             "old",
             "color",
-            "parse"
+            "parse",
+            "denoise"
           ]
         },
         "title": {
@@ -262,6 +264,7 @@
           "type": "object",
           "required": [
             "spdx",
+            "class",
             "url",
             "text_sha256",
             "commercial",
@@ -288,8 +291,107 @@
             },
             "notes_key": {
               "type": "string"
+            },
+            "class": {
+              "enum": [
+                "permissive",
+                "attribution",
+                "sharealike",
+                "noncommercial"
+              ],
+              "description": "ADR-0026. Weights without a licence are never published."
+            },
+            "attribution": {
+              "type": "object",
+              "required": [
+                "author",
+                "url"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "author": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "class": {
+                    "enum": [
+                      "attribution",
+                      "sharealike"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "attribution"
+                ],
+                "properties": {
+                  "commercial": {
+                    "const": true
+                  },
+                  "requires_acceptance": {
+                    "const": false
+                  }
+                }
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "attribution"
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "class": {
+                    "const": "noncommercial"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "commercial": {
+                    "const": false
+                  },
+                  "requires_acceptance": {
+                    "const": true
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "class": {
+                    "const": "permissive"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "commercial": {
+                    "const": true
+                  },
+                  "requires_acceptance": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          ]
         },
         "io": {
           "type": "object",
