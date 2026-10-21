@@ -20,6 +20,7 @@ Fixed:
   at the bottom shows the progress, without covering anything, then "Model ready". "Back to
   photo" opens the photo with the settings that asked for the model. Close it and it stays
   away until the next download. Back in the editor, the mode shows the download again.
+- **Scale**: tapping the scale already chosen closes the list (it did nothing).
 - **Models for faster phones** are no longer hidden or refused: the offer says the model will
   be slow on this phone, and it is yours to try. Auto still picks for the phone.
 

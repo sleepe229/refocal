@@ -950,6 +950,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 if (c != ScaleChoice.x8 || _x8Allowed || _choice == c)
                   RadioListTile<ScaleChoice>(
                     value: c,
+                    // The chosen one closes the sheet too (onChanged(null): no change).
+                    toggleable: true,
                     title: Text(scaleLabel(l10n, c.scale, fast2: c.fastPath)),
                     subtitle: switch ([
                       ?_resultSize(l10n, c),
