@@ -1,0 +1,5 @@
+Refocal 1.0: the first stable release.
+• Enhance photos on the phone: no account, no upload
+• Auto picks the scale, model and face restoration for each photo
+• Portrait, Old photo: faces, scratches, JPEG blocks, dark shots; blurry photos come out crisper
+• Filter, strength, batches, history and presets
