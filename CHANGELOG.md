@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0
+
+The first stable release: everything of the 0.x betas, nothing new since 0.8.2-beta.1.
+
+Photos are enhanced on the phone, with no account and no upload: Auto picks the scale, the model
+and the face restoration for each photo; Portrait and Old photo fix faces, scratches, JPEG
+blocks and dark shots; a filter, the strength of the result, batches, history and presets.
+Models download where they are wanted, from a signed manifest.
+
 ## 0.8.2-beta.1
 
 Sharper results from blurry photos.
