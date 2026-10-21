@@ -153,5 +153,5 @@ if adb_ shell cat /sdcard/ui.xml 2>/dev/null | grep -q "com.android.packageinsta
 fi
 adb_ shell am start -n "$PKG/.MainActivity" >/dev/null
 NOTAP=1 tap_text "Close" 30  # "What's new in 9.0.3"; no introduction: the data survived
-shot done
+shot finished
 echo "PASS: v1 -> v2 (after allowing installs) -> v3 (no question)"
