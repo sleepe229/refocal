@@ -23,6 +23,13 @@ double estimate_noise(const Rgb8& img);
 // on the 16 tiles of 256 px with most contrast; deterministic. 1 when no edges are found.
 double estimate_eff_scale(const Rgb8& img);
 
+// The step of estimate_eff_scale from a steepness profile over its 5 factors (NaN: a level
+// without enough edges) to f: the largest factor whose steepness reaches tau, interpolated in
+// log f from the last level with edges before it (none: that factor itself); 1 without any
+// edges; for tests.
+inline constexpr int kEffCrossingLevels = 5;
+double eff_crossing(const double (&prof)[kEffCrossingLevels], double tau);
+
 // {"schema": 1, "width", "height", "megapixels", "noise_sigma", "eff_scale", "faces": {"count",
 // "largest_px", "detector": bool, "boxes": [[x, y, w, h], ...]}}: the faces a job restores
 // (keep_restorable), largest first, in pixels of the oriented input; a box can be passed back

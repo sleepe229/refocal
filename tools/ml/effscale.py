@@ -89,15 +89,20 @@ def profiles(rgb8: np.ndarray) -> tuple[list[float], list[float]]:
 
 
 def crossing(prof: list[float], tau: float) -> float:
-    """The largest factor whose steepness reaches tau, interpolated in log f; 1 without edges."""
+    """The largest factor whose steepness reaches tau, interpolated in log f from the last level
+    with edges before it (none: that factor itself); 1 without edges."""
     if all(np.isnan(v) for v in prof):
         return 1.0
+    prev = -1  # the last level with edges before i (its steepness is below tau)
     for i, v in enumerate(prof):
-        if np.isnan(v) or v < tau:
+        if np.isnan(v):
             continue
-        if i == 0:
-            return 1.0
-        f0, v0 = FACTORS[i - 1], prof[i - 1]
+        if v < tau:
+            prev = i
+            continue
+        if prev < 0:
+            return FACTORS[i]
+        f0, v0 = FACTORS[prev], prof[prev]
         t = (tau - v0) / max(v - v0, 1e-6)
         return float(np.exp(np.log(f0) + t * (np.log(FACTORS[i]) - np.log(f0))))
     return FACTORS[-1]

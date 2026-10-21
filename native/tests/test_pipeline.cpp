@@ -594,6 +594,19 @@ static void test_eff_scale() {
   flat.w = flat.h = 300;
   flat.px.assign(size_t{300} * 300 * 3, 128);
   CHECK(estimate_eff_scale(flat) == 1.0);  // no edges: no downscale
+  // The crossing over levels without edges (NaN): a very blurry photo has too few edges at full
+  // resolution and steep ones once downscaled; that is a factor, never NaN (read as sharp).
+  const double nan = std::nan("");
+  const double few_at_1[] = {nan, 0.40, 0.45, 0.50, 0.55};
+  CHECK(eff_crossing(few_at_1, 0.30) == 0.7);
+  const double gap[] = {0.10, nan, 0.50, 0.55, 0.60};  // from 1 (0.10) to 0.5 (0.50) in log f
+  CHECK(std::abs(eff_crossing(gap, 0.30) - std::sqrt(0.5)) < 1e-9);
+  const double none[] = {nan, nan, nan, nan, nan};
+  CHECK(eff_crossing(none, 0.30) == 1.0);
+  const double steep[] = {0.35, 0.40, 0.45, 0.50, 0.55};
+  CHECK(eff_crossing(steep, 0.30) == 1.0);
+  const double never[] = {0.10, 0.12, nan, 0.20, 0.25};
+  CHECK(eff_crossing(never, 0.30) == 0.25);
   // Cost on 12 MP (ADR-0025 budget: <= 50 ms on the host).
   Rgb8 big;
   big.w = 4000;

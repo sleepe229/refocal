@@ -1528,6 +1528,64 @@ static void test_pre_down_resume(Session& se, const std::string& in) {
   CHECK(!fs::exists(fs::join(g_work, "pdr/pre")));
 }
 
+// The job paused from its own progress event once a band of the finish pass is committed.
+static enh_job* g_pause_job = nullptr;
+static int64_t g_pause_after = 0;
+static void on_event_pause(int64_t port, int32_t type, int32_t stage, int64_t done, int64_t total,
+                           char* p) {
+  on_event(port, type, stage, done, total, p);
+  if (type == ENH_EV_PROGRESS && total > 0 && done > total - g_pause_after)
+    enh_job_pause(g_pause_job);
+}
+
+// Pause in the finish pass of a pre_down + sharpen job, resume: the SR pass is not run again,
+// the finish pass goes on from its band, the same bytes.
+static void test_finish_resume(Session& se) {
+  constexpr int kW = 1024, kH = 768;
+  const std::string in = make_jpeg("fin.jpg", kW, kH);
+  auto q = [&](const std::string& id) {
+    json r = req(id, in, "nearest4");
+    r["pre_down"] = 0.8;
+    r["sharpen"] = 1.0;
+    return r;
+  };
+  Collector ref;
+  CHECK(run_job(se, q("fr_ref"), ref).status == ENH_OK);
+  const int finish_bands = (kH * 4 + 255) / 256;  // job.cpp kFinishRows
+  Collector c;
+  g_col = &c;
+  g_pause_after = finish_bands;
+  CHECK(enh_job_create(se.s, q("fr").dump().c_str(), &g_pause_job) == ENH_OK);
+  CHECK(enh_job_start(g_pause_job, on_event_pause, 1) == ENH_OK);
+  CHECK(wait_terminal(c, 60));
+  CHECK(enh_job_status(g_pause_job) == ENH_E_PAUSED);
+  enh_job_destroy(g_pause_job);
+  g_pause_job = nullptr;
+  CHECK(fs::exists(fs::join(g_work, "fr/pre/checkpoint.json")));
+  Collector c2;
+  g_col = &c2;
+  enh_job* j2 = nullptr;
+  CHECK(enh_job_resume(se.s, fs::join(g_work, "fr").c_str(), &j2) == ENH_OK);
+  CHECK(enh_job_start(j2, on_event, 2) == ENH_OK);
+  CHECK(wait_terminal(c2));
+  enh_job_destroy(j2);
+  check_invariants(c2);
+  {
+    std::lock_guard lk(c2.mu);
+    CHECK(c2.evs.back().type == ENH_EV_DONE);
+    const int from = c2.evs.back().payload["resumed_from_band"].get<int>();
+    CHECK(from > 0 && from < finish_bands);
+    // The SR pass was not run again: progress starts with all of its tiles done.
+    for (const auto& e : c2.evs)
+      if (e.type == ENH_EV_PROGRESS) {
+        CHECK(e.done >= e.total - finish_bands);
+        break;
+      }
+  }
+  CHECK(read_output(fs::join(g_work, "fr")).px == read_output(fs::join(g_work, "fr_ref")).px);
+  CHECK(!fs::exists(fs::join(g_work, "fr/pre")));
+}
+
 int main(int argc, char** argv) try {
   g_root = argc > 1 ? argv[1] : "test-work-job";
   fs::remove_tree(g_root);
@@ -1561,6 +1619,7 @@ int main(int argc, char** argv) try {
     test_x8_resume(se);
     test_pre_down(se);
     test_pre_down_resume(se, slow);
+    test_finish_resume(se);
     test_x8_too_large(se);
     test_needs_user(se);
     test_oom_ladder(se);

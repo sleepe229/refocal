@@ -208,23 +208,29 @@ Steepness steepness(const Edges& e) {
   return {med[0], {med[1], med[2], med[3], med[4]}};
 }
 
-// The largest factor whose steepness reaches tau, interpolated in log f; 1 without any edges.
-double crossing(const double (&prof)[kEffLevels], double tau) {
+}  // namespace
+
+static_assert(kEffLevels == kEffCrossingLevels);
+
+double eff_crossing(const double (&prof)[kEffCrossingLevels], double tau) {
   bool any = false;
   for (double v : prof) any = any || !std::isnan(v);
   if (!any) return 1.0;
+  int prev = -1;  // the last level with edges before i (its steepness is below tau)
   for (int i = 0; i < kEffLevels; ++i) {
     const double v = prof[i];
-    if (std::isnan(v) || v < tau) continue;
-    if (i == 0) return 1.0;
-    const double f0 = kEffFactors[i - 1], v0 = prof[i - 1];
+    if (std::isnan(v)) continue;
+    if (v < tau) {
+      prev = i;
+      continue;
+    }
+    if (prev < 0) return kEffFactors[i];  // no level with edges above it: no slope to follow
+    const double f0 = kEffFactors[prev], v0 = prof[prev];
     const double t = (tau - v0) / std::max(v - v0, 1e-6);
     return std::exp(std::log(f0) + t * (std::log(kEffFactors[i]) - std::log(f0)));
   }
   return kEffFactors[kEffLevels - 1];
 }
-
-}  // namespace
 
 double estimate_eff_scale(const Rgb8& img) {
   if (img.w < 16 || img.h < 16) return 1.0;
@@ -270,7 +276,7 @@ double estimate_eff_scale(const Rgb8& img) {
     for (double v : st.bins)
       if (!std::isnan(v)) dir[i] = std::isnan(dir[i]) ? v : std::min(dir[i], v);
   }
-  return std::sqrt(crossing(iso, kEffTauIso) * crossing(dir, kEffTauDir));
+  return std::sqrt(eff_crossing(iso, kEffTauIso) * eff_crossing(dir, kEffTauDir));
 }
 
 nlohmann::json analyze_image(enh_session& s, const std::string& path,

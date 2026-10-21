@@ -15,7 +15,6 @@
 #include <cstring>
 #include <deque>
 #include <functional>
-#include <map>
 #include <mutex>
 #include <optional>
 #include <regex>
@@ -254,30 +253,32 @@ constexpr int kMinSubTile = 32;
 
 // ADR-0025: rows per band of a finish pass (as the region Faces bands).
 constexpr int kFinishRows = 256;
+// ADR-0025: rows per unsharp_luma call (its float window is (rows + 2 * kUsmMargin) x width x 4).
+constexpr int kUsmRows = 128;
 
 // ADR-0025: rows of a finished SR pass read back from its band store a band at a time, for
-// the finish pass's resampler (whose window only moves forward); keeps the two bands before
-// the current one.
+// the finish pass's resampler. It asks for source rows in non-decreasing order (its ring keeps
+// the window of rows it resamples from), so one band is held; a row of an earlier band is read
+// again (correct, only slower).
 class StoreRows {
  public:
   StoreRows(const BandStore& st, const Geometry& g) : st_(st), g_(g) {}
   const uint8_t* row(int y) {
-    while (b_ > 0 && y < g_.band_out_y0(b_)) --b_;
-    while (b_ + 1 < g_.bands() && y >= g_.band_out_y0(b_ + 1)) ++b_;
-    auto it = cache_.find(b_);
-    if (it == cache_.end()) {
-      it = cache_.emplace(b_, std::vector<uint8_t>{}).first;
-      st_.read_band(b_, it->second, sz(g_.band_out_rows(b_)) * sz(g_.out_w) * 3);
-      while (cache_.begin()->first < b_ - 2) cache_.erase(cache_.begin());
+    int b = b_ < 0 ? 0 : b_;
+    while (b > 0 && y < g_.band_out_y0(b)) --b;
+    while (b + 1 < g_.bands() && y >= g_.band_out_y0(b + 1)) ++b;
+    if (b != b_) {
+      st_.read_band(b, buf_, sz(g_.band_out_rows(b)) * sz(g_.out_w) * 3);
+      b_ = b;
     }
-    return it->second.data() + sz(y - g_.band_out_y0(b_)) * sz(g_.out_w) * 3;
+    return buf_.data() + sz(y - g_.band_out_y0(b_)) * sz(g_.out_w) * 3;
   }
 
  private:
   const BandStore& st_;
   const Geometry& g_;
-  int b_ = 0;
-  std::map<int, std::vector<uint8_t>> cache_;
+  int b_ = -1;  // the band in buf_
+  std::vector<uint8_t> buf_;
 };
 
 // Runs one tile as n x n sub-tiles of its core (n = 2^split), each with the pad taken from the
@@ -1463,9 +1464,12 @@ void enh_job::run_impl(nlohmann::json& result) {
         win_n += n;
       }
       band.resize(sz(rows) * stride);
-      unsharp_luma(
-          final_w, final_h, [&](int y) { return win.data() + sz(y - win_y) * stride; }, y0, rows,
-          float(req.sharpen), band.data());
+      // In parts of kUsmRows: the mask's float buffers scale with the rows it is given.
+      for (int r = 0; r < rows; r += kUsmRows) {
+        unsharp_luma(
+            final_w, final_h, [&](int y) { return win.data() + sz(y - win_y) * stride; }, y0 + r,
+            std::min(kUsmRows, rows - r), float(req.sharpen), band.data() + sz(r) * stride);
+      }
       if (!faces.empty()) paste_faces(band.data(), final_w, y0, rows, faces);
       preview.add_rows(band.data(), y0, rows);
       out.commit(b, band.data(), band.size(), ckf);
