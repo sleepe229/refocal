@@ -286,6 +286,9 @@ void parse_iprp(Model& m, const Box& b) {
       for (uint32_t i = 0; i < count; ++i) {
         const uint32_t id = version < 1 ? r.u16() : r.u32();
         const uint8_t n = r.u8();
+        // ISO/IEC 23008-12: an item has one entry in all ipma boxes. Two would be merged here
+        // and written back as one list, its count a byte (fuzz-ga heif shard 4).
+        if (m.assoc.count(id)) bad("item in ipma twice");
         auto& list = m.assoc[id];
         for (uint8_t j = 0; j < n; ++j) {
           Assoc a;
