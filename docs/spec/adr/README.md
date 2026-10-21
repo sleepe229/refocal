@@ -30,6 +30,7 @@
 | [ADR-0024](ADR-0024-codeformer-split-graph.md) | CodeFormer as a split graph with the fidelity as an input | Accepted |
 | [ADR-0025](ADR-0025-effective-resolution.md) | Effective resolution, sharpening and bundled denoise level 0 | Accepted |
 | [ADR-0026](ADR-0026-model-license-classes.md) | Model licence classes; new models extend, never replace | Accepted |
+| [ADR-0027](ADR-0027-app-self-update.md) | App self-update without a server (`github` flavor) | Accepted |
 
 ## Шаблон
 
