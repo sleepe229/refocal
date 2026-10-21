@@ -38,6 +38,7 @@ ModelInfo resolve_model(const std::string& models_dir, const std::string& id) {
     if (j.is_discarded()) fail(ENH_E_MODEL, "bad model.json: " + id);
     m.scale = j.value("scale", 4);
     m.pad = j.value("pad", 16);
+    m.split_tiles = j.value("split_tiles", true);
   }
   if (m.scale != 1 && m.scale != 2 && m.scale != 4) fail(ENH_E_MODEL, "unsupported model scale");
   return m;
