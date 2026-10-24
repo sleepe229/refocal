@@ -1,10 +1,10 @@
 {
   "@@locale": "en",
-  "appTitle": "",
+  "appTitle": "Refocal",
   "homeModelMissing": "",
-  "homeChoosePhoto": "",
-  "homeNotFinished": "",
-  "homeCoreUnavailable": "",
+  "homeChoosePhoto": "Vali foto",
+  "homeNotFinished": "Pole valmis",
+  "homeCoreUnavailable": "Refocali käivitamine selles telefonis ei õnnestu: {error}",
   "@homeCoreUnavailable": {
     "placeholders": {
       "error": {
@@ -12,7 +12,7 @@
       }
     }
   },
-  "homeOpenFailed": "",
+  "homeOpenFailed": "Foto avamine ei õnnestunud: {error}",
   "@homeOpenFailed": {
     "placeholders": {
       "error": {
@@ -20,9 +20,9 @@
       }
     }
   },
-  "settingsTooltip": "",
-  "deleteTooltip": "",
-  "jobTitleFinished": "",
+  "settingsTooltip": "Seadistused",
+  "deleteTooltip": "Kustuta",
+  "jobTitleFinished": "Foto on kohendatud ja parandatud",
   "jobTitlePaused": "",
   "jobReadyNotSaved": "",
   "@jobReadyNotSaved": {
