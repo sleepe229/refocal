@@ -1,0 +1,974 @@
+{
+  "@@locale": "en",
+  "appTitle": "",
+  "homeModelMissing": "",
+  "homeChoosePhoto": "",
+  "homeNotFinished": "",
+  "homeCoreUnavailable": "",
+  "@homeCoreUnavailable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeOpenFailed": "",
+  "@homeOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTooltip": "",
+  "deleteTooltip": "",
+  "jobTitleFinished": "",
+  "jobTitlePaused": "",
+  "jobReadyNotSaved": "",
+  "@jobReadyNotSaved": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  },
+  "jobPausedAt": "",
+  "@jobPausedAt": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "jobOriginalGone": "",
+  "@jobOriginalGone": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleX8": "",
+  "scaleX4": "",
+  "scaleX2": "",
+  "scaleFast2": "",
+  "scaleX1": "",
+  "scaleX1Hint": "",
+  "sizePx": "",
+  "@sizePx": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "enhance": "",
+  "aiDisclaimer": "",
+  "stageWaiting": "",
+  "stageReading": "",
+  "stageEnhancing": "",
+  "@stageEnhancing": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "stageEnhancingEta": "",
+  "@stageEnhancingEta": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "stageFinishing": "",
+  "stageWorking": "",
+  "pause": "",
+  "cancel": "",
+  "backgroundHint": "",
+  "pausedByTimeout": "",
+  "pausedAt": "",
+  "@pausedAt": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "continueAction": "",
+  "continueLater": "",
+  "noteAlphaKept": "",
+  "noteFirstFrame": "",
+  "strength": "",
+  "strengthValue": "",
+  "@strengthValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "strengthNeedsOriginal": "",
+  "saveToGallery": "",
+  "saveAsFile": "",
+  "savedToGallery": "",
+  "savedToFile": "",
+  "saveFailed": "",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveAsTitle": "",
+  "tryAnotherScale": "",
+  "failCancelled": "",
+  "failPaused": "",
+  "failDiskFull": "",
+  "failInvalid": "",
+  "failLimit": "",
+  "failOom": "",
+  "failOther": "",
+  "@failOther": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "back": "",
+  "tooLargeTitle": "",
+  "tooLargeBody": "",
+  "notifEnhancing": "",
+  "notifReady": "",
+  "notifFailed": "",
+  "notifTimedOut": "",
+  "notifChannelName": "",
+  "notifChannelDescription": "",
+  "formatJpeg": "",
+  "formatPng": "",
+  "formatWebp": "",
+  "formatWebpLossless": "",
+  "formatWebpTooLarge": "",
+  "formatHeic": "",
+  "formatHeicTooLarge": "",
+  "formatTooLarge": "",
+  "settingsTitle": "",
+  "settingsSavedPhotos": "",
+  "settingsFormat": "",
+  "settingsQuality": "",
+  "settingsMetadata": "",
+  "settingsMetadataBody": "",
+  "settingsKeepLocation": "",
+  "settingsAiMarker": "",
+  "settingsAiMarkerSub": "",
+  "markerOffTitle": "",
+  "markerOffBody": "",
+  "markerKeep": "",
+  "markerTurnOff": "",
+  "settingsLanguage": "",
+  "languageSystem": "",
+  "languageName": "",
+  "@languageName": {
+    "description": "The name of this language, in itself."
+  },
+  "settingsShowIntro": "",
+  "aboutTitle": "",
+  "aboutAlpha": "",
+  "aboutPrivacy": "",
+  "aboutAiWarning": "",
+  "aboutCredits": "",
+  "aboutPrivacyPolicy": "",
+  "@aboutPrivacyPolicy": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutSource": "",
+  "@aboutSource": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutLicenses": "",
+  "compareLabel": "",
+  "comparePercentOriginal": "",
+  "@comparePercentOriginal": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "tagOriginal": "",
+  "tagEnhanced": "",
+  "onbSkip": "",
+  "onbNext": "",
+  "onbStart": "",
+  "onb1Title": "",
+  "onb1Body": "",
+  "onb2Title": "",
+  "onb2Body": "",
+  "onb3Title": "",
+  "onb3Body": "",
+  "historyTitle": "",
+  "historyEmpty": "",
+  "historyOff": "",
+  "historyDeleteAll": "",
+  "historyDeleteAllTitle": "",
+  "historyDeleteAllBody": "",
+  "historyDeleteFailed": "",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEntryGone": "",
+  "historyScale": "",
+  "historyOriginalSize": "",
+  "historyResultSize": "",
+  "historyModel": "",
+  "historyBackend": "",
+  "historyDuration": "",
+  "historySeconds": "",
+  "@historySeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "historyProcessAgain": "",
+  "historyOriginalGone": "",
+  "historyDeleteEntry": "",
+  "historyNotRecorded": "",
+  "@historyNotRecorded": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyOffTitle": "",
+  "historyOffBody": "",
+  "historyOffConfirm": "",
+  "settingsKeepHistory": "",
+  "settingsKeepHistorySub": "",
+  "settingsSaveFailed": "",
+  "@settingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "presetsTitle": "",
+  "presetsBuiltin": "",
+  "presetsYours": "",
+  "presetsEmpty": "",
+  "presetFast": "",
+  "presetQuality": "",
+  "presetRename": "",
+  "presetSaveAs": "",
+  "presetSaved": "",
+  "presetSave": "",
+  "presetSaveFailed": "",
+  "@presetSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "presetName": "",
+  "presetNameTooLong": "",
+  "@presetNameTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "presetStrengthAfter": "",
+  "@presetStrengthAfter": {
+    "placeholders": {
+      "strength": {
+        "type": "String"
+      }
+    }
+  },
+  "reportTitle": "",
+  "reportEntry": "",
+  "reportEntrySub": "",
+  "reportIntro": "",
+  "reportEmpty": "",
+  "reportShare": "",
+  "reportShareTitle": "",
+  "errorStorage": "",
+  "@errorStorage": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorSystem": "",
+  "@errorSystem": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "errorUnexpected": "",
+  "@errorUnexpected": {
+    "description": "Reason inserted into an error message ({error})."
+  },
+  "homeChooseSeveral": "",
+  "homeQueue": "",
+  "@homeQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pickPartial": "",
+  "@pickPartial": {
+    "placeholders": {
+      "failed": {
+        "type": "int"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "queueTitle": "",
+  "queueEmpty": "",
+  "queueStart": "",
+  "queuePause": "",
+  "queueClearFinished": "",
+  "queueShowErrors": "",
+  "queueStateQueued": "",
+  "queueStateRunning": "",
+  "@queueStateRunning": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "queueStatePaused": "",
+  "@queueStatePaused": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "queueStateDone": "",
+  "queueStateSaved": "",
+  "queueStateFailed": "",
+  "@queueStateFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "queueReport": "",
+  "@queueReport": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "queueReorderHint": "",
+  "queueNotifPosition": "",
+  "@queueNotifPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "queueNotifDone": "",
+  "@queueNotifDone": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "batchTitle": "",
+  "@batchTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "batchPreset": "",
+  "batchAutosave": "",
+  "@batchAutosave": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "batchAutosaveOff": "",
+  "batchAdd": "",
+  "settingsBatchAutosave": "",
+  "settingsBatchAutosaveHint": "",
+  "queueActionFailed": "",
+  "@queueActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageTitle": "",
+  "settingsStorage": "",
+  "storageTotal": "",
+  "@storageTotal": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "storageMeasureFailed": "",
+  "@storageMeasureFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageClear": "",
+  "storageClearTitle": "",
+  "@storageClearTitle": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "storageClearFailed": "",
+  "@storageClearFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageNoUndo": "",
+  "storageCopies": "",
+  "storageCopiesHint": "",
+  "storageCopiesClear": "",
+  "storageUnfinished": "",
+  "storageUnfinishedHint": "",
+  "storageUnfinishedClear": "",
+  "storageHistoryHint": "",
+  "storageHistoryClear": "",
+  "storageCache": "",
+  "storageCacheHint": "",
+  "storageLogs": "",
+  "storageLogsHint": "",
+  "storageModels": "",
+  "storageModelsHint": "",
+  "sizeKb": "",
+  "@sizeKb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeMb": "",
+  "@sizeMb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeGb": "",
+  "@sizeGb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "noteThermalWait": "",
+  "noteThermalThrottle": "",
+  "compareShowOriginal": "",
+  "compareShowResult": "",
+  "resultAlt": "",
+  "@resultAlt": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "modelsTitle": "",
+  "settingsModels": "",
+  "modelsBuiltIn": "",
+  "modelsBuiltInHint": "",
+  "modelsCheck": "",
+  "modelsNotChecked": "",
+  "modelsPrivacy": "",
+  "modelsNonCommercial": "",
+  "modelsInstalled": "",
+  "modelsUpdate": "",
+  "@modelsUpdate": {
+    "placeholders": {
+      "installedVersion": {
+        "type": "String"
+      },
+      "availableVersion": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsUpdateAction": "",
+  "modelsDownload": "",
+  "modelsDelete": "",
+  "modelsDownloading": "",
+  "@modelsDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "modelsErrorNetwork": "",
+  "modelsErrorIntegrity": "",
+  "modelsErrorRollback": "",
+  "modelsLicenseTitle": "",
+  "@modelsLicenseTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLicenseIntro": "",
+  "modelsLicenseAccept": "",
+  "denoise": "",
+  "denoiseNone": "",
+  "denoiseStandard": "",
+  "denoiseStrong": "",
+  "presetPortrait": "",
+  "presetOldPhoto": "",
+  "recipeFaces": "",
+  "@recipeFaces": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "jpegClean": "",
+  "jpegCleanHint": "",
+  "lowLight": "",
+  "lowLightHint": "",
+  "scratches": "",
+  "scratchesHint": "",
+  "faces": "",
+  "facesHint": "",
+  "faceFidelityDetail": "",
+  "faceFidelityLikeness": "",
+  "faceFidelityValue": "",
+  "@faceFidelityValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "faceFidelitySemantics": "",
+  "@faceFidelitySemantics": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "facesStrength": "",
+  "facesNoticeTitle": "",
+  "facesNoticeBody": "",
+  "facesNoticeOk": "",
+  "stageFaces": "",
+  "@stageFaces": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "stageJpeg": "",
+  "@stageJpeg": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "stageLowLight": "",
+  "stageScratches": "",
+  "@stageScratches": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "regionAll": "",
+  "regionFaces": "",
+  "tierTitle": "",
+  "tierAuto": "",
+  "tierMeasured": "",
+  "@tierMeasured": {
+    "placeholders": {
+      "tier": {
+        "type": "String"
+      },
+      "backend": {
+        "type": "String"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "tierGpu": "",
+  "tierCpu": "",
+  "tierUnknown": "",
+  "tierMeasuring": "",
+  "autoChip": "",
+  "autoAnalyzing": "",
+  "autoFailed": "",
+  "autoFaces": "",
+  "@autoFaces": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "autoFacesNotRestored": "",
+  "autoFacesNeedPack": "",
+  "autoJpeg": "",
+  "@autoJpeg": {
+    "placeholders": {
+      "quality": {
+        "type": "int"
+      }
+    }
+  },
+  "autoFacesOnly": "",
+  "autoBlurry": "",
+  "@autoBlurry": {
+    "description": "Auto explanation part (ADR-0025): the photo is softer than its pixel size, so it is enhanced from a smaller copy"
+  },
+  "autoDenoiseNone": "",
+  "autoDenoiseStandard": "",
+  "autoDenoiseStrong": "",
+  "noteFaceSkipped": "",
+  "@noteFaceSkipped": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "noteFacesSkipped": "",
+  "noteJpegSkipped": "",
+  "noteScratchesSkipped": "",
+  "noteLowLightSkipped": "",
+  "oomTitle": "",
+  "oomBody": "",
+  "@oomBody": {
+    "placeholders": {
+      "scale": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsImport": "",
+  "modelsImported": "",
+  "@modelsImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsErrorNotAPack": "",
+  "modelsErrorStorage": "",
+  "faceOfferLater": "",
+  "facesTapHint": "",
+  "faceToggle": "",
+  "@faceToggle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "fragmentTitle": "",
+  "fragmentRunning": "",
+  "fragmentInfo": "",
+  "@fragmentInfo": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "fragmentEnhanceAll": "",
+  "fragmentAction": "",
+  "close": "",
+  "resultSeconds": "",
+  "@resultSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "reportBadAction": "",
+  "reportBadTitle": "",
+  "badOtherFace": "",
+  "badArtifacts": "",
+  "badColor": "",
+  "badBias": "",
+  "badOther": "",
+  "reportComment": "",
+  "reportWillSend": "",
+  "reportOpenIssue": "",
+  "reportSharePhoto": "",
+  "reportPhotoTitle": "",
+  "reportPhotoBody": "",
+  "reportPhotoOk": "",
+  "reportNoBrowser": "",
+  "presetsImport": "",
+  "presetsExport": "",
+  "presetsExported": "",
+  "presetsImported": "",
+  "@presetsImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "presetsNotAFile": "",
+  "settingsPackUpdates": "",
+  "settingsPackUpdatesHint": "",
+  "packUpdatesAvailable": "",
+  "@packUpdatesAvailable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compareSideBySide": "",
+  "compareBorder": "",
+  "presetAnime": "",
+  "srModel": "",
+  "srModelCompact": "",
+  "srModelHq": "",
+  "srModelAnime": "",
+  "editorScale": "",
+  "@editorScale": {
+    "description": "Label of the scale tool in the editor's bottom bar (06 §3.2)."
+  },
+  "editorAdjust": "",
+  "@editorAdjust": {
+    "description": "The editor's tool that opens the fine settings panel, like Adjust in Apple's Photos (06 §3.2)."
+  },
+  "editorDone": "",
+  "@editorDone": {
+    "description": "Closes the editor's Adjust panel."
+  },
+  "moreTooltip": "",
+  "@moreTooltip": {
+    "description": "Tooltip of the editor's \"…\" menu."
+  },
+  "resultDetails": "",
+  "@resultDetails": {
+    "description": "Menu item: size, model, processor and time of the result (FR-CMP-007, 06 §1.1)."
+  },
+  "editorSave": "",
+  "@editorSave": {
+    "description": "The result's main action: save to the gallery."
+  },
+  "homeSeeAll": "",
+  "@homeSeeAll": {
+    "description": "Opens the whole history from the home screen's recent results."
+  },
+  "settingsAdvanced": "",
+  "@settingsAdvanced": {
+    "description": "Settings screen with what few people change: AI marker, models, device class (06 §1.1)."
+  },
+  "share": "",
+  "@share": {
+    "description": "Result screen: hands the photo to another app (06 §3.2)."
+  },
+  "shareFailed": "",
+  "@shareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "lookTitle": "",
+  "@lookTitle": {
+    "description": "Result screen: tooltip of the button opening the filters; history row (FR-LOOK-001)."
+  },
+  "lookOff": "",
+  "lookPastel": "",
+  "@lookPastel": {
+    "description": "Filter switch: soft pink colours, lifted shadows, less contrast."
+  },
+  "lookLeaks": "",
+  "@lookLeaks": {
+    "description": "Look switch: soft warm glows near the photo's edges, as on film (FR-LOOK-003)."
+  },
+  "presetLookAfter": "",
+  "@presetLookAfter": {
+    "placeholders": {
+      "look": {
+        "type": "String"
+      }
+    }
+  },
+  "homeEmpty": "",
+  "jobDeleted": "",
+  "undo": "",
+  "stopTitle": "",
+  "stopBodyResumable": "",
+  "stopBodyLost": "",
+  "stopKeep": "",
+  "stopConfirm": "",
+  "retry": "",
+  "editorRedo": "",
+  "fragmentPickHint": "",
+  "fragmentShow": "",
+  "packOfferBody": "",
+  "@packOfferBody": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "packOfferBodyNoSize": "",
+  "packOfferNonCommercial": "",
+  "packUnavailable": "",
+  "packSlow": "",
+  "bannerDownloading": "",
+  "@bannerDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "bannerDone": "",
+  "bannerBackToPhoto": "",
+  "modelsBy": "",
+  "@modelsBy": {
+    "placeholders": {
+      "author": {
+        "type": "String"
+      }
+    }
+  },
+  "updateFound": "",
+  "@updateFound": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateDownloading": "",
+  "@updateDownloading": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateReady": "",
+  "@updateReady": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateInstall": "",
+  "updateDownload": "",
+  "updateInstalling": "",
+  "updateWaiting": "",
+  "updatePermission": "",
+  "updateFailed": "",
+  "aboutCheckUpdates": "",
+  "aboutChecking": "",
+  "aboutUpToDate": "",
+  "whatsNewTitle": "",
+  "@whatsNewTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateOfferTitle": "",
+  "updateOfferBody": "",
+  "updateOfferYes": "",
+  "updateOfferNo": "",
+  "settingsUpdates": "",
+  "settingsUpdatesHint": "",
+  "settingsBetaUpdates": "",
+  "settingsBetaUpdatesHint": ""
+}
