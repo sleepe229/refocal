@@ -28,6 +28,7 @@ import argparse
 import hashlib
 import io
 import json
+import math
 import pathlib
 import subprocess
 import sys
@@ -142,8 +143,9 @@ def job_id(stem: str) -> str:
 
 
 class Cli:
-    def __init__(self, cli: str, models: str, work: pathlib.Path):
+    def __init__(self, cli: str, models: str, work: pathlib.Path, threads: int = 4):
         self.cli, self.models, self.jobs = cli, models, work / "jobs"
+        self.threads = threads
 
     def run(
         self,
@@ -171,6 +173,8 @@ class Cli:
             str(scale),
             "--backend",
             "cpu",
+            "--threads",
+            str(self.threads),
             "--job-id",
             job_id(out.stem),
             "--sharpen",
@@ -184,21 +188,36 @@ class Cli:
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.exit(f"{' '.join(cmd)}\n{r.stderr}")
-        return json.loads(r.stdout)["wall_s"]
+        result = json.loads(r.stdout)
+        if tile and pre == 1.0:
+            with Image.open(src) as image:
+                expected = min(tile, image.width)
+            if result["tile"] != expected or result["fallbacks"]:
+                raise ValueError(f"{model}: seam run changed the requested tile/backend")
+        return result["wall_s"]
 
 
 def iqa_metrics():
     import pyiqa
     import torch
 
+    torch.set_num_threads(4)
     return {m: pyiqa.create_metric(m, device=torch.device("cpu")) for m in NR_METRICS}
 
 
 def scored(iqa, path: pathlib.Path, tmp: pathlib.Path) -> dict:
+    import torch
+
     img = Image.open(path).convert("RGB")
     img.thumbnail((IQA_SIDE, IQA_SIDE), Image.Resampling.LANCZOS)
     img.save(tmp)
-    return {m: float(f(str(tmp)).item()) for m, f in iqa.items()}
+    scores = {}
+    for name, metric in iqa.items():
+        # MANIQA samples crops: compare models with the same reproducible crop sequence.
+        torch.manual_seed(20261030)
+        np.random.seed(20261030)
+        scores[name] = float(metric(str(tmp)).item())
+    return scores
 
 
 def main() -> int:
@@ -211,12 +230,20 @@ def main() -> int:
     ap.add_argument("--scale", type=int, default=4, help="the candidate's own scale")
     ap.add_argument("--golden", default=str(pathlib.Path(__file__).parents[2] / "ml/golden"))
     ap.add_argument("--no-iqa", action="store_true")
+    ap.add_argument(
+        "--synthetic-only",
+        action="store_true",
+        help="PSNR/SSIM and seams only; sufficient to reject, never to qualify a candidate",
+    )
+    ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--quick", action="store_true", help="4 Kodak photos, 2 real per category")
     a = ap.parse_args()
+    if a.threads < 1:
+        ap.error("--threads must be positive")
     work = pathlib.Path(a.work)
     for d in ("src", "lr", "out", "jobs", "real"):
         (work / d).mkdir(parents=True, exist_ok=True)
-    cli = Cli(a.cli, a.models, work)
+    cli = Cli(a.cli, a.models, work, a.threads)
     models = [a.baseline] if a.model == a.baseline else [a.baseline, a.model]
     rows: list[dict] = []
 
@@ -251,8 +278,10 @@ def main() -> int:
                     print(json.dumps(row), flush=True)
 
     # ---- real photos, no reference ----
-    iqa = None if a.no_iqa else iqa_metrics()
-    photos = fetch_all(pathlib.Path(a.golden) / "golden.lock", work / "real")
+    iqa = None if a.no_iqa or a.synthetic_only else iqa_metrics()
+    photos = (
+        [] if a.synthetic_only else fetch_all(pathlib.Path(a.golden) / "golden.lock", work / "real")
+    )
     if a.quick:
         seen: dict[str, int] = {}
         photos = [
@@ -287,7 +316,11 @@ def main() -> int:
     # ---- seams ----
     seams = []
     for i in ids[:4]:
-        src = work / "lr" / f"kodim{i:02d}_clean.png"
+        # At x4, downsampled Kodak inputs are <= 192 px: tile 256 would never split.
+        # Use a natural crop larger than both requested tiles, without resampling.
+        src = work / "src" / f"seam_kodim{i:02d}.png"
+        with Image.open(kodak(i, work / "src" / f"kodim{i:02d}.png")) as image:
+            image.convert("RGB").crop((0, 0, 384, 384)).save(src)
         for m in models:
             whole = work / "out" / f"seam_{i:02d}_{m}_whole.png"
             cli.run(src, whole, m, a.scale, 1.0, tile=1024)
@@ -312,7 +345,9 @@ def report(rows, seams, base, cand, nr: bool) -> int:
         v = [r[key] for r in rows if all(r[k] == x for k, x in sel.items())]
         return sum(v) / len(v) if v else float("nan")
 
-    ok = True
+    # A smoke run without NR-IQA cannot qualify a candidate for release.
+    ok = nr or cand == base
+    nr_pass = cand == base
     print("\n### Synthetic (Kodak, PSNR / SSIM on luma)\n")
     print(
         "| Category | Effective resolution | "
@@ -321,6 +356,8 @@ def report(rows, seams, base, cand, nr: bool) -> int:
     )
     print("|---|---|" + "---|---|" * len(dict.fromkeys([base, cand])))
     for c in SYNTHETIC:
+        if not any(r["part"] == "synthetic" and r["category"] == c for r in rows):
+            ok = False
         for eff in (False, True):
             sel = {"part": "synthetic", "category": c, "eff": eff}
             if not any(all(r[k] == x for k, x in sel.items()) for r in rows):
@@ -330,10 +367,10 @@ def report(rows, seams, base, cand, nr: bool) -> int:
                 for m in dict.fromkeys([base, cand])
             ]
             print(f"| {c} | {'yes' if eff else 'no'} | " + " | ".join(cells) + " |")
-            if (
-                cand != base
-                and mean(sel | {"model": cand}, "psnr")
-                < mean(sel | {"model": base}, "psnr") - MAX_PSNR_LOSS
+            baseline = mean(sel | {"model": base}, "psnr")
+            candidate = mean(sel | {"model": cand}, "psnr")
+            if not (math.isfinite(baseline) and math.isfinite(candidate)) or (
+                cand != base and candidate < baseline - MAX_PSNR_LOSS
             ):
                 ok = False
                 print(f"  {c}: {cand} loses more than {MAX_PSNR_LOSS} dB")
@@ -348,6 +385,7 @@ def report(rows, seams, base, cand, nr: bool) -> int:
         )
         print("|---|---|" + "---|" * (len(NR_METRICS) * len(dict.fromkeys([base, cand])) + 1))
         for c in sorted({r["category"] for r in rows if r["part"] == "real"}):
+            category_pass = True
             for eff in (False, True):
                 sel = {"part": "real", "category": c, "eff": eff}
                 if not any(all(r[k] == x for k, x in sel.items()) for r in rows):
@@ -361,19 +399,34 @@ def report(rows, seams, base, cand, nr: bool) -> int:
                     mean(sel | {"model": cand}, k) >= mean(sel | {"model": base}, k)
                     for k in NR_METRICS
                 )
+                if not all(
+                    math.isfinite(mean(sel | {"model": m}, k))
+                    for m in (base, cand)
+                    for k in NR_METRICS
+                ):
+                    ok = False
+                    wins = 0
                 verdict = "—" if cand == base else ("no worse" if wins >= 2 else "worse")
+                category_pass &= wins >= 2
                 print(
                     f"| {c} | {'yes' if eff else 'no'} | " + " | ".join(cells) + f" | {verdict} |"
                 )
+            nr_pass |= category_pass
     print("\n### Seams (tile vs one tile, PSNR on luma)\n")
     for m in dict.fromkeys([base, cand]):
         for t in (128, 256):
             v = [s["psnr"] for s in seams if s["model"] == m and s["tile"] == t]
             lo = min(v) if v else float("nan")
             print(f"- {m}, tile {t}: min {lo:.1f} dB")
-            if lo < MIN_SEAM_DB:
+            if not math.isfinite(lo) or lo < MIN_SEAM_DB:
                 ok = False
-    return 0 if ok else 1
+    if cand != base and not nr:
+        print("Candidate not qualified: NR-IQA was disabled.")
+    if not nr_pass:
+        print("Candidate not qualified: no real-photo category passed 2 of 3 NR metrics.")
+    if not any(r["part"] == "synthetic" for r in rows):
+        ok = False
+    return 0 if ok and nr_pass else 1
 
 
 if __name__ == "__main__":

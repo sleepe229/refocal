@@ -1,0 +1,1 @@
+Updates from GitHub can download and install in the app. New versions wait until photo processing finishes. Community upscalers were evaluated; existing models remain because no candidate met the quality requirements.

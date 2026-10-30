@@ -80,17 +80,22 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
 }
 
 // TEST-ML-001 for an RRDBNet pack, when its weights and golden pair are in [root].
-void rrdb(const std::string& root, const std::string& id) {
+// Also covers the S11 community SR candidates, including native x2 models.
+void sr_pack(const std::string& root, const std::string& id) {
   const std::string dir = fs::join(root, id);
-  const int out = kRrdbIn * kScale;
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
-  const auto ref = read_f32(fs::join(dir, "golden_out_3x384x384.f32"), size_t(3) * sz(out) * out);
-  if (in.empty() || ref.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
+  if (in.empty() || !fs::exists(fs::join(dir, "model.ncnn.bin"))) {
     (void)std::printf("golden %s: not in %s, skipped\n", id.c_str(), root.c_str());
     return;
   }
   const ModelInfo m = resolve_model(root, id);
-  CHECK(m.scale == kScale);
+  CHECK(m.scale == 2 || m.scale == 4);
+  const int out = kRrdbIn * m.scale;
+  const auto shape = std::to_string(out);
+  const auto ref = read_f32(fs::join(dir, "golden_out_3x" + shape + "x" + shape + ".f32"),
+                            size_t(3) * sz(out) * out);
+  CHECK(!ref.empty());
+  if (ref.empty()) return;
   CHECK(run({BackendKind::cpu, 0, true, 0}, m, kRrdbIn, in, ref) >= 40);
 }
 
@@ -257,8 +262,12 @@ int main(int argc, char** argv) try {
   if (vulkan_default_device() >= 0) {
     CHECK(run({BackendKind::vulkan, vulkan_default_device(), true, 0}, m, kIn, in, ref) >= 35);
   }
-  rrdb(argv[1], "sr.x4plus");
-  rrdb(argv[1], "sr.x4plus-anime6b");
+  sr_pack(argv[1], "sr.x4plus");
+  sr_pack(argv[1], "sr.x4plus-anime6b");
+  sr_pack(argv[1], "sr.lsdir-compact");
+  sr_pack(argv[1], "sr.nomos-compact-x2");
+  sr_pack(argv[1], "sr.nomos-span-medium");
+  sr_pack(argv[1], "sr.nomos-span-strong");
   fbcnn(argv[1]);
   lowlight(argv[1]);
   old_pack(argv[1], "old.scratch", 1, 1, 256, 384, 1.f, 0.f);          // probability
