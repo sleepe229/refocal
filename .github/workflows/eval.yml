@@ -17,6 +17,17 @@ on:
         description: "packs to fetch besides jpeg.fbcnn, space separated"
         required: false
         default: ""
+      community_model:
+        description: "S11 candidate to convert and evaluate (category must be sr)"
+        type: choice
+        required: false
+        default: none
+        options:
+          - none
+          - sr.lsdir-compact
+          - sr.nomos-compact-x2
+          - sr.nomos-span-medium
+          - sr.nomos-span-strong
 
 permissions:
   contents: read
@@ -51,12 +62,32 @@ jobs:
           pin() { grep -E "^$1==" "$lock" || { echo "::error::$1 not in $lock"; exit 1; }; }
           /tmp/venv/bin/pip install -q --index-url https://download.pytorch.org/whl/cpu "$(pin torch)" "$(pin torchvision)"
           /tmp/venv/bin/pip install -q "$(pin numpy)" "$(pin pillow)" "$(pin scipy)" pyiqa==0.1.16
+      - name: SR release gate regression tests
+        run: /tmp/venv/bin/python -m unittest discover -s tools/ml -p 'test_*.py'
+      - name: Convert an unpublished S11 candidate
+        if: inputs.community_model != '' && inputs.community_model != 'none' && inputs.category == 'sr'
+        env:
+          MODEL: ${{ inputs.community_model }}
+        run: |
+          /tmp/venv/bin/pip install -q spandrel==0.4.1 pnnx==20260526 ncnn==1.0.20260526
+          /tmp/venv/bin/python tools/models/convert_community_sr.py models \
+            --weights weights --pnnx /tmp/venv/bin/pnnx --only "$MODEL"
+          cmake -S native -B native/build -DENH_BUILD_CLI=ON -DENH_BUILD_TESTS=ON
+          cmake --build native/build -j"$(nproc)" --target test_golden
+          native/build/test_golden models
       - name: Evaluate
         env:
           EVAL_ARGS: ${{ inputs.args }}
+          COMMUNITY_MODEL: ${{ inputs.community_model }}
+          CATEGORY: ${{ inputs.category }}
         run: |
           set -o pipefail
           read -ra args <<< "$EVAL_ARGS"
+          if [[ -n "$COMMUNITY_MODEL" && "$COMMUNITY_MODEL" != none ]]; then
+            [[ "$CATEGORY" == sr ]] || { echo 'community_model requires category=sr'; exit 1; }
+            args+=(--model "$COMMUNITY_MODEL")
+            if [[ "$COMMUNITY_MODEL" == sr.nomos-compact-x2 ]]; then args+=(--scale 2); fi
+          fi
           mkdir -p out
           /tmp/venv/bin/python tools/ml/${{ inputs.category }}_eval.py out \
             --cli native/build/refocal-cli --models models "${args[@]}" | tee out/report.md
@@ -68,4 +99,5 @@ jobs:
             out/*.json
             out/report.md
             out/out
+            models/sr.*/conversion.json
           retention-days: 30

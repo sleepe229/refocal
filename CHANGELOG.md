@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.0
+
 New:
 - **Updates without the browser** (the APK from GitHub, `…-github-arm64-v8a.apk`): with
   "Check for updates" on, Refocal looks for a new version once a week on Wi-Fi, downloads it in
@@ -10,6 +12,17 @@ New:
   It waits while photos are processing. "What's new" shows once after the update; "Check for
   updates" in About checks at once. Beta versions are a switch away. The F-Droid build has none
   of this: F-Droid updates it.
+
+Model evaluation:
+- A reproducible SR comparison on 24 Kodak reference images, plus the pinned real-photo
+  set, native x2 model support, and license classes for attributed community packs.
+- LSDIR Compact R3, NomosUni Compact x2, and Nomos8k SPAN medium/strong were tested.
+  All exceed the required synthetic PSNR loss limit, so this release adds no SR pack and
+  keeps existing models and Auto choices. Full NR-IQA was stopped after that rejection;
+  no real-photo quality win is claimed. Results: [S11](docs/spikes/S11.md).
+- The evaluator now rejects missing or non-finite evidence and NR-IQA losses. Its tile
+  checks actually cross boundaries at both 128 and 256 pixels. SPAN conversion uses fp32
+  weights to preserve accuracy; no conversion threshold was lowered.
 
 ## 1.0.0
 

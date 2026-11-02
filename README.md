@@ -6,15 +6,17 @@ Refocal is an open-source, cross-platform (Flutter, Android + iOS) AI photo enha
 upscaling, denoising and face restoration that run **entirely on the device** —
 no servers, no accounts, no telemetry.
 
-> Status: **public beta (0.5).** Android only; iOS is not started. Download `refocal-…-github-arm64-v8a.apk` from
+> Status: **stable 1.x.** Android only; iOS is not started. Download `refocal-…-github-arm64-v8a.apk` from
 > [GitHub Releases](https://github.com/sleepe229/refocal/releases): it can update itself
-> (ADR-0027); the plain `…-arm64-v8a.apk` is the build F-Droid checks against; an F-Droid listing is under
-> review. What changed: [CHANGELOG.md](CHANGELOG.md). The technical specification lives in
+> (ADR-0027); the plain `…-arm64-v8a.apk` is the build F-Droid checks against.
+> F-Droid inclusion is deferred until at least January 2027 (repository age policy).
+> What changed: [CHANGELOG.md](CHANGELOG.md). The technical specification lives in
 > [`docs/spec/`](docs/spec/README.md) (in Russian).
 
 ## Principles
 
-- **On-device only.** Photos never leave the phone. Network is used only to download models on explicit user action.
+- **On-device only.** Photos never leave the phone. Network is used for models and app updates,
+  requested by you or checked automatically after you enable update checks.
 - **Honest results.** AI invents details; results are labeled as AI-edited, and you control how much faces may change.
 - **Free and open.** Apache-2.0, no ads, no subscriptions.
 
@@ -22,7 +24,7 @@ no servers, no accounts, no telemetry.
 
 | Path | Contents |
 |---|---|
-| `app/` | Flutter application (Android flavors `play`, `fdroid`; iOS) |
+| `app/` | Flutter application (Android flavors `play`, `fdroid`, `github`; iOS) |
 | `packages/` | `refocal_core` (pure Dart), `refocal_ffi` (FFI plugin → `native/`), `refocal_platform` (platform services) |
 | `native/` | Shared C++ core `libenh` (C ABI `native/include/enh.h`), ncnn as a submodule |
 | `flutter/` | Flutter SDK, pinned as a git submodule (reproducible builds) |
@@ -62,7 +64,7 @@ tools/rebuilder/s8.sh            # two independent builds + diffoscope + signatu
 
 ## Releases
 
-Beta builds are published as GitHub pre-releases by `.github/workflows/release.yml`; see
+Stable and beta builds are published on GitHub Releases by `.github/workflows/release.yml`; see
 [docs/ops/release.md](docs/ops/release.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Translations

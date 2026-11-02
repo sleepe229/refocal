@@ -19,7 +19,12 @@ tap_text() {
   for _ in $(seq "$tries"); do
     dump_ui
     local xy
-    xy=$(adb_ shell cat /sdcard/ui.xml 2>/dev/null | python3 -c '
+    # A failed dump leaves no file. Retry it instead of letting pipefail abort the run.
+    if ! adb_ shell cat /sdcard/ui.xml > "$OUT/ui.xml" 2>/dev/null; then
+      sleep 2
+      continue
+    fi
+    xy=$(python3 -c '
 import re, sys
 want = sys.argv[1]
 hit = None
@@ -30,7 +35,7 @@ for m in re.finditer(r"<node [^>]*>", sys.stdin.read()):
     if want in t and "clickable=\"true\"" in n:  # buttons, not titles with the same text
         b = list(map(int, re.findall(r"\d+", re.search(r"bounds=\"([^\"]*)\"", n).group(1))))
         hit = ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
-if hit: print(*hit)' "$want")
+if hit: print(*hit)' "$want" < "$OUT/ui.xml")
     if [[ -n "$xy" ]]; then
       if [[ ${NOTAP:-0} = 1 ]]; then echo "  '$want' shown at $xy"; else adb_ shell input tap "${xy% *}" "${xy#* }"; echo "  tap '$want' at $xy"; fi
       return 0
