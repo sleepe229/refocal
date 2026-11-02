@@ -275,12 +275,18 @@ M0 Спайки ─► 0.1 Internal alpha ─► 0.2 Alpha ─► 0.3 Closed bet
 
 ## 1.1 — Измерение и дешёвые SR-паки
 
-**Статус (2026-10-30): подготовка 1.1.0.** Golden-набор, `sr_eval.py`, x2-путь,
-`split_tiles`, классы лицензий и автообновление уже в main. S11: проверены
-LSDIR Compact R3, NomosUni Compact x2, Nomos8k SPAN medium/strong; все нарушили
-обязательный порог PSNR на синтетике. Новых SR-паков в 1.1 нет; текущие модели
-и Auto сохраняются. Методика, ограничения и результаты — [S11](../spikes/S11.md).
-Перед выпуском остаются релизные проверки и публикация.
+**Status (2026-11-02): [1.1.0 released](https://github.com/sleepe229/refocal/releases/tag/v1.1.0).**
+The golden set, `sr_eval.py`, native x2 support, `split_tiles`, license classes and
+in-app updates are shipped. S11 rejected LSDIR Compact R3, NomosUni Compact x2 and
+Nomos8k SPAN medium/strong at the mandatory synthetic PSNR gate. No new SR pack
+ships; existing models and Auto choices remain unchanged. Methods, limitations
+and results: [S11](../spikes/S11.md).
+
+Release PR and main CI passed, including native sanitizers and fuzzing. Android 15
+emulator basic and pause/resume scenarios passed, including gallery saves, filters,
+sharing and queues. No physical Android phone was available; the maintainer
+explicitly approved release with this limitation. Device performance and
+vendor-specific update behavior remain unverified.
 
 **Объём:**
 - **Golden-набор `ml/golden/`** (04 §7.2):
