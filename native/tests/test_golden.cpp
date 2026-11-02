@@ -93,7 +93,7 @@ void sr_pack(const std::string& root, const std::string& id) {
   const int out = kRrdbIn * m.scale;
   const auto shape = std::to_string(out);
   const auto ref = read_f32(fs::join(dir, "golden_out_3x" + shape + "x" + shape + ".f32"),
-                            size_t(3) * sz(out) * out);
+                            size_t(3) * sz(out) * sz(out));
   CHECK(!ref.empty());
   if (ref.empty()) return;
   CHECK(run({BackendKind::cpu, 0, true, 0}, m, kRrdbIn, in, ref) >= 40);
