@@ -1,0 +1,31 @@
+{
+  "source": "https://openmodeldb.info/models/4x-NomosWebPhoto-RealPLKSR",
+  "url": "https://github.com/Phhofm/models/releases/download/4xNomosWebPhoto_RealPLKSR/4xNomosWebPhoto_RealPLKSR.pth",
+  "sha256": "a9db66c9b674c6a5025b6ef3bee71a57c33b8605d8a2de0980470f89002efbbe",
+  "scale": 4,
+  "pad": 64,
+  "fp16": false,
+  "split_tiles": false,
+  "author": "Philip Hofmann (Helaman)",
+  "license": "CC-BY-4.0",
+  "golden_size": 96,
+  "parity": [
+    {
+      "height": 96,
+      "width": 96,
+      "psnr_vs_fp32": 124.85276948809108
+    },
+    {
+      "height": 71,
+      "width": 103,
+      "psnr_vs_fp32": 126.23892152639775
+    }
+  ],
+  "files": {
+    "golden_in_3x96x96.f32": "bcbe63caa6bc222430754759a009b77958a60a7cf2fd823869d5b7a7776554cd",
+    "golden_out_3x384x384.f32": "fc3d4c14725e58e4828c76b7f0d39abf90d604ca8e1f308ad6adbef84f79e308",
+    "model.json": "56c3ac86a5f17a44d0c67f10f6ea312bc04215fd4422f22bad0dc89d0f203159",
+    "model.ncnn.bin": "be530db83b119d667d8e488a7baacf28d1ac96f7adcd259e2af0210056e5d0e2",
+    "model.ncnn.param": "a242e828b4a74369660c5e17393eed7711fe3e5671925f4b5091e15baf09a84a"
+  }
+}

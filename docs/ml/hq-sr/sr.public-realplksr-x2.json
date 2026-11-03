@@ -1,0 +1,30 @@
+{
+  "source": "https://github.com/Phhofm/models/releases/tag/2xPublic_realplksr_dysample_layernorm_real",
+  "url": "https://github.com/Phhofm/models/releases/download/2xPublic_realplksr_dysample_layernorm_real/2xPublic_realplksr_dysample_layernorm_real.pth",
+  "sha256": "efda6ac7d2d89a265c66401680e2851116345eff157365ccf338ab87f46988b6",
+  "scale": 2,
+  "pad": 64,
+  "fp16": false,
+  "license": "Apache-2.0",
+  "author": "Philip Hofmann (Helaman)",
+  "golden_size": 96,
+  "parity": [
+    {
+      "height": 96,
+      "width": 96,
+      "psnr_vs_fp32": 98.19926342353605
+    },
+    {
+      "height": 71,
+      "width": 103,
+      "psnr_vs_fp32": 129.41119779836868
+    }
+  ],
+  "files": {
+    "golden_in_3x96x96.f32": "bcbe63caa6bc222430754759a009b77958a60a7cf2fd823869d5b7a7776554cd",
+    "golden_out_3x192x192.f32": "0060114943c3d3a0736baa1a83b2d16dc1b2383b23a05c01598841e3a0b2c789",
+    "model.json": "cf92bd196fe623a945034d22dc491da36a80c5ce9d249eabdf6e6f7edab790ea",
+    "model.ncnn.bin": "1d0b842ba3a917dbb92ae216a9a6f56f33d6df493f72332edcf6b6d8b88e89f2",
+    "model.ncnn.param": "a402ec5389cf98d7ebb7a9807f101051995e10fdc75bfc25bf0a36f601f68bf2"
+  }
+}
