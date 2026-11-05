@@ -1,0 +1,109 @@
+{
+  "scope": "Single Kodak image smoke comparison; not pack qualification",
+  "qualified": false,
+  "scale": 2,
+  "baseline": "sr.x4plus",
+  "candidate": "sr.public-realplksr-x2",
+  "image_sha256": "a56e27cbf5f843c048b6af1d6e090760e9c92fadba88b7dee0205918a37523bd",
+  "rows": [
+    {
+      "part": "synthetic",
+      "category": "clean",
+      "image": "kodim01",
+      "model": "sr.x4plus",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 56.692228133,
+      "psnr": 24.063210316605335,
+      "ssim": 0.7262642146026591
+    },
+    {
+      "part": "synthetic",
+      "category": "clean",
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 60.522146939,
+      "psnr": 24.3629169516057,
+      "ssim": 0.7447519673801165
+    },
+    {
+      "part": "synthetic",
+      "category": "blur",
+      "image": "kodim01",
+      "model": "sr.x4plus",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 54.81091616,
+      "psnr": 23.747003544783432,
+      "ssim": 0.694564020310168
+    },
+    {
+      "part": "synthetic",
+      "category": "blur",
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 56.581328879,
+      "psnr": 23.841367034895597,
+      "ssim": 0.6787900672307076
+    },
+    {
+      "part": "synthetic",
+      "category": "noise",
+      "image": "kodim01",
+      "model": "sr.x4plus",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 40.677147887,
+      "psnr": 23.76840855045005,
+      "ssim": 0.6804763654589759
+    },
+    {
+      "part": "synthetic",
+      "category": "noise",
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 42.818968221,
+      "psnr": 23.970884715155442,
+      "ssim": 0.6963118675569078
+    },
+    {
+      "part": "synthetic",
+      "category": "jpeg",
+      "image": "kodim01",
+      "model": "sr.x4plus",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 34.232257574,
+      "psnr": 22.811001323378814,
+      "ssim": 0.6130372615681332
+    },
+    {
+      "part": "synthetic",
+      "category": "jpeg",
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 43.67689459,
+      "psnr": 22.64565622700344,
+      "ssim": 0.625316471759895
+    },
+    {
+      "part": "synthetic",
+      "category": "clean",
+      "image": "kodim02",
+      "model": "sr.x4plus",
+      "eff": false,
+      "pre_down": 1.0,
+      "s": 42.079306233,
+      "psnr": 29.928360010370657,
+      "ssim": 0.8208039099694219
+    }
+  ]
+}

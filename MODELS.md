@@ -31,7 +31,7 @@ download manifest and Auto. Both use fp32 weights. Full upstream hashes are pinn
 | Candidate | Author and source | Weights license | Status |
 |---|---|---|---|
 | `sr.webphoto-realplksr` | Philip Hofmann (Helaman), [4xNomosWebPhoto_RealPLKSR](https://github.com/Phhofm/models/releases/tag/4xNomosWebPhoto_RealPLKSR), SHA-256 `a9db66c9…02efbbe` | CC-BY-4.0 | Conversion passes; tile consistency fails at pad 64 |
-| `sr.public-realplksr-x2` | Philip Hofmann (Helaman), [2xPublic_realplksr_dysample_layernorm_real](https://github.com/Phhofm/models/releases/tag/2xPublic_realplksr_dysample_layernorm_real), SHA-256 `efda6ac7…46988b6` | Apache-2.0, explicitly stated in the release | CPU conversion and one-image seam smoke pass; full quality and device performance still require evaluation |
+| `sr.public-realplksr-x2` | Philip Hofmann (Helaman), [2xPublic_realplksr_dysample_layernorm_real](https://github.com/Phhofm/models/releases/tag/2xPublic_realplksr_dysample_layernorm_real), SHA-256 `efda6ac7…46988b6` | Apache-2.0, explicitly stated in the release | CPU conversion and four-image native seam checks pass (minimum 69.53 dB); full quality and device performance still require evaluation |
 
 ## Evaluation
 

@@ -2,10 +2,16 @@
 
 import contextlib
 import copy
+import hashlib
 import io
+import json
+import pathlib
+import tempfile
 import unittest
+from unittest.mock import patch
 
-from sr_eval import NR_METRICS, SYNTHETIC, report
+from PIL import Image
+from sr_eval import NR_METRICS, SYNTHETIC, evaluate_seams, kodak, main, report
 
 
 class ReleaseGateTest(unittest.TestCase):
@@ -64,6 +70,17 @@ class ReleaseGateTest(unittest.TestCase):
     def test_no_iqa_is_not_release_evidence(self):
         self.assertEqual(self.result(nr=False), 1)
 
+    def test_quick_run_cannot_qualify_even_with_winning_metrics(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                report(self.rows, self.seams, self.base, self.candidate, True, complete=False),
+                1,
+            )
+
+    def test_nonfinite_seam_cannot_hide_behind_a_finite_minimum(self):
+        self.seams.append({"model": self.candidate, "tile": 128, "psnr": float("nan")})
+        self.assertEqual(self.result(), 1)
+
     def test_effective_resolution_loss_invalidates_the_category(self):
         effective = copy.deepcopy(self.rows[-2:])
         for row in effective:
@@ -95,6 +112,99 @@ class ReleaseGateTest(unittest.TestCase):
             with self.subTest(value=value):
                 self.rows[-1][NR_METRICS[0]] = value
                 self.assertEqual(self.result(), 1)
+
+    def test_missing_or_nonfinite_synthetic_ssim_rejects(self):
+        self.rows[0]["ssim"] = float("nan")
+        self.assertEqual(self.result(), 1)
+        del self.rows[0]["ssim"]
+        self.assertEqual(self.result(), 1)
+
+
+class SeamInputTest(unittest.TestCase):
+    def test_failed_rerun_cannot_leave_a_stale_qualification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = pathlib.Path(directory)
+            for name in ("sr.json", "seams.json"):
+                (work / name).write_text('{"qualified": true}')
+            with (
+                patch(
+                    "sys.argv",
+                    [
+                        "sr_eval.py",
+                        directory,
+                        "--cli",
+                        "unused",
+                        "--models",
+                        "unused",
+                        "--seams-only",
+                    ],
+                ),
+                patch("sr_eval.evaluate_seams", side_effect=RuntimeError("transport failed")),
+                self.assertRaisesRegex(RuntimeError, "transport failed"),
+            ):
+                main()
+            self.assertFalse((work / "sr.json").exists())
+            self.assertFalse((work / "seams.json").exists())
+
+    def test_both_tile_sizes_cross_boundaries_at_native_x2_and_x4(self):
+        for scale in (2, 4):
+            with self.subTest(scale=scale), tempfile.TemporaryDirectory() as directory:
+                work = pathlib.Path(directory)
+                (work / "src").mkdir()
+                (work / "out").mkdir()
+                reference = work / "kodak.png"
+                Image.new("RGB", (768, 512)).save(reference)
+                calls = []
+
+                class Cli:
+                    def __init__(self, calls):
+                        self.calls = calls
+
+                    def run(self, src, out, model, requested_scale, pre, tile):
+                        with Image.open(src) as image:
+                            source_size = image.size
+                            image.resize(
+                                (image.width * requested_scale, image.height * requested_scale)
+                            ).save(out)
+                        self.calls.append((source_size, model, requested_scale, pre, tile))
+
+                with patch("sr_eval.kodak", return_value=reference):
+                    seams = evaluate_seams(Cli(calls), work, ["candidate"], scale, [1])
+                self.assertEqual(
+                    calls,
+                    [((384, 384), "candidate", scale, 1.0, tile) for tile in (1024, 128, 256)],
+                )
+                self.assertEqual([s["tile"] for s in seams], [128, 256])
+                self.assertEqual(json.loads((work / "seams.json").read_text()), seams)
+
+
+class KodakDownloadTest(unittest.TestCase):
+    def test_retries_transport_failure_and_only_caches_verified_bytes(self):
+        data = b"pinned image"
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict("sr_eval.KODAK_SHA", {1: hashlib.sha256(data).hexdigest()}),
+            patch(
+                "sr_eval.urllib.request.urlopen", side_effect=[OSError("TLS"), io.BytesIO(data)]
+            ) as download,
+            patch("sr_eval.time.sleep"),
+        ):
+            path = pathlib.Path(directory) / "kodim01.png"
+            self.assertEqual(kodak(1, path).read_bytes(), data)
+            self.assertEqual(kodak(1, path).read_bytes(), data)
+            self.assertEqual(download.call_count, 2)
+            self.assertFalse(path.with_suffix(".png.part").exists())
+
+    def test_bad_hash_never_becomes_a_cached_image(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("sr_eval.urllib.request.urlopen", return_value=io.BytesIO(b"bad image")),
+        ):
+            path = pathlib.Path(directory) / "kodim01.png"
+            with self.assertRaisesRegex(ValueError, "sha256"):
+                kodak(1, path)
+            self.assertFalse(path.exists())
+            self.assertFalse(path.with_suffix(".png.part").exists())
 
 
 if __name__ == "__main__":
