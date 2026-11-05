@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-05",
+  "scope": "Four-image native seam diagnostic; not pack qualification",
+  "qualified": false,
+  "backend": "cpu",
+  "scale": 2,
+  "pad": 64,
+  "sharpen": 1.0,
+  "crop": "Top-left 384x384, without resampling",
+  "ncnn_commit": "5a0288f255daa6c3294f77109f67718e434ec020",
+  "compiler": "GCC 15.2.0 Release, runtime CPU dispatch enabled",
+  "threads": {
+    "kodim01": 2,
+    "kodim02": 2,
+    "kodim03": 4,
+    "kodim04": 4
+  },
+  "model_files": {
+    "model.json": "cf92bd196fe623a945034d22dc491da36a80c5ce9d249eabdf6e6f7edab790ea",
+    "model.ncnn.bin": "1d0b842ba3a917dbb92ae216a9a6f56f33d6df493f72332edcf6b6d8b88e89f2",
+    "model.ncnn.param": "a402ec5389cf98d7ebb7a9807f101051995e10fdc75bfc25bf0a36f601f68bf2"
+  },
+  "source_sha256": {
+    "kodim04.png": "e3b946107c5d3441c022f678d0c3caf1e224d81b1604ba840a4f88e562de61aa",
+    "kodim03.png": "e25ca1ff2f0c0cb5fdfd5f9b0a0bb21ac4c3de3c84a67f35b09a85d3306249db",
+    "kodim02.png": "4f4b74a79237e311d72cad958237b5f7088d8bce1c82305ebefe1a70e3022dfd",
+    "kodim01.png": "a56e27cbf5f843c048b6af1d6e090760e9c92fadba88b7dee0205918a37523bd"
+  },
+  "min_seam_db": 45.0,
+  "seams": [
+    {
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "tile": 128,
+      "psnr": 69.53347339013382
+    },
+    {
+      "image": "kodim01",
+      "model": "sr.public-realplksr-x2",
+      "tile": 256,
+      "psnr": 73.49564210019767
+    },
+    {
+      "image": "kodim02",
+      "model": "sr.public-realplksr-x2",
+      "tile": 128,
+      "psnr": 74.55499087187408
+    },
+    {
+      "image": "kodim02",
+      "model": "sr.public-realplksr-x2",
+      "tile": 256,
+      "psnr": 78.88748116165685
+    },
+    {
+      "image": "kodim03",
+      "model": "sr.public-realplksr-x2",
+      "tile": 128,
+      "psnr": 75.30224191514571
+    },
+    {
+      "image": "kodim03",
+      "model": "sr.public-realplksr-x2",
+      "tile": 256,
+      "psnr": 77.84731601010971
+    },
+    {
+      "image": "kodim04",
+      "model": "sr.public-realplksr-x2",
+      "tile": 128,
+      "psnr": 70.97737476464077
+    },
+    {
+      "image": "kodim04",
+      "model": "sr.public-realplksr-x2",
+      "tile": 256,
+      "psnr": 73.74752829033537
+    }
+  ]
+}

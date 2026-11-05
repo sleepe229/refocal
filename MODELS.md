@@ -4,7 +4,7 @@ Every model shipped in the app or offered as a download is listed here (ML-REG-0
 TEST-COMP-004; `tools/models/check_manifest.py` fails without a row for each pack of
 `tools/models/manifest.json` and each bundled model of `tools/models/models.lock`). Weights are
 never committed to git; bundled files are verified against `models.lock`, packs against the
-signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-quantized.
+signed manifest (ADR-0011). Shipped ncnn files use fp16 weights; nothing is int8-quantized.
 
 | Pack id | Delivery | Upstream | Weights license | Conversion | Files (SHA-256) |
 |---|---|---|---|---|---|
@@ -20,6 +20,18 @@ signed manifest (ADR-0011). All ncnn files are fp16 weights; nothing is int8-qua
 | `old.scratch` | pack (0.6), T1 | [microsoft/Bringing-Old-Photos-Back-to-Life](https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life) v1.0 release, `checkpoints/detection/FT_Epoch_latest.pt` (b2d7ab04…a59a95), commit 33875ecc | MIT, © Microsoft Corporation | `tools/models/convert_scratch.py` (grey in, scratch probability out; S9) | `model.ncnn.param` 0986bf5e…16084e, `model.ncnn.bin` 12984526…654dcc, `model.json` 6f23279c…c462b3 |
 | `old.inpaint-migan` | pack (0.6), T1 | [Picsart-AI-Research/MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) 512 Places2, from the ONNX pipeline on Hugging Face `andraniksargsyan/migan` (593eba0b…0fc5ae), revision 406830d0 | MIT (code and `LICENSE-WEIGHTS`), © Picsart AI Research | `tools/models/convert_migan.py` (the generator cut out of the pipeline; S9) | `model.ncnn.param` 6088ec4a…933b0a, `model.ncnn.bin` 319e248f…73722d, `model.json` df2fc58b…a96a9f |
 | `old.lowlight-cidnet` | pack (0.6), T1 | [Fediory/HVI-CIDNet](https://github.com/Fediory/HVI-CIDNet) Generalization weights, Hugging Face `Fediory/HVI-CIDNet-Generalization` `pytorch_model.bin` (9fba7514…a316aa), revision 51481ef2 | MIT, © Fediory Feng | `tools/models/convert_cidnet.py` (the network between its HVI transforms, which the core does; S9) | `model.ncnn.param` 8397e7eb…d98f2f, `model.ncnn.bin` 9e714e40…1ae1fe, `model.json` 00dd89eb…6c5e3f |
+
+## HQ SR candidates (1.2, not distributed)
+
+These candidates have conversion tools and CPU golden coverage, but are absent from the
+download manifest and Auto. Both use fp32 weights. Full upstream hashes are pinned in
+`tools/models/convert_community_sr.py`; evidence and remaining gates are in
+[the HQ SR report](docs/ml/hq-sr-2026-11.md).
+
+| Candidate | Author and source | Weights license | Status |
+|---|---|---|---|
+| `sr.webphoto-realplksr` | Philip Hofmann (Helaman), [4xNomosWebPhoto_RealPLKSR](https://github.com/Phhofm/models/releases/tag/4xNomosWebPhoto_RealPLKSR), SHA-256 `a9db66c9…02efbbe` | CC-BY-4.0 | Conversion passes; tile consistency fails at pad 64 |
+| `sr.public-realplksr-x2` | Philip Hofmann (Helaman), [2xPublic_realplksr_dysample_layernorm_real](https://github.com/Phhofm/models/releases/tag/2xPublic_realplksr_dysample_layernorm_real), SHA-256 `efda6ac7…46988b6` | Apache-2.0, explicitly stated in the release | CPU conversion and four-image native seam checks pass (minimum 69.53 dB); full quality and device performance still require evaluation |
 
 ## Evaluation
 

@@ -80,7 +80,7 @@ double run(const BackendConfig& cfg, const ModelInfo& m, int size, const std::ve
 }
 
 // TEST-ML-001 for an RRDBNet pack, when its weights and golden pair are in [root].
-// Also covers the S11 community SR candidates, including native x2 models.
+// Also covers community SR candidates, including native x2 models.
 void sr_pack(const std::string& root, const std::string& id) {
   const std::string dir = fs::join(root, id);
   const auto in = read_f32(fs::join(dir, "golden_in_3x96x96.f32"), size_t(3) * kRrdbIn * kRrdbIn);
@@ -268,6 +268,8 @@ int main(int argc, char** argv) try {
   sr_pack(argv[1], "sr.nomos-compact-x2");
   sr_pack(argv[1], "sr.nomos-span-medium");
   sr_pack(argv[1], "sr.nomos-span-strong");
+  sr_pack(argv[1], "sr.webphoto-realplksr");
+  sr_pack(argv[1], "sr.public-realplksr-x2");
   fbcnn(argv[1]);
   lowlight(argv[1]);
   old_pack(argv[1], "old.scratch", 1, 1, 256, 384, 1.f, 0.f);          // probability

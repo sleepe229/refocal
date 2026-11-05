@@ -30,8 +30,10 @@ import io
 import json
 import math
 import pathlib
+import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 
 import numpy as np
@@ -80,7 +82,26 @@ MAX_PSNR_LOSS, MIN_SEAM_DB = 0.3, 45.0
 
 def kodak(i: int, dst: pathlib.Path) -> pathlib.Path:
     if not dst.exists():
-        urllib.request.urlretrieve(KODAK.format(i), dst)
+        temporary = dst.with_suffix(dst.suffix + ".part")
+        try:
+            for attempt in range(4):
+                try:
+                    with (
+                        urllib.request.urlopen(KODAK.format(i), timeout=30) as source,
+                        temporary.open("wb") as output,
+                    ):
+                        shutil.copyfileobj(source, output)
+                    break
+                except OSError:
+                    if attempt == 3:
+                        raise
+                    time.sleep(2**attempt)
+            got = hashlib.sha256(temporary.read_bytes()).hexdigest()
+            if got != KODAK_SHA[i]:
+                raise ValueError(f"kodim{i:02d}: sha256 {got}, expected {KODAK_SHA[i]}")
+            temporary.replace(dst)
+        finally:
+            temporary.unlink(missing_ok=True)
     got = hashlib.sha256(dst.read_bytes()).hexdigest()
     if got != KODAK_SHA[i]:
         dst.unlink()
@@ -230,10 +251,14 @@ def main() -> int:
     ap.add_argument("--scale", type=int, default=4, help="the candidate's own scale")
     ap.add_argument("--golden", default=str(pathlib.Path(__file__).parents[2] / "ml/golden"))
     ap.add_argument("--no-iqa", action="store_true")
-    ap.add_argument(
+    stage = ap.add_mutually_exclusive_group()
+    stage.add_argument(
         "--synthetic-only",
         action="store_true",
         help="PSNR/SSIM and seams only; sufficient to reject, never to qualify a candidate",
+    )
+    stage.add_argument(
+        "--seams-only", action="store_true", help="check tiling only; does not qualify a pack"
     )
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--quick", action="store_true", help="4 Kodak photos, 2 real per category")
@@ -243,9 +268,21 @@ def main() -> int:
     work = pathlib.Path(a.work)
     for d in ("src", "lr", "out", "jobs", "real"):
         (work / d).mkdir(parents=True, exist_ok=True)
+    # A failed rerun must not leave an earlier qualification as its apparent result.
+    for name in ("sr.json", "seams.json"):
+        (work / name).unlink(missing_ok=True)
     cli = Cli(a.cli, a.models, work, a.threads)
     models = [a.baseline] if a.model == a.baseline else [a.baseline, a.model]
     rows: list[dict] = []
+
+    if a.seams_only:
+        seams = evaluate_seams(cli, work, models, a.scale, [1, 2, 3, 4])
+        (work / "sr.json").write_text(
+            json.dumps(
+                {"scope": "seams-only", "qualified": False, "rows": [], "seams": seams}, indent=1
+            )
+        )
+        return 0 if all(math.isfinite(s["psnr"]) and s["psnr"] >= MIN_SEAM_DB for s in seams) else 1
 
     # ---- synthetic, with a reference ----
     ids = [1, 3, 5, 23] if a.quick else sorted(KODAK_SHA)
@@ -313,9 +350,18 @@ def main() -> int:
                 rows.append(row)
                 print(json.dumps(row), flush=True)
 
-    # ---- seams ----
+    seams = evaluate_seams(cli, work, models, a.scale, ids[:4])
+    result = report(rows, seams, a.baseline, a.model, iqa is not None, complete=not a.quick)
+    (work / "sr.json").write_text(
+        json.dumps({"qualified": result == 0, "rows": rows, "seams": seams}, indent=1)
+    )
+    return result
+
+
+def evaluate_seams(cli, work, models, scale, ids):
+    """Check actual tile boundaries independently of the expensive quality comparison."""
     seams = []
-    for i in ids[:4]:
+    for i in ids:
         # At x4, downsampled Kodak inputs are <= 192 px: tile 256 would never split.
         # Use a natural crop larger than both requested tiles, without resampling.
         src = work / "src" / f"seam_kodim{i:02d}.png"
@@ -323,10 +369,10 @@ def main() -> int:
             image.convert("RGB").crop((0, 0, 384, 384)).save(src)
         for m in models:
             whole = work / "out" / f"seam_{i:02d}_{m}_whole.png"
-            cli.run(src, whole, m, a.scale, 1.0, tile=1024)
+            cli.run(src, whole, m, scale, 1.0, tile=1024)
             for t in (128, 256):
                 out = work / "out" / f"seam_{i:02d}_{m}_{t}.png"
-                cli.run(src, out, m, a.scale, 1.0, tile=t)
+                cli.run(src, out, m, scale, 1.0, tile=t)
                 seams.append(
                     {
                         "image": f"kodim{i:02d}",
@@ -335,18 +381,24 @@ def main() -> int:
                         "psnr": psnr(luma(Image.open(whole)), luma(Image.open(out))),
                     }
                 )
+                print(json.dumps(seams[-1]), flush=True)
+                (work / "seams.json").write_text(json.dumps(seams, indent=1))
+    return seams
 
-    (work / "sr.json").write_text(json.dumps({"rows": rows, "seams": seams}, indent=1))
-    return report(rows, seams, a.baseline, a.model, iqa is not None)
 
-
-def report(rows, seams, base, cand, nr: bool) -> int:
+def report(rows, seams, base, cand, nr: bool, *, complete: bool = True) -> int:
     def mean(sel, key):
-        v = [r[key] for r in rows if all(r[k] == x for k, x in sel.items())]
+        v = [r.get(key, float("nan")) for r in rows if all(r[k] == x for k, x in sel.items())]
         return sum(v) / len(v) if v else float("nan")
 
     # A smoke run without NR-IQA cannot qualify a candidate for release.
-    ok = nr or cand == base
+    ok = complete and (nr or cand == base)
+    for row in rows:
+        keys = ("psnr", "ssim") if row["part"] == "synthetic" else (NR_METRICS if nr else ())
+        if not all(math.isfinite(row.get(key, float("nan"))) for key in keys):
+            ok = False
+    if not complete:
+        print("Candidate not qualified: quick runs do not cover the full golden set.")
     nr_pass = cand == base
     print("\n### Synthetic (Kodak, PSNR / SSIM on luma)\n")
     print(
@@ -418,7 +470,7 @@ def report(rows, seams, base, cand, nr: bool) -> int:
             v = [s["psnr"] for s in seams if s["model"] == m and s["tile"] == t]
             lo = min(v) if v else float("nan")
             print(f"- {m}, tile {t}: min {lo:.1f} dB")
-            if not math.isfinite(lo) or lo < MIN_SEAM_DB:
+            if not v or not all(math.isfinite(x) and x >= MIN_SEAM_DB for x in v):
                 ok = False
     if cand != base and not nr:
         print("Candidate not qualified: NR-IQA was disabled.")

@@ -1,0 +1,40 @@
+{
+  "checkpoint_sha256": "a9db66c9b674c6a5025b6ef3bee71a57c33b8605d8a2de0980470f89002efbbe",
+  "image_sha256": "a56e27cbf5f843c048b6af1d6e090760e9c92fadba88b7dee0205918a37523bd",
+  "torch": "2.14.1+cu130",
+  "scope": "PyTorch normalization experiment; no sharpening; not pack qualification",
+  "rows": [
+    {
+      "context_side": 192,
+      "tile": 128,
+      "pad": 64,
+      "psnr_vs_upstream": 30.130909606698925,
+      "psnr_vs_context_whole": 102.40839069719947,
+      "context_whole_vs_upstream": 30.13090706018913
+    },
+    {
+      "context_side": 192,
+      "tile": 256,
+      "pad": 64,
+      "psnr_vs_upstream": 30.13090744529487,
+      "psnr_vs_context_whole": 104.32346069829087,
+      "context_whole_vs_upstream": 30.13090706018913
+    },
+    {
+      "context_side": 384,
+      "tile": 128,
+      "pad": 64,
+      "psnr_vs_upstream": 100.01101510933373,
+      "psnr_vs_context_whole": 100.9502544326881,
+      "context_whole_vs_upstream": 100.36251944061605
+    },
+    {
+      "context_side": 384,
+      "tile": 256,
+      "pad": 64,
+      "psnr_vs_upstream": 99.25781907168663,
+      "psnr_vs_context_whole": 103.2822579327839,
+      "context_whole_vs_upstream": 100.36251944061605
+    }
+  ]
+}

@@ -334,6 +334,13 @@ vendor-specific update behavior remain unverified.
 
 ## 1.2 — HQ-SR рядом с x4plus, колоризация, обновление без сервера
 
+**HQ SR status (2026-11-05): evaluation preparation.** Both RealPLKSR candidates
+pass CPU conversion checks. WebPhoto's per-tile GroupNorm causes seams; a shared
+reduced-image context removes the tile discrepancy on one image but changes the
+original result, so it needs separate quality validation. Neither candidate is
+distributed or selected by Auto. Full quality evaluation and T2 device checks
+remain open. Evidence and reproduction: [HQ SR report](../ml/hq-sr-2026-11.md).
+
 **Объём:**
 - **`sr.webphoto-realplksr`** (4xNomosWebPhoto_RealPLKSR, CC-BY-4.0) — пак T2 «Высокое качество» рядом с `sr.x4plus`.
   - GroupNorm зависит от тайла. Проверить швы и сдвиг яркости.
